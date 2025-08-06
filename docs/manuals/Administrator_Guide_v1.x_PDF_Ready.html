@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr-MoneyBags v1.x — Administrator Guide</title>
+    <style>
+        /* PDF-optimized styling */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.5;
+            color: #333;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 0.5in;
+        }
+        
+        h1, h2, h3, h4 {
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            page-break-after: avoid;
+        }
+        
+        h1 {
+            font-size: 24pt;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 0.3em;
+        }
+        
+        h2 {
+            font-size: 18pt;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.2em;
+            page-break-before: always;
+        }
+        
+        h3 {
+            font-size: 14pt;
+        }
+        
+        p {
+            margin-bottom: 1em;
+        }
+        
+        /* Table styling */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1.5em 0;
+            page-break-inside: avoid;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        /* Code block styling */
+        pre {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            page-break-inside: avoid;
+            white-space: pre-wrap;
+        }
+        
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        /* Blockquote styling */
+        blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 1em;
+            margin-left: 0;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* List styling */
+        ul, ol {
+            margin-bottom: 1em;
+            padding-left: 2em;
+        }
+        
+        li {
+            margin-bottom: 0.5em;
+        }
+        
+        /* Horizontal rule */
+        hr {
+            border: none;
+            height: 1px;
+            background-color: #ddd;
+            margin: 2em 0;
+            page-break-after: avoid;
+        }
+        
+        /* Page break utilities */
+        .page-break {
+            page-break-before: always;
+        }
+        
+        /* Header/footer */
+        .header {
+            text-align: center;
+            margin-bottom: 2em;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 2em;
+            font-size: 0.9em;
+            color: #777;
+            border-top: 1px solid #eee;
+            padding-top: 1em;
+        }
+        
+        /* Version badge */
+        .version-badge {
+            display: inline-block;
+            background-color: #2c3e50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        
+        /* Metadata section */
+        .metadata {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mr-MoneyBags v1.x — Administrator Guide <span class="version-badge">v1.x</span></h1>
+        <div class="metadata">
+            <strong>Document version:</strong> 1.x | <strong>Last updated:</strong> August 2025<br>
+            <strong>Audience:</strong> System / DevOps administrators responsible for installing, configuring and operating Mr-MoneyBags in production or staging environments.
+        </div>
+    </div>
+
+    <hr>
+
+    <h2 id="introduction">1 Introduction & Overview</h2>
+    <p>Mr-MoneyBags v1.x is a full-featured, open-source fund-accounting platform for non-profit organisations.<br>
+    It delivers:</p>
+    <ul>
+        <li>Multi-entity consolidation</li>
+        <li>Double-entry journal engine</li>
+        <li>Automated NACHA / ACH vendor payments</li>
+        <li>Rich reporting & interactive dashboards</li>
+    </ul>
+    <p>This guide explains <strong>how to install, secure, operate and maintain</strong> the application on an Ubuntu 22.04 LTS (or later) server.</p>
+
+    <hr>
+
+    <h2 id="system-requirements">2 System Requirements</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Minimum</th>
+                <th>Recommended</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>CPU</strong></td>
+                <td>1 vCPU</td>
+                <td>2+ vCPU</td>
+            </tr>
+            <tr>
+                <td><strong>RAM</strong></td>
+                <td>2 GiB</td>
+                <td>4 GiB</td>
+            </tr>
+            <tr>
+                <td><strong>Disk</strong></td>
+                <td>10 GB SSD</td>
+                <td>30 GB SSD / NVMe</td>
+            </tr>
+            <tr>
+                <td><strong>OS</strong></td>
+                <td>Ubuntu 22.04 LTS (Server)</td>
+                <td>Ubuntu 24.04 LTS</td>
+            </tr>
+            <tr>
+                <td><strong>Node.js</strong></td>
+                <td>18 LTS</td>
+                <td>20 LTS</td>
+            </tr>
+            <tr>
+                <td><strong>PostgreSQL</strong></td>
+                <td>14</td>
+                <td>16</td>
+            </tr>
+            <tr>
+                <td><strong>Git</strong></td>
+                <td>latest from apt</td>
+                <td>–</td>
+            </tr>
+            <tr>
+                <td><strong>PM2</strong></td>
+                <td>5.x (global)</td>
+                <td>–</td>
+            </tr>
+            <tr>
+                <td><strong>Nginx</strong></td>
+                <td>1.22+</td>
+                <td>–</td>
+            </tr>
+        </tbody>
+    </table>
+    <blockquote>
+        macOS, Debian or RHEL family distros work equally well; adjust package commands as needed.
+    </blockquote>
+
+    <hr>
+
+    <h2 id="installation-setup">3 Installation & Setup</h2>
+
+    <h3 id="create-service-account">3.1 Create Service Account & Directories</h3>
+    <pre><code>sudo adduser --system --group fundapp
+sudo mkdir -p /opt/mr-moneybags
+sudo chown -R fundapp:fundapp /opt/mr-moneybags</code></pre>
+
+    <h3 id="install-prerequisites">3.2 Install Prerequisites</h3>
+    <pre><code># Node.js (18 LTS)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs git nginx postgresql postgresql-contrib
+
+# Process manager
+sudo npm i -g pm2</code></pre>
+
+    <h3 id="clone-repository">3.3 Clone Repository</h3>
+    <pre><code>sudo -iu fundapp
+cd /opt/mr-moneybags
+git clone https://github.com/tpfbill/mr-moneybags-v1.x.git .</code></pre>
+
+    <h3 id="install-dependencies">3.4 Install Dependencies</h3>
+    <pre><code>npm ci      # exact, lock-file versions</code></pre>
+
+    <h3 id="database-setup">3.5 Database Setup</h3>
+    <p>Run <strong>once</strong> as postgres superuser:</p>
+    <pre><code>sudo -iu postgres
+
+# 1. Create role & DB
+psql -c "CREATE ROLE npfadmin WITH LOGIN PASSWORD 'changeme';"
+psql -c "CREATE DATABASE fund_accounting_db OWNER npfadmin;"
+
+# 2. Load consolidated schema
+psql -U npfadmin -d fund_accounting_db -f /opt/mr-moneybags/database/db-init.sql
+
+# 3. (Optional) Load sample entities, funds, vendors & NACHA data
+psql -U npfadmin -d fund_accounting_db -f /opt/mr-moneybags/database/insert-complete-nacha-data.sql</code></pre>
+
+    <h3 id="environment-configuration">3.6 Environment Configuration</h3>
+    <pre><code>cp .env.example .env
+nano .env        # update PGUSER, PGPASSWORD, etc.</code></pre>
+    <p>Essential vars:</p>
+    <pre><code>PGDATABASE=fund_accounting_db
+PGUSER=npfadmin
+PGPASSWORD=changeme
+PORT=3000</code></pre>
+
+    <h3 id="first-start">3.7 First Start</h3>
+    <pre><code># API (port 3000)
+pm2 start "npm start" --name fund-api
+
+# Static UI (port 8080)
+pm2 start "npx http-server . -p 8080 --no-cache" --name fund-ui
+
+pm2 save</code></pre>
+    <p>Access:</p>
+    <ul>
+        <li>API health: http://localhost:3000/api/health</li>
+        <li>UI: http://localhost:8080/index.html</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="application-architecture">4 Application Architecture</h2>
+
+    <h3 id="backend">4.1 Backend</h3>
+    <ul>
+        <li><strong>Express 5</strong> + <strong>Node.js 18</strong></li>
+        <li>13 modular route files in <code>src/routes/*</code></li>
+        <li>Single entry ‑ <code>server-modular.js</code> (≈ 114 LOC)</li>
+    </ul>
+
+    <h3 id="frontend">4.2 Frontend</h3>
+    <ul>
+        <li>Plain HTML/CSS/JS in <code>index.html</code> & <code>/src/js</code></li>
+        <li>Charts via Chart.js</li>
+        <li>SPA-style navigation handled by <code>src/js/app.js</code></li>
+    </ul>
+
+    <h3 id="database">4.3 Database</h3>
+    <ul>
+        <li><strong>PostgreSQL (15 tables)</strong> – see <code>database/db-init.sql</code></li>
+        <li>Primary keys are UUIDv4</li>
+        <li>All monetary fields are <code>NUMERIC(14,2)</code></li>
+    </ul>
+
+    <h3 id="removed-docker">4.4 Removed Docker</h3>
+    <p>Docker artefacts were purged in v1.x; all deployment assumes native OS packages.</p>
+
+    <hr>
+
+    <h2 id="database-administration">5 Database Administration</h2>
+
+    <h3 id="recommended-settings">5.1 Recommended Settings</h3>
+    <p>Edit <code>/etc/postgresql/14/main/postgresql.conf</code>:</p>
+    <pre><code>shared_buffers = 512MB
+work_mem       = 8MB
+wal_level      = replica</code></pre>
+
+    <h3 id="back-up">5.2 Back-up</h3>
+    <pre><code>pg_dump -U npfadmin -Fc fund_accounting_db \
+        > /backups/$(date +%F)_fund_accounting_db.dump</code></pre>
+
+    <h3 id="restore">5.3 Restore</h3>
+    <pre><code>pg_restore -U npfadmin -d fund_accounting_db \
+           /backups/2025-08-06_fund_accounting_db.dump</code></pre>
+
+    <h3 id="schema-updates">5.4 Schema Updates</h3>
+    <p>When <code>database/db-init.sql</code> changes:</p>
+    <pre><code>git pull
+psql -U npfadmin -d fund_accounting_db -f database/db-init.sql</code></pre>
+
+    <hr>
+
+    <h2 id="user-management">6 User Management</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Action</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Add / Edit / Disable</td>
+                <td>Settings → Users</td>
+            </tr>
+            <tr>
+                <td>Roles</td>
+                <td>Administrator / Accountant / Viewer</td>
+            </tr>
+            <tr>
+                <td>Password rules</td>
+                <td>Min 12 chars, 1 uppercase, 1 digit</td>
+            </tr>
+        </tbody>
+    </table>
+    <blockquote>
+        Forgotten password = reset link emailed (SMTP settings in <code>.env</code>).
+    </blockquote>
+
+    <hr>
+
+    <h2 id="entity-fund-management">7 Entity & Fund Management</h2>
+    <ul>
+        <li><strong>Settings → Entities</strong> – Build org hierarchy</li>
+        <li>Exactly <strong>one</strong> root entity marked <em>Consolidated</em>.</li>
+        <li><strong>Funds</strong> are created under each entity.</li>
+        <li><strong>Inter-Entity Transfer Wizard</strong> (Utilities) automates due-to/due-from journals.</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="security-considerations">8 Security Considerations</h2>
+    <ol>
+        <li><strong>Database</strong>
+            <ul>
+                <li>Use strong password for <code>npfadmin</code></li>
+                <li>Restrict <code>pg_hba.conf</code> to local / trusted subnets</li>
+            </ul>
+        </li>
+        <li><strong>Application</strong>
+            <ul>
+                <li>Set <code>NODE_ENV=production</code></li>
+                <li>Use HTTPS only (force via Nginx)</li>
+            </ul>
+        </li>
+        <li><strong>Network</strong>
+            <ul>
+                <li>Enable <code>ufw</code>; allow 22, 80, 443 only</li>
+                <li>Fail2Ban for SSH</li>
+            </ul>
+        </li>
+    </ol>
+
+    <hr>
+
+    <h2 id="production-deployment">9 Production Deployment</h2>
+
+    <h3 id="pm2-service-autostart">9.1 PM2 Service Autostart</h3>
+    <pre><code>pm2 startup systemd -u fundapp --hp /home/fundapp
+pm2 save</code></pre>
+
+    <h3 id="nginx-reverse-proxy">9.2 Nginx Reverse Proxy</h3>
+    <p><code>/etc/nginx/sites-available/mrmoneybags.conf</code>:</p>
+    <pre><code>server {
+    listen 80;
+    server_name accounting.example.org;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8080/;
+        try_files $uri $uri/ /index.html;
+    }
+}</code></pre>
+    <p>Enable & reload:</p>
+    <pre><code>sudo ln -s /etc/nginx/sites-available/mrmoneybags.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx</code></pre>
+
+    <h3 id="ssl-tls">9.3 SSL/TLS (Let's Encrypt)</h3>
+    <pre><code>sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d accounting.example.org</code></pre>
+
+    <h3 id="monitoring-logging">9.4 Monitoring & Logging</h3>
+    <ul>
+        <li><code>pm2 monit</code> – live stats</li>
+        <li><code>pm2-logrotate</code> – auto-rotation</li>
+        <li><code>journalctl -u nginx -f</code> – web logs</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="maintenance-troubleshooting">10 Maintenance & Troubleshooting</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Task</th>
+                <th>Frequency</th>
+                <th>Command</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>OS security updates</td>
+                <td>weekly</td>
+                <td><code>sudo unattended-upgrade -d</code></td>
+            </tr>
+            <tr>
+                <td>DB vacuum & analyse</td>
+                <td>weekly</td>
+                <td><code>VACUUM (VERBOSE, ANALYZE);</code></td>
+            </tr>
+            <tr>
+                <td>Log review</td>
+                <td>daily</td>
+                <td><code>pm2 logs --lines 100</code></td>
+            </tr>
+            <tr>
+                <td>Rebuild indexes</td>
+                <td>quarterly</td>
+                <td><code>REINDEX DATABASE fund_accounting_db;</code></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3 id="common-issues">Common Issues</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Symptom</th>
+                <th>Resolution</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>DB Offline</code> badge</td>
+                <td>Check <code>systemctl status postgresql</code></td>
+            </tr>
+            <tr>
+                <td>502 via Nginx</td>
+                <td>API process down → <code>pm2 restart fund-api</code></td>
+            </tr>
+            <tr>
+                <td><code>psql: FATAL password authentication failed</code></td>
+                <td>Verify <code>.env</code> matches PG user</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2 id="backup-recovery">11 Backup & Recovery</h2>
+    <ol>
+        <li><strong>Hot backup (daily cron)</strong><br>
+            <code>pg_dump -U npfadmin -Fc fund_accounting_db > /backups/db_$(date +%F).dump</code></li>
+        <li><strong>File backup</strong> – tar <code>/opt/mr-moneybags</code> (code + uploads)</li>
+        <li><strong>Off-site sync</strong> – rclone to S3 / Backblaze</li>
+        <li><strong>Disaster Recovery Test</strong> (quarterly)<br>
+            <em>Spin up fresh VM, restore dump, checkout same git tag, point <code>.env</code> to restored DB, verify UI.</em></li>
+    </ol>
+
+    <hr>
+
+    <h3 id="appendix-a">Appendix A — Quick Commands</h3>
+    <pre><code># Pull latest release
+cd /opt/mr-moneybags
+git fetch --tags
+git checkout v1.0.1
+npm ci && pm2 restart fund-api fund-ui
+
+# Check API health
+curl -s http://localhost:3000/api/health | jq
+
+# Create read-only DB user
+psql -U postgres -d fund_accounting_db -c \
+  "CREATE ROLE reporter LOGIN PASSWORD 'xxxx'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO reporter;"</code></pre>
+
+    <hr>
+
+    <div class="footer">
+        <p>© 2025 The Principle Foundation — All rights reserved.<br>
+        Licensed under the MIT License.</p>
+    </div>
+</body>
+</html>

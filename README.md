@@ -1,6 +1,6 @@
 # Mr-Moneybags-v1.x – Non-Profit Fund Accounting System
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/your-organization/mr-moneybags-v1.x/releases)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/tpfbill/mr-moneybags-v1.x/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D%2018.0.0-brightgreen.svg)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/postgresql-%3E%3D%2014.0-blue.svg)](https://www.postgresql.org)
@@ -62,7 +62,7 @@ Designed from the ground up with a **fully-modular Node.js backend and a proven,
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-organization/mr-moneybags-v1.x.git
+git clone https://github.com/tpfbill/mr-moneybags-v1.x.git
 cd mr-moneybags-v1.x
 
 # 2. Install server dependencies
@@ -371,7 +371,7 @@ This project is licensed under the **MIT License** – see the [LICENSE](./LICEN
   * William Developer – [william@principle.org](mailto:william@principle.org)
   * Fund Accounting Team – [accounting-dev@principle.org](mailto:accounting-dev@principle.org)
   
-* **Issues & Support:** [GitHub Issues](https://github.com/your-organization/mr-moneybags-v1.x/issues)
+* **Issues & Support:** [GitHub Issues](https://github.com/tpfbill/mr-moneybags-v1.x/issues)
 
 * **Organization:** The Principle Foundation, Kansas City, MO
 
