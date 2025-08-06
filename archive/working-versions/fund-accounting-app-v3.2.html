@@ -1,0 +1,2012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Profit Fund Accounting System - v3.2</title>
+    <style>
+        /* Basic reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        /* Header - using static positioning */
+        .header {
+            background-color: #1976d2;
+            color: white;
+            padding: 15px 20px;
+            border-bottom: 3px solid #0d47a1;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .header-right-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px; /* Adjusted gap */
+        }
+
+        .entity-selector-container, .consolidated-view-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .consolidated-view-container label {
+            font-weight: 500;
+            color: white;
+        }
+         #consolidated-view-toggle {
+            margin-left: 5px;
+            height: 18px; /* Adjust size */
+            width: 18px;  /* Adjust size */
+            vertical-align: middle;
+        }
+
+
+        #entity-selector {
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #0d47a1;
+            background-color: white;
+            color: #333;
+            min-width: 200px;
+        }
+
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-info span {
+            font-weight: 500;
+        }
+
+        .logout-button {
+            background-color: #0d47a1;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Main navigation menu - horizontal under the header */
+        .main-nav {
+            background-color: #f0f0f0;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .nav-item {
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background-color: #e0e0e0;
+        }
+
+        .nav-item.active {
+            background-color: #2196f3;
+            color: white;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            max-width: 1200px;
+            margin: 20px auto; /* Added top margin */
+            padding: 0 20px; /* Adjusted padding */
+            gap: 20px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            align-self: flex-start; /* Keep sidebar from stretching */
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 10px;
+        }
+
+        .sidebar-menu a {
+            display: block;
+            padding: 10px;
+            color: #333;
+            text-decoration: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .sidebar-menu a:hover {
+            background-color: #f0f0f0;
+        }
+
+        .sidebar-menu a.active {
+            background-color: #e3f2fd;
+            color: #1976d2;
+            border-left: 3px solid #1976d2;
+        }
+
+        /* Main content */
+        .main-content {
+            flex: 1;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .action-button {
+            background-color: #4caf50; /* Green for main actions */
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .action-button:hover {
+            background-color: #43a047;
+        }
+        
+        .btn-danger {
+            background-color: #d32f2f;
+        }
+        .btn-danger:hover {
+            background-color: #c62828;
+        }
+
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th, 
+        .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .data-table th {
+            background-color: #f9f9f9;
+            font-weight: 600;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        /* Tabs */
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tab-menu {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab-item {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .tab-item.active {
+            border: 1px solid #ddd;
+            border-bottom-color: white;
+            border-radius: 4px 4px 0 0;
+            margin-bottom: -1px;
+            font-weight: 500;
+        }
+
+        .tab-content {
+            padding: 20px 0;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            border-top: 3px solid #1976d2;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card > p {
+            flex-grow: 1;
+            margin-bottom: 15px;
+        }
+
+
+        .card-title {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .card-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1976d2;
+        }
+
+        /* Dashboard panels */
+        .dashboard-panel {
+            display: none;
+        }
+
+        .dashboard-panel.active {
+            display: block;
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-input, select.form-input { /* Ensure select also gets styled */
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-input:focus, select.form-input:focus {
+            outline: none;
+            border-color: #1976d2;
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+        }
+        .form-input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .form-column {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+
+        .form-actions {
+            margin-top: 30px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn-secondary {
+            background-color: #757575;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-secondary:hover {
+            background-color: #616161;
+        }
+
+        /* Report styling */
+        .reports-gallery {
+            display: block; /* Will be controlled by JS via .active class */
+        }
+        .reports-gallery.active {
+            display: block;
+        }
+        .reports-gallery:not(.active) {
+            display: none;
+        }
+
+
+        .report-view {
+            display: none;
+        }
+        .report-view.active {
+            display: block;
+        }
+
+
+        .report-container {
+            background-color: white;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .report-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .report-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .report-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .report-table th,
+        .report-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .report-table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+
+        .report-table .amount-col {
+            text-align: right;
+        }
+
+        .report-table .total-row {
+            font-weight: 600;
+            border-top: 2px solid #333;
+        }
+
+        .report-table .subtotal-row {
+            font-weight: 600;
+            border-top: 1px solid #666;
+        }
+
+        .report-table .section-header {
+            background-color: #f9f9f9;
+            font-weight: 600;
+        }
+
+        .report-footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+
+        .report-actions {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .report-filters {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .report-tools {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Modal Dialog CSS */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Initially hidden */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            overflow-y: auto; /* For long modals */
+        }
+
+        .modal-dialog {
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 600px; /* Adjust as needed */
+            margin: 20px; /* Margin for scrollable overlay */
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-dialog-lg { /* For larger modals like report builder */
+             max-width: 900px;
+        }
+
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px; /* Made it a bit larger */
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: calc(90vh - 120px); /* Header and footer height approx */
+            overflow-y: auto; /* Scrollable body */
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background-color: #f9f9f9; /* Slight background for footer */
+        }
+
+        /* Status indicators */
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-inactive {
+            background-color: #f5f5f5;
+            color: #757575;
+        }
+
+        .status-pending {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+
+        /* Utils */
+        .mt-20 {
+            margin-top: 20px;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .badge-blue {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .badge-green {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .badge-amber {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+        
+        .badge-red {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        /* Page */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Add these styles in the CSS section */
+        .drillable {
+            cursor: pointer;
+            color: #1565c0;
+            text-decoration: underline;
+        }
+
+        .drillable:hover {
+            color: #0d47a1;
+            text-decoration: underline;
+        }
+
+        /* Drill-down modal styles */
+        .drill-down-modal .modal-dialog {
+            max-width: 800px;
+        }
+
+        .drill-down-modal .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .drill-down-modal .modal-title .amount {
+            font-weight: normal;
+            color: #1976d2;
+        }
+
+        .drill-down-path {
+            margin: -10px 0 15px 0;
+            padding: 0 0 10px 0;
+            border-bottom: 1px solid #eee;
+            color: #757575;
+            font-size: 14px;
+        }
+
+        /* --------------------------------------------------------------
+           Report Builder Styles
+        -------------------------------------------------------------- */
+        .field-selector {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+
+        .field-item {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .field-item:last-child {
+            border-bottom: none;
+        }
+
+        .field-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .field-item.selected { /* Style for selected in available list if needed */
+            background-color: #e0e0e0; 
+            font-style: italic;
+        }
+
+
+        .selected-fields-container {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px; /* Adjusted from 100px */
+            max-height: 200px; /* Added max-height */
+            overflow-y: auto; /* Scroll if many fields */
+            padding: 10px;
+            /* margin-top: 10px; /* This was in original, check if needed - removed as form-group provides margin */
+        }
+
+        .selected-field {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        .selected-field:last-child {
+            margin-bottom: 0;
+        }
+
+
+        .selected-field button.remove-selected-field { /* More specific selector */
+            background: none;
+            border: none;
+            color: #757575;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0 5px;
+        }
+
+        .selected-field button.remove-selected-field:hover {
+            color: #d32f2f;
+        }
+
+        #report-builder-filter-container .filter-row { /* Target specifically within container */
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        #report-builder-filter-container .filter-row:last-child {
+            margin-bottom: 0;
+        }
+        #report-builder-filter-container .btn-remove-filter { /* Style for remove filter button */
+             padding: 5px 8px;
+             line-height: 1;
+        }
+
+
+        .report-preview {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            background-color: #f9f9f9;
+            min-height: 100px;
+            max-height: 300px;
+            overflow: auto;
+        }
+
+        .preview-placeholder {
+            text-align: center;
+            padding: 20px;
+            color: #757575;
+            font-style: italic;
+        }
+
+        /* Custom report card in gallery */
+        .custom-report-card {
+            background-color: #f9f9f9; /* Lighter background */
+            border-left: 5px solid #4caf50; /* Green accent */
+        }
+
+        .report-toolbar {
+            display: flex;
+            justify-content: flex-start; /* Align buttons to start */
+            gap: 10px;
+            margin-top: auto; /* Pushes toolbar to bottom of card */
+            padding-top: 15px; /* Space above toolbar */
+        }
+        .report-toolbar button {
+            font-size: 13px; /* Smaller buttons for cards */
+            padding: 6px 10px;
+        }
+
+        /* Entity Relationship Visualization Placeholder */
+        #entity-relationship-viz {
+            border: 1px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            color: #777;
+            margin-top: 20px;
+            min-height: 150px;
+        }
+        .inter-entity-fields {
+            display: none; /* Hidden by default */
+            border-top: 1px dashed #ccc;
+            margin-top: 15px;
+            padding-top: 15px;
+        }
+        .inter-entity-fields.active {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-container">
+            <h1>Non-Profit Fund Accounting System</h1>
+            <div class="header-right-controls">
+                <div class="consolidated-view-container">
+                    <label for="consolidated-view-toggle">Consolidated View:</label>
+                    <input type="checkbox" id="consolidated-view-toggle">
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; margin-right: 5px; color: white;">Entity:</label>
+                    <select id="entity-selector" class="form-input" style="width: auto; display: inline-block; padding: 5px 10px; height: auto; min-width: 220px;">
+                        <!-- Options populated by JS -->
+                    </select>
+                </div>
+                <div class="user-info">
+                    <span>John Doe</span>
+                    <button class="logout-button">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Navigation -->
+    <div class="main-nav">
+        <div class="nav-container">
+            <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+            <div class="nav-item" data-page="funds">Funds</div>
+            <div class="nav-item" data-page="journal-entries">Journal Entries</div>
+            <div class="nav-item" data-page="reports">Reports</div>
+            <div class="nav-item" data-page="settings">Settings</div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div id="quick-actions-container">
+                <h3>Quick Actions</h3>
+                <ul class="sidebar-menu mt-20">
+                    <li><a href="#" class="sidebar-item active" data-panel="financial-overview-panel">Financial Overview</a></li>
+                    <li><a href="#" class="sidebar-item" data-panel="recent-transactions-panel">Recent Transactions</a></li>
+                    <li><a href="#" class="sidebar-item" data-panel="unposted-entries-panel">Unposted Entries</a></li>
+                    <li><a href="#" class="sidebar-item" data-panel="budget-analysis-panel">Budget Analysis</a></li>
+                    <li><a href="#" class="sidebar-item" data-panel="fund-balances-panel">Fund Balances</a></li>
+                </ul>
+            </div>
+            <div id="page-actions-container" style="display:none;">
+                <h3>Page Actions</h3>
+                <p class="mt-20">Contextual actions for the current page will appear here.</p>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <div class="content-header">
+                    <h2 id="dashboard-title">Dashboard</h2>
+                    <button class="action-button">Print Report</button>
+                </div>
+                <div id="financial-overview-panel" class="dashboard-panel active">
+                    <div class="card-grid" id="dashboard-summary-cards"></div>
+                    <h3 class="mt-20">Fund Balances</h3>
+                    <table class="data-table" id="dashboard-fund-balances-table">
+                        <thead><tr><th>Fund Name</th><th>Type</th><th>Balance</th><th>% of Total</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div id="recent-transactions-panel" class="dashboard-panel">
+                    <h3>Recent Transactions</h3>
+                    <table class="data-table" id="dashboard-recent-transactions-table">
+                        <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Amount</th><th>Status</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                 <div id="unposted-entries-panel" class="dashboard-panel">
+                    <h3>Unposted Journal Entries</h3>
+                    <table class="data-table" id="dashboard-unposted-entries-table">
+                        <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Amount</th><th>Created By</th><th>Actions</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div id="budget-analysis-panel" class="dashboard-panel">
+                    <h3>Budget vs. Actual (Current Fiscal Year)</h3>
+                     <table class="data-table" id="dashboard-budget-analysis-table">
+                        <thead><tr><th>Category</th><th>Budget</th><th>Actual</th><th>Variance</th><th>% Used</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div id="fund-balances-panel" class="dashboard-panel">
+                    <h3>Fund Balances - Detailed</h3>
+                    <table class="data-table" id="dashboard-fund-balances-detailed-table">
+                        <thead><tr><th>Fund ID</th><th>Fund Name</th><th>Type</th><th>Beginning Balance</th><th>Revenue</th><th>Expenses</th><th>Current Balance</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Chart of Accounts Page -->
+            <div id="chart-of-accounts-page" class="page" style="display:none;">
+                <div class="content-header"><h2>Chart of Accounts</h2><button class="action-button" id="btn-add-account">Add Account</button></div>
+                <div class="tab-container">
+                    <div class="tab-menu"><div class="tab-item active" data-tab="accounts-list-coa">List View</div><div class="tab-item" data-tab="accounts-tree-coa">Tree View</div></div>
+                    <div class="tab-content">
+                        <div id="accounts-list-coa" class="tab-panel active">
+                            <table class="data-table" id="chart-of-accounts-table">
+                                <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div id="accounts-tree-coa" class="tab-panel"><p>Tree view of accounts (hierarchical) will be implemented here.</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Funds Page -->
+            <div id="funds-page" class="page" style="display:none;">
+                <div class="content-header"><h2>Funds Management</h2><button class="action-button" id="btn-add-fund">Add Fund</button></div>
+                <table class="data-table" id="funds-table">
+                    <thead><tr><th>Fund Code</th><th>Fund Name</th><th>Type</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- Journal Entries Page -->
+            <div id="journal-entries-page" class="page" style="display:none;">
+                <div class="content-header"><h2>Journal Entries</h2><button class="action-button" id="btn-new-journal-entry">New Journal Entry</button></div>
+                <table class="data-table" id="journal-entries-table">
+                    <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Total Amount</th><th>Status</th><th>Created By</th><th>Actions</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reports-page" class="page" style="display:none;">
+                <div class="content-header"><h2 id="reports-page-title">Financial Reports</h2></div>
+                <div id="reports-gallery" class="reports-gallery active">
+                    <h3>Standard Reports</h3>
+                    <div class="card-grid">
+                        <div class="card"><div class="card-title">Statement of Financial Position</div><p>Balance sheet.</p><button class="action-button mt-20" data-report="financial-position">Generate</button></div>
+                        <div class="card"><div class="card-title">Statement of Activities</div><p>Income statement.</p><button class="action-button mt-20" data-report="activities">Generate</button></div>
+                        <div class="card"><div class="card-title">Statement of Functional Expenses</div><p>Expenses by function.</p><button class="action-button mt-20" data-report="functional-expenses">Generate</button></div>
+                        <div class="card"><div class="card-title">Budget vs. Actual</div><p>Budget comparison.</p><button class="action-button mt-20" data-report="budget-vs-actual">Generate</button></div>
+                    </div>
+                    <h3 class="mt-20">Custom Reports</h3>
+                    <button class="action-button mt-20" id="create-custom-report-definition" style="margin-bottom: 20px;">Create New Custom Report</button>
+                    <div id="custom-reports-container" class="card-grid">
+                        <div class="preview-placeholder" id="no-custom-reports-placeholder">No custom reports created.</div>
+                    </div>
+                </div>
+                <div id="financial-position-report" class="report-view"></div>
+                <div id="activities-report" class="report-view"></div>
+                <div id="functional-expenses-report" class="report-view"></div>
+                <div id="budget-vs-actual-report" class="report-view"></div>
+                <div id="custom-generated-report-view" class="report-view">
+                    <div class="report-actions">
+                        <button class="btn-secondary" data-action="back-to-gallery">Back to Reports</button>
+                        <div class="report-tools">
+                            <button class="action-button" id="btn-print-custom-report">Print</button>
+                            <button class="action-button" id="btn-export-pdf-custom-report">Export PDF</button>
+                        </div>
+                    </div>
+                    <div class="report-container" id="custom-report-output-container">
+                        <div class="report-header">
+                            <div class="report-title" id="custom-report-output-org-name"></div>
+                            <div class="report-subtitle" id="custom-report-output-title"></div>
+                            <div class="report-date" id="custom-report-output-date"></div>
+                        </div>
+                        <div id="custom-report-output-table-area"><p class="preview-placeholder">Report content.</p></div>
+                        <div class="report-footer">Unaudited - For Management Purposes Only</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settings-page" class="page" style="display:none;">
+                <div class="content-header"><h2>System Settings</h2></div>
+                <div class="tab-container">
+                    <div class="tab-menu">
+                        <div class="tab-item active" data-tab="users-settings">Users</div>
+                        <div class="tab-item" data-tab="organization-settings">Organization</div>
+                        <div class="tab-item" data-tab="fiscal-years-settings">Fiscal Years</div>
+                        <div class="tab-item" data-tab="entities-settings">Entities</div>
+                    </div>
+                    <div class="tab-content">
+                        <div id="users-settings" class="tab-panel active"><h3>User Management</h3><p>User management features will be implemented here.</p></div>
+                        <div id="organization-settings" class="tab-panel"><h3>Organization Settings</h3><input type="text" id="org-setting-name" class="form-input" value="Default Org Name"> <p>More organization-wide settings here.</p></div>
+                        <div id="fiscal-years-settings" class="tab-panel"><h3>Fiscal Year Management</h3> <p>Global fiscal year settings or views here. Entity-specific fiscal settings are in the entity modal.</p></div>
+                        <div id="entities-settings" class="tab-panel">
+                            <div class="content-header"><h3>Entity Management</h3><button class="action-button" id="btn-add-entity">Add Entity</button></div>
+                            <table class="data-table" id="entities-table">
+                                <thead><tr><th>Code</th><th>Name</th><th>Parent</th><th>Status</th><th>Currency</th><th>Fiscal Start</th><th>Consolidated?</th><th>Actions</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                            <h4 class="mt-20">Entity Relationship Visualization</h4>
+                            <div id="entity-relationship-viz">Placeholder for entity hierarchy chart/tree.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- End Main Content -->
+    </div> <!-- End Container -->
+
+    <!-- Modal Dialogs -->
+    <div id="account-modal" class="modal-overlay"><div class="modal-dialog">
+        <div class="modal-header"><h3 class="modal-title" id="account-modal-title">Account</h3><button class="modal-close" data-action="close-modal" data-modal-id="account-modal">&times;</button></div>
+        <div class="modal-body">
+            <input type="hidden" id="account-id-edit">
+            <div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label">Account Code</label><input type="text" id="account-code" class="form-input"></div></div><div class="form-column"><div class="form-group"><label class="form-label">Account Name</label><input type="text" id="account-name" class="form-input"></div></div></div>
+            <div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label">Account Type</label><select id="account-type" class="form-input"><option value="Asset">Asset</option><option value="Liability">Liability</option><option value="Equity">Equity</option><option value="Revenue">Revenue</option><option value="Expense">Expense</option></select></div></div><div class="form-column"><div class="form-group"><label class="form-label">Status</label><select id="account-status" class="form-input"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div></div></div>
+            <div class="form-group"><label class="form-label">Description</label><textarea id="account-description" class="form-input" rows="3"></textarea></div>
+        </div>
+        <div class="modal-footer"><button class="btn-secondary" data-action="close-modal" data-modal-id="account-modal">Cancel</button><button class="action-button" id="btn-save-account">Save</button></div>
+    </div></div>
+
+    <div id="fund-modal" class="modal-overlay"><div class="modal-dialog">
+        <div class="modal-header"><h3 class="modal-title" id="fund-modal-title">Fund</h3><button class="modal-close" data-action="close-modal" data-modal-id="fund-modal">&times;</button></div>
+        <div class="modal-body">
+            <input type="hidden" id="fund-id-edit">
+            <div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label">Fund Code</label><input type="text" id="fund-code" class="form-input"></div></div><div class="form-column"><div class="form-group"><label class="form-label">Fund Name</label><input type="text" id="fund-name" class="form-input"></div></div></div>
+            <div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label">Restriction Type</label><select id="fund-restriction-type" class="form-input"><option value="Unrestricted">Unrestricted</option><option value="Temporarily Restricted">Temporarily Restricted</option><option value="Permanently Restricted">Permanently Restricted</option></select></div></div><div class="form-column"><div class="form-group"><label class="form-label">Status</label><select id="fund-status" class="form-input"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div></div></div>
+            <div class="form-group"><label class="form-label">Description</label><textarea id="fund-description" class="form-input" rows="3"></textarea></div>
+        </div>
+        <div class="modal-footer"><button class="btn-secondary" data-action="close-modal" data-modal-id="fund-modal">Cancel</button><button class="action-button" id="btn-save-fund">Save</button></div>
+    </div></div>
+
+    <div id="journal-entry-modal" class="modal-overlay"><div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header"><h3 class="modal-title" id="journal-entry-modal-title">Journal Entry</h3><button class="modal-close" data-action="close-modal" data-modal-id="journal-entry-modal">&times;</button></div>
+        <div class="modal-body">
+            <input type="hidden" id="journal-entry-id-edit">
+            <div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label">Date</label><input type="date" id="journal-entry-date" class="form-input"></div></div><div class="form-column"><div class="form-group"><label class="form-label">Reference</label><input type="text" id="journal-entry-reference" class="form-input" readonly></div></div></div>
+            <div class="form-group"><label class="form-label">Description</label><input type="text" id="journal-entry-description" class="form-input"></div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    <input type="checkbox" id="journal-entry-is-inter-entity" class="form-input"> Is Inter-Entity Transfer?
+                </label>
+            </div>
+            <div id="inter-entity-fields-container" class="inter-entity-fields">
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label">Target Entity</label>
+                            <select id="journal-entry-target-entity" class="form-input">
+                                <option value="">Select Target Entity...</option>
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label">Matching Transaction ID (Optional)</label>
+                            <input type="text" id="journal-entry-matching-tx-id" class="form-input" placeholder="Auto-generated if blank">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="margin:15px 0 10px;">Lines</h4><table class="data-table"><thead><tr><th>Account</th><th>Fund</th><th>Debit</th><th>Credit</th><th>Description</th><th>Action</th></tr></thead><tbody id="journal-lines"></tbody></table>
+            <button id="add-journal-line" class="btn-secondary" style="margin-top:10px;">Add Line</button>
+            <div class="form-row" style="margin-top:20px;justify-content:flex-end;"><div class="form-column" style="flex:0 0 auto;min-width:120px;"><div class="form-group"><label>Total Debits</label><input type="text" id="journal-total-debits" class="form-input" readonly></div></div><div class="form-column" style="flex:0 0 auto;min-width:120px;"><div class="form-group"><label>Total Credits</label><input type="text" id="journal-total-credits" class="form-input" readonly></div></div><div class="form-column" style="flex:0 0 auto;min-width:120px;"><div class="form-group"><label>Difference</label><input type="text" id="journal-difference" class="form-input" readonly></div></div></div>
+        </div>
+        <div class="modal-footer"><button class="btn-secondary" data-action="close-modal" data-modal-id="journal-entry-modal">Cancel</button><button class="action-button" id="btn-save-journal-draft">Save Draft</button><button class="action-button" id="btn-save-journal-post">Save & Post</button></div>
+    </div></div>
+
+    <div id="drill-down-modal" class="modal-overlay drill-down-modal"><div class="modal-dialog">
+         <div class="modal-header"><h3 class="modal-title"><span class="title">Details</span><span class="amount"></span></h3><button class="modal-close" data-action="close-modal" data-modal-id="drill-down-modal">&times;</button></div>
+         <div class="modal-body"><div class="drill-down-path"><span id="drill-path"></span></div><table class="data-table"><thead id="drill-down-headers"></thead><tbody id="drill-down-data"></tbody></table><div id="drill-down-summary" class="mt-20 text-right"></div></div>
+         <div class="modal-footer"><button class="btn-secondary" data-action="close-modal" data-modal-id="drill-down-modal">Close</button><button class="action-button" id="export-drill-data">Export</button></div>
+    </div></div>
+
+    <div id="entity-modal" class="modal-overlay"><div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header"><h3 class="modal-title" id="entity-modal-title-text">Entity</h3><button class="modal-close" data-action="close-modal" data-modal-id="entity-modal">&times;</button></div>
+        <div class="modal-body">
+            <input type="hidden" id="entity-id-edit">
+            <div class="form-row">
+                <div class="form-column"><div class="form-group"><label class="form-label">Entity Code</label><input type="text" id="entity-code-input" class="form-input"></div></div>
+                <div class="form-column"><div class="form-group"><label class="form-label">Entity Name</label><input type="text" id="entity-name-input" class="form-input"></div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-column"><div class="form-group"><label class="form-label">Parent Entity</label><select id="entity-parent-select" class="form-input"><option value="">None (Top Level)</option></select></div></div>
+                <div class="form-column"><div class="form-group"><label class="form-label">Status</label><select id="entity-status-select" class="form-input"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div></div>
+            </div>
+             <div class="form-row">
+                <div class="form-column"><div class="form-group"><label class="form-label">Fiscal Year Start (MM-DD)</label><input type="text" id="entity-fiscal-year-start-input" class="form-input" placeholder="e.g., 01-01"></div></div>
+                <div class="form-column"><div class="form-group"><label class="form-label">Base Currency</label><input type="text" id="entity-base-currency-input" class="form-input" placeholder="e.g., USD"></div></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">
+                    <input type="checkbox" id="entity-is-consolidated-input" class="form-input"> Is this a Consolidation Entity?
+                </label>
+            </div>
+            <div class="form-group"><label class="form-label">Description</label><textarea id="entity-description-input" class="form-input" rows="3"></textarea></div>
+        </div>
+        <div class="modal-footer"><button class="btn-secondary" data-action="close-modal" data-modal-id="entity-modal">Cancel</button><button class="action-button" id="btn-save-entity">Save</button></div>
+    </div></div>
+
+    <div id="report-builder-modal" class="modal-overlay"><div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header"><h3 class="modal-title" id="report-builder-modal-title">Report Builder</h3><button class="modal-close" data-action="close-modal" data-modal-id="report-builder-modal">&times;</button></div>
+        <div class="modal-body">
+            <input type="hidden" id="custom-report-definition-id-edit">
+            <div class="form-section"><h4>Report Information</h4><div class="form-row"><div class="form-column"><div class="form-group"><label>Report Name</label><input type="text" id="report-builder-name" class="form-input"></div></div><div class="form-column"><div class="form-group"><label>Report Type</label><select id="report-builder-type" class="form-input"><option value="transaction_list">Transaction List</option><option value="summary_report">Summary Report</option></select></div></div></div><div class="form-group"><label>Description</label><textarea id="report-builder-description" class="form-input" rows="2"></textarea></div></div>
+            <div class="form-section"><h4>Manage Definitions</h4><div class="form-group"><label>Load Saved Definition</label><select id="load-report-definition-select" class="form-input"><option value="">Load or Edit...</option></select></div></div>
+            <div class="form-section"><h4>Fields</h4><div class="form-row"><div class="form-column"><div class="form-group"><label>Available Fields</label><div class="field-selector" id="report-builder-available-fields"></div></div></div><div class="form-column"><div class="form-group"><label>Selected Fields (Columns)</label><div class="selected-fields-container" id="report-builder-selected-fields"><div class="preview-placeholder">Click fields to add.</div></div></div></div></div></div>
+            <div class="form-section"><h4>Filters</h4><div id="report-builder-filter-container"><div class="preview-placeholder" id="filters-placeholder">No filters added.</div></div><button id="report-builder-add-filter" class="btn-secondary mt-20">Add Filter</button></div>
+            <div class="form-section"><h4>Sorting & Grouping</h4><div class="form-row"><div class="form-column"><div class="form-group"><label>Sort By</label><select id="report-builder-sort-field" class="form-input"><option value="">None</option></select></div></div><div class="form-column"><div class="form-group"><label>Sort Order</label><select id="report-builder-sort-order" class="form-input"><option value="asc">Ascending</option><option value="desc">Descending</option></select></div></div></div><div class="form-group"><label>Group By (for Summary)</label><select id="report-builder-group-field" class="form-input"><option value="">None (Detail)</option></select></div></div>
+            <div class="form-section"><h4>Report Preview (Sample)</h4><div class="report-preview" id="report-builder-preview"><div class="preview-placeholder">Preview appears here.</div></div><button id="btn-refresh-report-preview" class="btn-secondary mt-20">Refresh Preview</button></div>
+        </div>
+        <div class="modal-footer"><button class="btn-secondary" data-action="close-modal" data-modal-id="report-builder-modal">Cancel</button><button class="action-button" id="btn-save-report-definition">Save Definition</button><button class="action-button" id="btn-run-custom-report">Save & Run Report</button></div>
+    </div></div>
+
+    <script>
+        // --- Global State & Configuration ---
+        const LOCAL_STORAGE_PREFIX = 'fundAccounting_v3_2_'; // Updated prefix for v3.2
+        let currentEntityId = null;
+        let isConsolidatedViewActive = false;
+        const CONSOLIDATED_VIEW_ID = '_ALL_CONSOLIDATED_'; // Special ID for global consolidated view
+
+        let entities = [];
+        let accounts = [];
+        let funds = [];
+        let journalEntries = [];
+        let customReportDefinitions = [];
+
+        const availableReportFields = [
+            { id: 'transaction_date', name: 'Transaction Date', type: 'date', source: 'journalEntries' },
+            { id: 'entity_code', name: 'Entity Code', type: 'string', source: 'entities'}, // New
+            { id: 'entity_name', name: 'Entity Name', type: 'string', source: 'entities'}, // New
+            { id: 'account_code', name: 'Account Code', type: 'string', source: 'accounts' },
+            { id: 'account_name', name: 'Account Name', type: 'string', source: 'accounts' },
+            { id: 'account_type', name: 'Account Type', type: 'string', source: 'accounts' },
+            { id: 'fund_code', name: 'Fund Code', type: 'string', source: 'funds' },
+            { id: 'fund_name', name: 'Fund Name', type: 'string', source: 'funds' },
+            { id: 'fund_type', name: 'Fund Type', type: 'string', source: 'funds' },
+            { id: 'transaction_description', name: 'JE Description', type: 'string', source: 'journalEntries' },
+            { id: 'transaction_reference', name: 'JE Reference', type: 'string', source: 'journalEntries' },
+            { id: 'line_debit', name: 'Line Debit', type: 'currency', source: 'journalEntryLines' },
+            { id: 'line_credit', name: 'Line Credit', type: 'currency', source: 'journalEntryLines' },
+            { id: 'line_description', name: 'Line Description', type: 'string', source: 'journalEntryLines' },
+            { id: 'transaction_status', name: 'JE Status', type: 'string', source: 'journalEntries' },
+            { id: 'created_by', name: 'Created By', type: 'string', source: 'journalEntries' },
+            { id: 'is_inter_entity', name: 'Is Inter-Entity', type: 'boolean', source: 'journalEntries'}, // New
+            { id: 'target_entity_name', name: 'Target Entity', type: 'string', source: 'journalEntries'}, // New
+        ];
+
+        // --- Utility Functions ---
+        function formatCurrency(amount, currencyCode = 'USD') { // Added currencyCode
+            const num = parseFloat(String(amount).replace(/[$,()]/g, ''));
+            if (isNaN(num)) return `${currencyCode} 0.00`; // Default with currency
+            
+            let options = { style: 'currency', currency: currencyCode, minimumFractionDigits: 2, maximumFractionDigits: 2 };
+            // For negative numbers, use accounting format (parentheses)
+            if (num < 0) {
+                // Intl.NumberFormat doesn't directly support parentheses for negative in all locales for currency.
+                // We'll format absolute value and add parentheses manually.
+                const absFormatted = Math.abs(num).toLocaleString(undefined, options);
+                return `(${absFormatted.replace(currencyCode,'').trim()}) ${currencyCode}`; // Crude, better to handle currency symbol position
+            }
+            return num.toLocaleString(undefined, options);
+        }
+        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substring(2); }
+        function getCurrentDate() { return new Date().toISOString().split('T')[0]; }
+        function getEntityById(entityId) { return entities.find(e => e.id === entityId); }
+        function getEntityName(entityId) { const entity = getEntityById(entityId); return entity ? entity.name : 'Unknown Entity';}
+        function getEntityCurrency(entityId) { const entity = getEntityById(entityId); return entity ? entity.baseCurrency : 'USD'; }
+
+
+        // --- Modal Helpers ---
+        function openModal(modalId) { const modal = document.getElementById(modalId); if (modal) modal.style.display = 'flex'; }
+        function closeModal(modalId) { const modal = document.getElementById(modalId); if (modal) modal.style.display = 'none'; }
+
+        // --- LocalStorage ---
+        function saveDataToLocalStorage(key, data) { localStorage.setItem(LOCAL_STORAGE_PREFIX + key, JSON.stringify(data)); }
+        function loadDataFromLocalStorage(key) { const data = localStorage.getItem(LOCAL_STORAGE_PREFIX + key); return data ? JSON.parse(data) : null; }
+
+        // --- Entity Management ---
+        function initializeEntities() {
+            entities = loadDataFromLocalStorage('entities') || [ 
+                { id: 'entity1', code: 'CNF', name: 'Community Nonprofit Foundation', status: 'Active', description: 'Main entity.', parentEntityId: null, fiscalYearStart: '01-01', baseCurrency: 'USD', isConsolidated: true },
+                { id: 'entity2', code: 'YSP', name: 'Youth Services Program', status: 'Active', description: 'Subsidiary program.', parentEntityId: 'entity1', fiscalYearStart: '07-01', baseCurrency: 'USD', isConsolidated: false },
+            ];
+            currentEntityId = loadDataFromLocalStorage('currentEntityId') || (entities.length > 0 ? entities[0].id : null);
+            if (!entities.some(e => e.id === currentEntityId) && entities.length > 0) currentEntityId = entities[0].id; 
+            
+            isConsolidatedViewActive = loadDataFromLocalStorage('isConsolidatedViewActive') || false;
+            document.getElementById('consolidated-view-toggle').checked = isConsolidatedViewActive;
+
+            saveDataToLocalStorage('entities', entities); 
+            populateEntitySelector();
+            renderEntitiesTable();
+            updateEntityRelationshipViz();
+        }
+        function populateEntitySelector() {
+            const selector = document.getElementById('entity-selector');
+            selector.innerHTML = '';
+            entities.filter(e => e.status === 'Active').forEach(entity => selector.add(new Option(entity.name, entity.id)));
+            if (currentEntityId && !isConsolidatedViewActive) {
+                 selector.value = currentEntityId;
+                 selector.disabled = false;
+            } else if (isConsolidatedViewActive) {
+                selector.value = entities.find(e => e.isConsolidated)?.id || entities[0]?.id || ''; // Default to first consolidated or first entity
+                selector.disabled = true; // Disable entity selector in consolidated view
+            }
+            selector.addEventListener('change', handleEntityChange);
+        }
+        function handleEntityChange(event) {
+            if (!isConsolidatedViewActive) {
+                currentEntityId = event.target.value;
+                saveDataToLocalStorage('currentEntityId', currentEntityId);
+                refreshAllDataViews();
+            }
+        }
+        function handleConsolidatedViewToggle() {
+            isConsolidatedViewActive = document.getElementById('consolidated-view-toggle').checked;
+            saveDataToLocalStorage('isConsolidatedViewActive', isConsolidatedViewActive);
+            const entitySelector = document.getElementById('entity-selector');
+            if (isConsolidatedViewActive) {
+                entitySelector.disabled = true;
+                // Optionally, set currentEntityId to a specific consolidated entity or a global flag
+                // For now, it implies a global consolidation or context of the selected 'isConsolidated' entity
+                const mainConsolidatedEntity = entities.find(e => e.isConsolidated && e.parentEntityId === null) || entities.find(e => e.isConsolidated);
+                if (mainConsolidatedEntity) {
+                    currentEntityId = mainConsolidatedEntity.id; // Show data for this consolidated entity
+                    entitySelector.value = currentEntityId;
+                } else {
+                    // Handle case where no specific consolidated entity is primary
+                    // currentEntityId = CONSOLIDATED_VIEW_ID; // This would require more logic in data fetching
+                }
+
+            } else {
+                entitySelector.disabled = false;
+                // Revert to last selected individual entity if possible
+                currentEntityId = loadDataFromLocalStorage('currentEntityId') || (entities.length > 0 ? entities[0].id : null);
+                if (currentEntityId) entitySelector.value = currentEntityId;
+            }
+            refreshAllDataViews();
+        }
+
+        function refreshAllDataViews() {
+            const entityName = isConsolidatedViewActive ? "Consolidated View" : getEntityName(currentEntityId);
+            const titleSuffix = `(${entityName})`;
+            
+            renderDashboard();
+            renderChartOfAccountsTable();
+            renderFundsTable();
+            renderJournalEntriesTable();
+            document.getElementById('dashboard-title').textContent = `Dashboard ${titleSuffix}`;
+            document.getElementById('reports-page-title').textContent = `Financial Reports ${titleSuffix}`;
+            document.getElementById('org-setting-name').value = entityName; // Might need better handling for org settings in consolidated
+        }
+        function renderEntitiesTable() {
+            const tbody = document.getElementById('entities-table').querySelector('tbody');
+            tbody.innerHTML = '';
+            entities.forEach(e => {
+                const parentName = e.parentEntityId ? (getEntityById(e.parentEntityId)?.name || 'N/A') : 'Top Level';
+                const r = tbody.insertRow();
+                r.innerHTML = `<td>${e.code}</td><td>${e.name}</td><td>${parentName}</td><td><span class="status status-${e.status.toLowerCase()}">${e.status}</span></td><td>${e.baseCurrency}</td><td>${e.fiscalYearStart}</td><td>${e.isConsolidated ? 'Yes' : 'No'}</td><td><button class="action-button btn-edit-entity" data-id="${e.id}">Edit</button></td>`;
+            });
+            document.querySelectorAll('.btn-edit-entity').forEach(b => b.addEventListener('click', (ev) => openEntityModal(ev.target.dataset.id)));
+        }
+        function openEntityModal(id = null) {
+            const modal = document.getElementById('entity-modal');
+            const title = modal.querySelector('#entity-modal-title-text');
+            // Reset fields
+            ['entity-id-edit', 'entity-code-input', 'entity-name-input', 'entity-description-input', 'entity-fiscal-year-start-input', 'entity-base-currency-input'].forEach(elId => document.getElementById(elId).value = '');
+            document.getElementById('entity-status-select').value = 'Active';
+            document.getElementById('entity-is-consolidated-input').checked = false;
+            
+            const parentSelect = document.getElementById('entity-parent-select');
+            parentSelect.innerHTML = '<option value="">None (Top Level)</option>';
+            entities.forEach(e => {
+                if (e.id !== id) { // Cannot be its own parent
+                    parentSelect.add(new Option(`${e.name} (${e.code})`, e.id));
+                }
+            });
+            parentSelect.value = "";
+
+
+            if (id) {
+                const e = entities.find(item => item.id === id);
+                if (!e) return;
+                title.textContent = 'Edit Entity';
+                document.getElementById('entity-id-edit').value = e.id;
+                document.getElementById('entity-code-input').value = e.code;
+                document.getElementById('entity-name-input').value = e.name;
+                document.getElementById('entity-status-select').value = e.status;
+                document.getElementById('entity-description-input').value = e.description || '';
+                parentSelect.value = e.parentEntityId || "";
+                document.getElementById('entity-fiscal-year-start-input').value = e.fiscalYearStart || '01-01';
+                document.getElementById('entity-base-currency-input').value = e.baseCurrency || 'USD';
+                document.getElementById('entity-is-consolidated-input').checked = e.isConsolidated || false;
+
+            } else { title.textContent = 'Add New Entity'; }
+            openModal('entity-modal');
+        }
+        function saveEntity() {
+            const id = document.getElementById('entity-id-edit').value;
+            const data = {
+                code: document.getElementById('entity-code-input').value.trim(),
+                name: document.getElementById('entity-name-input').value.trim(),
+                status: document.getElementById('entity-status-select').value,
+                description: document.getElementById('entity-description-input').value.trim(),
+                parentEntityId: document.getElementById('entity-parent-select').value || null,
+                fiscalYearStart: document.getElementById('entity-fiscal-year-start-input').value.trim() || '01-01',
+                baseCurrency: document.getElementById('entity-base-currency-input').value.trim().toUpperCase() || 'USD',
+                isConsolidated: document.getElementById('entity-is-consolidated-input').checked
+            };
+            if (!data.code || !data.name) { alert('Code and Name required.'); return; }
+            // Basic validation for fiscalYearStart format (MM-DD)
+            if (!/^\d{2}-\d{2}$/.test(data.fiscalYearStart)) { alert('Fiscal Year Start must be in MM-DD format.'); return; }
+
+            if (id) entities = entities.map(e => e.id === id ? { ...e, ...data } : e);
+            else {
+                if (entities.some(e => e.code.toLowerCase() === data.code.toLowerCase())) { alert('Entity code must be unique.'); return; }
+                entities.push({ id: generateId(), ...data });
+            }
+            saveDataToLocalStorage('entities', entities);
+            renderEntitiesTable(); populateEntitySelector(); updateEntityRelationshipViz(); closeModal('entity-modal');
+        }
+        function updateEntityRelationshipViz() {
+            const vizContainer = document.getElementById('entity-relationship-viz');
+            // Basic text representation for now
+            let html = '<ul>';
+            const buildTree = (parentId) => {
+                entities.filter(e => e.parentEntityId === parentId).forEach(child => {
+                    html += `<li>${child.name} (${child.code})`;
+                    const childrenOfChild = entities.filter(e => e.parentEntityId === child.id);
+                    if (childrenOfChild.length > 0) {
+                        html += '<ul>';
+                        buildTree(child.id);
+                        html += '</ul>';
+                    }
+                    html += '</li>';
+                });
+            };
+            buildTree(null); // Start with top-level entities
+            html += '</ul>';
+            vizContainer.innerHTML = html || '<p>No hierarchical relationships defined.</p>';
+        }
+
+
+        // --- Sample Data & CRUD Stubs (Entity-Aware) ---
+        function initializeSampleData() { 
+            accounts = loadDataFromLocalStorage('accounts') || [];
+            funds = loadDataFromLocalStorage('funds') || [];
+            journalEntries = loadDataFromLocalStorage('journalEntries') || [];
+            // Ensure sample data has entityId
+        }
+        
+        function getRelevantEntityIds() {
+            if (isConsolidatedViewActive) {
+                const currentEntity = getEntityById(currentEntityId);
+                if (currentEntity && currentEntity.isConsolidated) {
+                    // Find all children of this consolidated entity
+                    const childrenIds = [];
+                    const findChildren = (parentId) => {
+                        entities.filter(e => e.parentEntityId === parentId).forEach(child => {
+                            childrenIds.push(child.id);
+                            findChildren(child.id); // Recursive call for multi-level hierarchy
+                        });
+                    };
+                    findChildren(currentEntity.id);
+                    return [currentEntity.id, ...childrenIds]; // Include the consolidated entity itself + its children
+                }
+                return entities.map(e => e.id); // Global consolidation if no specific consolidated entity or it's not marked as such
+            }
+            return [currentEntityId]; // Single entity view
+        }
+
+        function getAccountsForEntity() { 
+            const relevantIds = getRelevantEntityIds();
+            return accounts.filter(a => relevantIds.includes(a.entityId) && a.status === 'Active'); 
+        }
+        function getFundsForEntity() { 
+            const relevantIds = getRelevantEntityIds();
+            return funds.filter(f => relevantIds.includes(f.entityId) && f.status === 'Active'); 
+        }
+        function getJournalEntriesForEntity() { 
+            const relevantIds = getRelevantEntityIds();
+            return journalEntries.filter(je => relevantIds.includes(je.entityId)); 
+        }
+
+        function renderDashboard() { 
+            if (!currentEntityId && !isConsolidatedViewActive) return;
+            const cardsContainer = document.getElementById('dashboard-summary-cards');
+            cardsContainer.innerHTML = ''; 
+            
+            const relevantAccounts = getAccountsForEntity(); // Now uses getRelevantEntityIds
+            const totalAssets = relevantAccounts.filter(a => a.type === 'Asset').reduce((sum, acc) => sum + (acc.balance || 0), 0);
+            const totalLiabilities = relevantAccounts.filter(a => a.type === 'Liability').reduce((sum, acc) => sum + (acc.balance || 0), 0);
+            // For YTD Revenue, a more complex calculation would be needed from transactions. Simplified for now.
+            const ytdRevenue = relevantAccounts.filter(a => a.type === 'Revenue').reduce((sum, acc) => sum + (acc.balance || 0), 0); 
+            const netAssets = totalAssets - totalLiabilities;
+            
+            const currency = getEntityCurrency(currentEntityId); // Or a consolidated currency
+
+            const summaryData = [
+                { title: 'Total Assets', value: formatCurrency(totalAssets, currency) },
+                { title: 'Total Liabilities', value: formatCurrency(totalLiabilities, currency) },
+                { title: 'Net Assets', value: formatCurrency(netAssets, currency) },
+                { title: 'YTD Revenue', value: formatCurrency(ytdRevenue, currency) }
+            ];
+            summaryData.forEach(d => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<div class="card-title">${d.title}</div><div class="card-value">${d.value}</div>`;
+                cardsContainer.appendChild(card);
+            });
+            // Other dashboard tables would be populated similarly using getRelevantEntityIds for data
+        }
+        function renderChartOfAccountsTable() { 
+            const tbody = document.getElementById('chart-of-accounts-table').querySelector('tbody');
+            tbody.innerHTML = '';
+            getAccountsForEntity().forEach(acc => { // Uses relevant entity IDs
+                 const r = tbody.insertRow();
+                 const currency = getEntityCurrency(acc.entityId);
+                 r.innerHTML = `<td>${acc.code}</td><td>${acc.name}</td><td>${acc.type}</td><td>${formatCurrency(acc.balance||0, currency)}</td><td><span class="status status-${acc.status.toLowerCase()}">${acc.status}</span></td><td><button class="action-button btn-edit-account" data-id="${acc.id}">Edit</button></td>`;
+            });
+            document.querySelectorAll('.btn-edit-account').forEach(b => b.addEventListener('click', (e) => openAccountModal(e.target.dataset.id)));
+        }
+        function openAccountModal(id = null) { 
+            const modal = document.getElementById('account-modal');
+            const title = modal.querySelector('#account-modal-title');
+            ['account-id-edit', 'account-code', 'account-name', 'account-description'].forEach(elId => document.getElementById(elId).value = '');
+            document.getElementById('account-type').value = 'Asset'; document.getElementById('account-status').value = 'Active';
+            if (id) {
+                const acc = accounts.find(a => a.id === id); if(!acc) return;
+                title.textContent = `Edit Account (Entity: ${getEntityName(acc.entityId)})`;
+                Object.keys(acc).forEach(key => {
+                    const input = document.getElementById(`account-${key}`) || document.getElementById('account-id-edit');
+                    if (input && acc[key] !== undefined) input.value = acc[key];
+                });
+            } else { title.textContent = `Add New Account (Entity: ${getEntityName(currentEntityId)})`; }
+            openModal('account-modal');
+        }
+        function saveAccount() { 
+            const id = document.getElementById('account-id-edit').value;
+            const data = { code: document.getElementById('account-code').value.trim(), name: document.getElementById('account-name').value.trim(), type: document.getElementById('account-type').value, status: document.getElementById('account-status').value, description: document.getElementById('account-description').value.trim(), balance: 0 };
+            if (!data.code || !data.name) { alert('Code and Name required.'); return; }
+            
+            const entityForAccount = id ? accounts.find(a=>a.id===id).entityId : currentEntityId;
+            if (isConsolidatedViewActive && !id) { alert("Cannot add new accounts directly in consolidated view. Switch to an individual entity."); return; }
+
+
+            if (id) { const existing = accounts.find(a=>a.id===id); data.balance = existing ? existing.balance : 0; accounts = accounts.map(a => a.id === id ? { ...a, ...data, entityId: entityForAccount } : a); }
+            else { if (accounts.some(a => a.code.toLowerCase() === data.code.toLowerCase() && a.entityId === entityForAccount)) { alert('Account code must be unique for entity.'); return; } accounts.push({ id: generateId(), entityId: entityForAccount, ...data }); }
+            saveDataToLocalStorage('accounts', accounts); renderChartOfAccountsTable(); refreshAllDataViews(); closeModal('account-modal');
+        }
+
+        function renderFundsTable() { 
+            const tbody = document.getElementById('funds-table').querySelector('tbody');
+            tbody.innerHTML = '';
+            getFundsForEntity().forEach(f => { // Uses relevant entity IDs
+                 const r = tbody.insertRow();
+                 const currency = getEntityCurrency(f.entityId);
+                 r.innerHTML = `<td>${f.code}</td><td>${f.name}</td><td>${f.type}</td><td>${formatCurrency(f.balance||0, currency)}</td><td><span class="status status-${f.status.toLowerCase()}">${f.status}</span></td><td><button class="action-button btn-edit-fund" data-id="${f.id}">Edit</button></td>`;
+            });
+            document.querySelectorAll('.btn-edit-fund').forEach(b => b.addEventListener('click', (e) => openFundModal(e.target.dataset.id)));
+        }
+        function openFundModal(id = null) { 
+            const modal = document.getElementById('fund-modal');
+            const title = modal.querySelector('#fund-modal-title');
+            ['fund-id-edit', 'fund-code', 'fund-name', 'fund-description'].forEach(elId => document.getElementById(elId).value = '');
+            document.getElementById('fund-restriction-type').value = 'Unrestricted'; document.getElementById('fund-status').value = 'Active';
+            if (id) {
+                const f = funds.find(item => item.id === id); if(!f) return;
+                title.textContent = `Edit Fund (Entity: ${getEntityName(f.entityId)})`;
+                Object.keys(f).forEach(key => {
+                    const input = document.getElementById(`fund-${key.replace('restrictionType','restriction-type')}`) || document.getElementById('fund-id-edit');
+                    if (input && f[key] !== undefined) input.value = f[key];
+                });
+            } else { title.textContent = `Add New Fund (Entity: ${getEntityName(currentEntityId)})`; }
+            openModal('fund-modal');
+        }
+        function saveFund() { 
+            const id = document.getElementById('fund-id-edit').value;
+            const data = { code: document.getElementById('fund-code').value.trim(), name: document.getElementById('fund-name').value.trim(), type: document.getElementById('fund-restriction-type').value, status: document.getElementById('fund-status').value, description: document.getElementById('fund-description').value.trim(), balance: 0 };
+            if (!data.code || !data.name) { alert('Code and Name required.'); return; }
+
+            const entityForFund = id ? funds.find(f=>f.id===id).entityId : currentEntityId;
+            if (isConsolidatedViewActive && !id) { alert("Cannot add new funds directly in consolidated view. Switch to an individual entity."); return; }
+
+            if (id) { const existing = funds.find(f=>f.id===id); data.balance = existing ? existing.balance : 0; funds = funds.map(f => f.id === id ? { ...f, ...data, entityId: entityForFund } : f); }
+            else { if (funds.some(f => f.code.toLowerCase() === data.code.toLowerCase() && f.entityId === entityForFund)) { alert('Fund code must be unique for entity.'); return; } funds.push({ id: generateId(), entityId: entityForFund, ...data }); }
+            saveDataToLocalStorage('funds', funds); renderFundsTable(); refreshAllDataViews(); closeModal('fund-modal');
+        }
+
+        function renderJournalEntriesTable() { 
+            const tbody = document.getElementById('journal-entries-table').querySelector('tbody');
+            tbody.innerHTML = '';
+            getJournalEntriesForEntity().forEach(je => { // Uses relevant entity IDs
+                const r = tbody.insertRow();
+                const currency = getEntityCurrency(je.entityId);
+                r.innerHTML = `<td>${je.date}</td><td>${je.reference}</td><td>${je.description}</td><td>${formatCurrency(je.totalAmount, currency)}</td><td><span class="status status-${je.status.toLowerCase()}">${je.status}</span></td><td>${je.createdBy}</td><td><button class="action-button btn-view-journal-entry" data-id="${je.id}">View</button></td>`;
+            });
+            document.querySelectorAll('.btn-view-journal-entry').forEach(b => b.addEventListener('click', (e) => openJournalEntryModal(e.target.dataset.id)));
+        }
+        function openJournalEntryModal(id = null) { 
+            const modal = document.getElementById('journal-entry-modal');
+            const title = modal.querySelector('#journal-entry-modal-title');
+            document.getElementById('journal-entry-id-edit').value = id || '';
+            const linesContainer = document.getElementById('journal-lines'); linesContainer.innerHTML = '';
+            
+            const isInterEntityCheckbox = document.getElementById('journal-entry-is-inter-entity');
+            const interEntityFieldsContainer = document.getElementById('inter-entity-fields-container');
+            const targetEntitySelect = document.getElementById('journal-entry-target-entity');
+            
+            isInterEntityCheckbox.checked = false;
+            interEntityFieldsContainer.classList.remove('active');
+            targetEntitySelect.innerHTML = '<option value="">Select Target Entity...</option>';
+            entities.filter(e => e.id !== currentEntityId && e.status === 'Active').forEach(e => { // Exclude current entity
+                targetEntitySelect.add(new Option(e.name, e.id));
+            });
+            document.getElementById('journal-entry-matching-tx-id').value = '';
+
+
+            if (id) {
+                const je = journalEntries.find(e => e.id === id); if (!je) return;
+                title.textContent = `View Journal Entry (Entity: ${getEntityName(je.entityId)})`;
+                ['date', 'reference', 'description'].forEach(f => document.getElementById(`journal-entry-${f}`).value = je[f]);
+                
+                isInterEntityCheckbox.checked = je.isInterEntity || false;
+                if (je.isInterEntity) {
+                    interEntityFieldsContainer.classList.add('active');
+                    targetEntitySelect.value = je.targetEntityId || '';
+                    document.getElementById('journal-entry-matching-tx-id').value = je.matchingTransactionId || '';
+                }
+
+                je.lines.forEach(line => addJournalLineToModal(line, true));
+                modal.querySelectorAll('input, select, textarea, #add-journal-line').forEach(el => el.disabled = true);
+                modal.querySelector('#btn-save-journal-draft').style.display = 'none';
+                modal.querySelector('#btn-save-journal-post').style.display = 'none';
+            } else {
+                if (isConsolidatedViewActive) { alert("Cannot create new journal entries in consolidated view. Switch to an individual entity."); closeModal('journal-entry-modal'); return; }
+                title.textContent = `Create Journal Entry (Entity: ${getEntityName(currentEntityId)})`;
+                document.getElementById('journal-entry-date').value = getCurrentDate();
+                document.getElementById('journal-entry-reference').value = `JE-${getEntityById(currentEntityId)?.code || 'ENT'}-${Date.now().toString().slice(-4)}`;
+                document.getElementById('journal-entry-description').value = '';
+                addJournalLineToModal({}, false); addJournalLineToModal({}, false); 
+                modal.querySelectorAll('input:not(#journal-entry-reference):not(#journal-entry-matching-tx-id), select, textarea, #add-journal-line, #journal-entry-is-inter-entity').forEach(el => el.disabled = false);
+                 if (!isInterEntityCheckbox.checked) { // Disable inter-entity fields if box not checked
+                    targetEntitySelect.disabled = true;
+                    document.getElementById('journal-entry-matching-tx-id').disabled = true;
+                }
+                modal.querySelector('#btn-save-journal-draft').style.display = 'inline-block';
+                modal.querySelector('#btn-save-journal-post').style.display = 'inline-block';
+            }
+            updateJournalEntryTotals(); openModal('journal-entry-modal');
+        }
+        function addJournalLineToModal(lineData = {}, readOnly = false) {
+            const linesContainer = document.getElementById('journal-lines');
+            const newRow = linesContainer.insertRow();
+            const accOpts = getAccountsForEntity(currentEntityId).map(a => `<option value="${a.id}">${a.code} - ${a.name}</option>`).join(''); // Accounts for current entity
+            const fundOpts = getFundsForEntity(currentEntityId).map(f => `<option value="${f.id}">${f.code} - ${f.name}</option>`).join(''); // Funds for current entity
+            newRow.innerHTML = `
+                <td><select class="form-input journal-line-account" ${readOnly?'disabled':''}><option value="">Select Account</option>${accOpts}</select></td>
+                <td><select class="form-input journal-line-fund" ${readOnly?'disabled':''}><option value="">Select Fund</option>${fundOpts}</select></td>
+                <td><input type="number" step="0.01" class="form-input journal-line-debit" placeholder="0.00" ${readOnly?'disabled':''}></td>
+                <td><input type="number" step="0.01" class="form-input journal-line-credit" placeholder="0.00" ${readOnly?'disabled':''}></td>
+                <td><input type="text" class="form-input journal-line-description" placeholder="Line desc" ${readOnly?'disabled':''}></td>
+                <td>${!readOnly ? '<button type="button" class="btn-secondary btn-remove-journal-line" style="padding:5px 8px;">&times;</button>' : ''}</td>
+            `;
+            if (lineData.accountId) newRow.querySelector('.journal-line-account').value = lineData.accountId;
+            if (lineData.fundId) newRow.querySelector('.journal-line-fund').value = lineData.fundId;
+            if (lineData.debit) newRow.querySelector('.journal-line-debit').value = lineData.debit.toFixed(2);
+            if (lineData.credit) newRow.querySelector('.journal-line-credit').value = lineData.credit.toFixed(2);
+            if (lineData.description) newRow.querySelector('.journal-line-description').value = lineData.description;
+            if (!readOnly) {
+                newRow.querySelector('.btn-remove-journal-line').addEventListener('click', function() { this.closest('tr').remove(); updateJournalEntryTotals(); });
+                newRow.querySelectorAll('.journal-line-debit, .journal-line-credit').forEach(i => i.addEventListener('input', updateJournalEntryTotals));
+            }
+        }
+        function updateJournalEntryTotals() {
+            let debits = 0, credits = 0;
+            document.querySelectorAll('#journal-lines tr').forEach(r => {
+                debits += parseFloat(r.querySelector('.journal-line-debit').value) || 0;
+                credits += parseFloat(r.querySelector('.journal-line-credit').value) || 0;
+            });
+            const currency = getEntityCurrency(currentEntityId);
+            document.getElementById('journal-total-debits').value = formatCurrency(debits, currency);
+            document.getElementById('journal-total-credits').value = formatCurrency(credits, currency);
+            const diff = debits - credits;
+            const diffEl = document.getElementById('journal-difference');
+            diffEl.value = formatCurrency(diff, currency); diffEl.style.color = diff === 0 ? 'green' : 'red';
+        }
+        function saveJournalEntry(status = 'Unposted') {
+            const isInterEntity = document.getElementById('journal-entry-is-inter-entity').checked;
+            const targetEntityId = isInterEntity ? document.getElementById('journal-entry-target-entity').value : null;
+            let matchingTransactionId = isInterEntity ? document.getElementById('journal-entry-matching-tx-id').value.trim() : null;
+
+            if (isInterEntity && !targetEntityId) { alert('Target Entity is required for inter-entity transfers.'); return; }
+            if (isInterEntity && !matchingTransactionId) matchingTransactionId = `MATCH-${generateId()}`; // Auto-generate if blank
+
+            const data = { 
+                date: document.getElementById('journal-entry-date').value, 
+                reference: document.getElementById('journal-entry-reference').value, 
+                description: document.getElementById('journal-entry-description').value.trim(), 
+                lines: [], 
+                totalAmount: 0, 
+                status, 
+                createdBy: 'John Doe', 
+                entityId: currentEntityId,
+                isInterEntity,
+                targetEntityId,
+                matchingTransactionId
+            };
+            let totalDebits = 0, totalCredits = 0;
+            document.querySelectorAll('#journal-lines tr').forEach(r => {
+                const line = { accountId: r.querySelector('.journal-line-account').value, fundId: r.querySelector('.journal-line-fund').value, debit: parseFloat(r.querySelector('.journal-line-debit').value) || 0, credit: parseFloat(r.querySelector('.journal-line-credit').value) || 0, description: r.querySelector('.journal-line-description').value.trim() };
+                if (line.accountId && (line.debit > 0 || line.credit > 0)) { data.lines.push(line); totalDebits += line.debit; totalCredits += line.credit; }
+            });
+            if (!data.date || !data.description || data.lines.length < 1) { alert('Date, description, and at least one valid line required.'); return; }
+            if (totalDebits !== totalCredits) { alert('Journal entry must be balanced.'); return; }
+            data.totalAmount = totalDebits;
+            
+            const entryId = generateId();
+            journalEntries.push({ id: entryId, ...data });
+
+            // If inter-entity, create a conceptual balancing entry in the target entity (simplified for frontend)
+            if (isInterEntity && targetEntityId) {
+                const targetEntry = {
+                    id: generateId(),
+                    entityId: targetEntityId,
+                    date: data.date,
+                    reference: `IE-${getEntityById(targetEntityId)?.code || 'TGT'}-${Date.now().toString().slice(-4)}`,
+                    description: `Inter-Entity from ${getEntityName(currentEntityId)}: ${data.description}`,
+                    totalAmount: data.totalAmount,
+                    status: 'Unposted', // Or match original status
+                    createdBy: 'System (Inter-Entity)',
+                    isInterEntity: true,
+                    targetEntityId: currentEntityId, // Points back
+                    matchingTransactionId: matchingTransactionId, // Same matching ID
+                    lines: data.lines.map(l => ({ // Reverse debits/credits
+                        ...l,
+                        debit: l.credit,
+                        credit: l.debit,
+                        // Account/Fund IDs would need mapping in a real system if CoA/Funds differ
+                    }))
+                };
+                journalEntries.push(targetEntry);
+                alert(`Inter-entity entry created. Conceptual balancing entry for ${getEntityName(targetEntityId)} also added (ID: ${targetEntry.id}).`);
+            }
+
+            saveDataToLocalStorage('journalEntries', journalEntries);
+            renderJournalEntriesTable(); refreshAllDataViews(); closeModal('journal-entry-modal');
+        }
+
+        // --- Standard Reports (Stubs) ---
+        function renderStandardReport(reportType) { 
+            const reportViewId = `${reportType}-report`;
+            const reportView = document.getElementById(reportViewId);
+            if (!reportView) return;
+            document.getElementById('reports-gallery').classList.remove('active');
+            document.querySelectorAll('.report-view').forEach(rv => rv.classList.remove('active'));
+            reportView.classList.add('active'); reportView.innerHTML = ''; 
+            
+            const viewTitle = isConsolidatedViewActive ? `Consolidated ${reportType.replace('-',' ')} Report` : `${reportType.replace('-',' ')} Report for ${getEntityName(currentEntityId)}`;
+            reportView.innerHTML = `<div class="report-actions"><button class="btn-secondary" data-action="back-to-gallery">Back</button></div> <div class="report-container"><h3>${viewTitle}</h3><p>Content for ${reportType} will be generated here. Data will reflect ${isConsolidatedViewActive ? 'all relevant entities' : 'the selected entity'}.</p></div>`;
+            reportView.querySelector('button[data-action="back-to-gallery"]').addEventListener('click', () => {
+                reportView.classList.remove('active'); document.getElementById('reports-gallery').classList.add('active');
+            });
+        }
+
+        // --- Custom Report Builder ---
+        function initializeCustomReportBuilder() {
+            customReportDefinitions = loadDataFromLocalStorage('customReportDefinitions') || [];
+            renderSavedCustomReportCards();
+            populateAvailableFieldsList();
+        }
+        function populateAvailableFieldsList() {
+            const container = document.getElementById('report-builder-available-fields');
+            container.innerHTML = '';
+            availableReportFields.forEach(field => {
+                const item = document.createElement('div'); item.className = 'field-item'; item.textContent = field.name; item.dataset.fieldId = field.id;
+                item.addEventListener('click', () => addFieldToSelectedList(field));
+                container.appendChild(item);
+            });
+        }
+        function addFieldToSelectedList(field) {
+            const selectedContainer = document.getElementById('report-builder-selected-fields');
+            if (selectedContainer.querySelector(`.selected-field[data-field-id="${field.id}"]`)) return;
+            checkSelectedFieldsPlaceholder();
+            const el = document.createElement('div'); el.className = 'selected-field'; el.dataset.fieldId = field.id;
+            el.innerHTML = `<span>${field.name}</span><button type="button" class="remove-selected-field" title="Remove">&times;</button>`;
+            selectedContainer.appendChild(el);
+            updateReportBuilderSortGroupOptions(); updateReportBuilderPreview();
+        }
+        function checkSelectedFieldsPlaceholder() {
+            const c = document.getElementById('report-builder-selected-fields'); const p = c.querySelector('.preview-placeholder');
+            if (c.children.length === 0 || (c.children.length === 1 && p)) { if (!p) c.innerHTML = '<div class="preview-placeholder">Click fields to add.</div>';}
+            else if (p) p.remove();
+        }
+        function updateReportBuilderSortGroupOptions() {
+            const fields = Array.from(document.querySelectorAll('#report-builder-selected-fields .selected-field')).map(el => availableReportFields.find(f => f.id === el.dataset.fieldId)).filter(Boolean);
+            ['report-builder-sort-field', 'report-builder-group-field'].forEach(selId => {
+                const sel = document.getElementById(selId); const curVal = sel.value;
+                sel.innerHTML = `<option value="">${selId.includes('sort')?'None':'None (Detail)'}</option>`;
+                fields.forEach(f => sel.add(new Option(f.name, f.id)));
+                if (fields.some(f => f.id === curVal)) sel.value = curVal;
+            });
+        }
+        function addReportBuilderFilterRow(filterData = null) {
+            const container = document.getElementById('report-builder-filter-container');
+            const placeholder = document.getElementById('filters-placeholder'); if(placeholder) placeholder.style.display = 'none';
+            const row = document.createElement('div'); row.className = 'filter-row';
+            const fieldSel = document.createElement('select'); fieldSel.className = 'form-input filter-field'; fieldSel.style.width='200px'; fieldSel.innerHTML='<option value="">Field...</option>'; availableReportFields.forEach(f=>fieldSel.add(new Option(f.name, f.id)));
+            const opSel = document.createElement('select'); opSel.className = 'form-input filter-operator'; opSel.style.width='180px'; ['Equal To','Not Equal To','Greater Than','Less Than','Contains','Starts With'].forEach(op=>opSel.add(new Option(op, op.toLowerCase().replace(' ',''))));
+            const valIn = document.createElement('input'); valIn.type='text'; valIn.className='form-input filter-value'; valIn.placeholder='Value'; valIn.style.flexGrow='1';
+            const remBtn = document.createElement('button'); remBtn.type='button'; remBtn.className='btn-secondary btn-remove-filter'; remBtn.textContent='Remove';
+            row.append(fieldSel, opSel, valIn, remBtn); container.appendChild(row);
+            if (filterData) { fieldSel.value = filterData.fieldId; opSel.value = filterData.operator; valIn.value = filterData.value; }
+            updateReportBuilderPreview();
+        }
+        function getReportBuilderDefinition() {
+            const id = document.getElementById('custom-report-definition-id-edit').value || generateId();
+            const name = document.getElementById('report-builder-name').value.trim();
+            if (!name) { alert('Report Name is required.'); return null; }
+            const selectedFields = Array.from(document.querySelectorAll('#report-builder-selected-fields .selected-field')).map(el => el.dataset.fieldId);
+            if (selectedFields.length === 0) { alert('At least one Selected Field is required.'); return null; }
+            return {
+                id, name, description: document.getElementById('report-builder-description').value.trim(), type: document.getElementById('report-builder-type').value,
+                selectedFields,
+                filters: Array.from(document.querySelectorAll('#report-builder-filter-container .filter-row')).map(r => ({ fieldId: r.querySelector('.filter-field').value, operator: r.querySelector('.filter-operator').value, value: r.querySelector('.filter-value').value.trim() })).filter(f => f.fieldId && f.value),
+                sortField: document.getElementById('report-builder-sort-field').value, sortOrder: document.getElementById('report-builder-sort-order').value, groupField: document.getElementById('report-builder-group-field').value
+            };
+        }
+        function openReportBuilderModal(definitionId = null) {
+            const modalTitle = document.getElementById('report-builder-modal-title');
+            document.getElementById('custom-report-definition-id-edit').value = definitionId || '';
+            ['report-builder-name', 'report-builder-description'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('report-builder-type').value = 'transaction_list';
+            document.getElementById('report-builder-selected-fields').innerHTML = '<div class="preview-placeholder">Click fields to add.</div>';
+            document.getElementById('report-builder-filter-container').innerHTML = '<div class="preview-placeholder" id="filters-placeholder">No filters.</div>';
+            updateReportBuilderSortGroupOptions(); 
+
+            if (definitionId) {
+                modalTitle.textContent = 'Edit Custom Report Definition';
+                const def = customReportDefinitions.find(d => d.id === definitionId);
+                if (def) {
+                    document.getElementById('report-builder-name').value = def.name;
+                    document.getElementById('report-builder-description').value = def.description;
+                    document.getElementById('report-builder-type').value = def.type;
+                    def.selectedFields.forEach(fid => { const f = availableReportFields.find(af => af.id === fid); if (f) addFieldToSelectedList(f); });
+                    def.filters.forEach(filt => addReportBuilderFilterRow(filt));
+                    updateReportBuilderSortGroupOptions(); 
+                    document.getElementById('report-builder-sort-field').value = def.sortField || '';
+                    document.getElementById('report-builder-sort-order').value = def.sortOrder || 'asc';
+                    document.getElementById('report-builder-group-field').value = def.groupField || '';
+                }
+            } else { modalTitle.textContent = 'Create New Custom Report Definition'; }
+            populateLoadReportDefinitionDropdown(); 
+            if(definitionId) document.getElementById('load-report-definition-select').value = definitionId; else document.getElementById('load-report-definition-select').value = "";
+
+            updateReportBuilderPreview();
+            openModal('report-builder-modal');
+        }
+        function saveCurrentReportDefinition(calledFromRun = false) {
+            const definition = getReportBuilderDefinition();
+            if (!definition) return null;
+            const existingIndex = customReportDefinitions.findIndex(d => d.id === definition.id);
+            if (existingIndex > -1) customReportDefinitions[existingIndex] = definition;
+            else customReportDefinitions.push(definition);
+            saveDataToLocalStorage('customReportDefinitions', customReportDefinitions);
+            renderSavedCustomReportCards(); populateLoadReportDefinitionDropdown();
+            if (!calledFromRun) alert('Report definition saved!');
+            document.getElementById('custom-report-definition-id-edit').value = definition.id;
+            document.getElementById('load-report-definition-select').value = definition.id;
+            return definition.id;
+        }
+        function updateReportBuilderPreview() {
+            const previewContainer = document.getElementById('report-builder-preview');
+            const definition = getReportBuilderDefinition();
+            if (!definition || definition.selectedFields.length === 0) { previewContainer.innerHTML = '<div class="preview-placeholder">Select fields.</div>'; return; }
+            let mockData = Array.from({length: 3}, (_, i) => { let r = {}; definition.selectedFields.forEach(fid => { const fld=availableReportFields.find(f=>f.id===fid); r[fid] = fld ? (fld.type==='currency'?formatCurrency(Math.random()*1000, 'USD'):`Sample ${fld.name} ${i+1}`) : `Val ${i+1}`; }); return r; });
+            let tableHTML = '<table class="data-table"><thead><tr>' + definition.selectedFields.map(fid => `<th>${(availableReportFields.find(f=>f.id===fid)||{}).name||fid}</th>`).join('') + '</tr></thead><tbody>';
+            mockData.forEach(row => { tableHTML += '<tr>' + definition.selectedFields.map(fid => `<td>${row[fid]}</td>`).join('') + '</tr>'; });
+            tableHTML += '</tbody></table>'; previewContainer.innerHTML = tableHTML;
+        }
+        function loadSelectedReportDefinitionToBuilder() {
+            const definitionId = document.getElementById('load-report-definition-select').value;
+            openReportBuilderModal(definitionId || null); 
+        }
+        function renderSavedCustomReportCards() {
+            const container = document.getElementById('custom-reports-container');
+            container.innerHTML = ''; const placeholder = document.getElementById('no-custom-reports-placeholder');
+            if (customReportDefinitions.length === 0) { if(placeholder) placeholder.style.display = 'block'; return; }
+            if(placeholder) placeholder.style.display = 'none';
+            customReportDefinitions.forEach(def => {
+                const card = document.createElement('div'); card.className = 'card custom-report-card'; card.dataset.reportId = def.id;
+                card.innerHTML = `<div class="card-title">${def.name}</div><p>${def.description||'No desc.'}</p><div class="report-toolbar"><button class="action-button btn-run-saved" data-id="${def.id}">Run</button><button class="btn-secondary btn-edit-saved" data-id="${def.id}">Edit</button><button class="btn-secondary btn-danger btn-delete-saved" data-id="${def.id}">Delete</button></div>`;
+                container.appendChild(card);
+            });
+            document.querySelectorAll('.btn-run-saved').forEach(b => b.addEventListener('click', (e) => runCustomReport(customReportDefinitions.find(d => d.id === e.target.dataset.id))));
+            document.querySelectorAll('.btn-edit-saved').forEach(b => b.addEventListener('click', (e) => openReportBuilderModal(e.target.dataset.id)));
+            document.querySelectorAll('.btn-delete-saved').forEach(b => b.addEventListener('click', (e) => deleteCustomReportDefinition(e.target.dataset.id)));
+        }
+        function deleteCustomReportDefinition(id) {
+            if (confirm('Delete this report definition?')) {
+                customReportDefinitions = customReportDefinitions.filter(d => d.id !== id);
+                saveDataToLocalStorage('customReportDefinitions', customReportDefinitions);
+                renderSavedCustomReportCards(); populateLoadReportDefinitionDropdown();
+                if (document.getElementById('custom-report-definition-id-edit').value === id) openReportBuilderModal(); 
+            }
+        }
+        function populateLoadReportDefinitionDropdown() {
+            const sel = document.getElementById('load-report-definition-select'); const curVal = sel.value;
+            sel.innerHTML = '<option value="">Load or Edit Definition...</option>';
+            customReportDefinitions.forEach(def => sel.add(new Option(def.name, def.id)));
+            if (customReportDefinitions.some(d => d.id === curVal)) sel.value = curVal;
+            else if (document.getElementById('custom-report-definition-id-edit').value) sel.value = document.getElementById('custom-report-definition-id-edit').value;
+        }
+        function runCustomReport(definition) {
+            if (!definition) { alert('Report definition not found.'); return; }
+            const reportView = document.getElementById('custom-generated-report-view');
+            const outputContainer = document.getElementById('custom-report-output-table-area');
+            
+            const reportOrgName = isConsolidatedViewActive ? "Consolidated View" : getEntityName(currentEntityId);
+            const reportCurrency = isConsolidatedViewActive ? "USD (Consolidated)" : getEntityCurrency(currentEntityId);
+
+
+            document.getElementById('custom-report-output-org-name').textContent = reportOrgName;
+            document.getElementById('custom-report-output-title').textContent = definition.name;
+            document.getElementById('custom-report-output-date').textContent = `Generated on ${getCurrentDate()}`;
+            document.querySelectorAll('.report-view.active, .reports-gallery.active').forEach(el => el.classList.remove('active'));
+            reportView.classList.add('active');
+
+            let reportData = [];
+            const entityJEs = getJournalEntriesForEntity(); // Uses relevant entity IDs
+
+            if (definition.type === 'transaction_list' || (definition.type === 'summary_report' && !definition.groupField)) {
+                entityJEs.forEach(je => je.lines.forEach(line => {
+                    const acc = accounts.find(a => a.id === line.accountId); 
+                    const fnd = funds.find(f => f.id === line.fundId);
+                    const jeEntity = getEntityById(je.entityId);
+                    let row = {}; 
+                    definition.selectedFields.forEach(fid => {
+                        switch(fid){ 
+                            case 'transaction_date': row[fid] = je.date; break; 
+                            case 'entity_code': row[fid] = jeEntity ? jeEntity.code : ''; break;
+                            case 'entity_name': row[fid] = jeEntity ? jeEntity.name : ''; break;
+                            case 'account_code': row[fid] = acc?acc.code:''; break; 
+                            case 'account_name': row[fid] = acc?acc.name:''; break; 
+                            case 'account_type': row[fid] = acc?acc.type:''; break; 
+                            case 'fund_code': row[fid] = fnd?fnd.code:''; break; 
+                            case 'fund_name': row[fid] = fnd?fnd.name:''; break; 
+                            case 'fund_type': row[fid] = fnd?fnd.type:''; break; 
+                            case 'transaction_description': row[fid] = je.description; break; 
+                            case 'transaction_reference': row[fid] = je.reference; break; 
+                            case 'line_debit': row[fid] = line.debit; break; 
+                            case 'line_credit': row[fid] = line.credit; break; 
+                            case 'line_description': row[fid] = line.description; break; 
+                            case 'transaction_status': row[fid] = je.status; break; 
+                            case 'created_by': row[fid] = je.createdBy; break; 
+                            case 'is_inter_entity': row[fid] = je.isInterEntity ? 'Yes' : 'No'; break;
+                            case 'target_entity_name': row[fid] = je.isInterEntity && je.targetEntityId ? getEntityName(je.targetEntityId) : ''; break;
+                            default: row[fid] = ''; 
+                        }
+                    }); reportData.push(row);
+                }));
+            } else if (definition.type === 'summary_report' && definition.groupField) {
+                const grouped = {};
+                entityJEs.forEach(je => je.lines.forEach(line => {
+                    const acc = accounts.find(a => a.id === line.accountId); 
+                    const fnd = funds.find(f => f.id === line.fundId);
+                    const jeEntity = getEntityById(je.entityId);
+                    let groupVal = 'N/A'; 
+                    // Determine groupVal based on definition.groupField
+                    if (definition.groupField === 'account_code' && acc) groupVal = acc.code;
+                    else if (definition.groupField === 'account_name' && acc) groupVal = acc.name;
+                    else if (definition.groupField === 'fund_code' && fnd) groupVal = fnd.code;
+                    else if (definition.groupField === 'fund_name' && fnd) groupVal = fnd.name;
+                    else if (definition.groupField === 'entity_code' && jeEntity) groupVal = jeEntity.code;
+                    else if (definition.groupField === 'entity_name' && jeEntity) groupVal = jeEntity.name;
+                    // ... more cases for other groupable fields
+
+                    if (!grouped[groupVal]) { 
+                        grouped[groupVal] = { count: 0, totalDebit: 0, totalCredit: 0 }; 
+                        grouped[groupVal][definition.groupField] = groupVal; // Store the actual group value
+                        // Initialize other non-numeric selected fields for the group
+                        definition.selectedFields.forEach(sfId => {
+                            if (sfId !== definition.groupField && sfId !== 'line_debit' && sfId !== 'line_credit') {
+                                if (sfId === 'account_name' && acc) grouped[groupVal][sfId] = acc.name;
+                                else if (sfId === 'fund_name' && fnd) grouped[groupVal][sfId] = fnd.name;
+                                else if (sfId === 'entity_name' && jeEntity) grouped[groupVal][sfId] = jeEntity.name;
+                                // else it will be '---' later
+                            }
+                        });
+                    }
+                    grouped[groupVal].count++; 
+                    grouped[groupVal].totalDebit += line.debit; 
+                    grouped[groupVal].totalCredit += line.credit;
+                }));
+                reportData = Object.values(grouped).map(g => { 
+                    let r = {}; 
+                    definition.selectedFields.forEach(fid => { 
+                        if(fid===definition.groupField) r[fid]=g[fid]; 
+                        else if(fid==='line_debit') r[fid]=g.totalDebit; 
+                        else if(fid==='line_credit') r[fid]=g.totalCredit; 
+                        else r[fid]= g[fid] || '---'; // Use stored group value or '---'
+                    }); 
+                    return r; 
+                });
+            }
+
+            if (definition.filters && definition.filters.length > 0) { 
+                const ops = { equalto:(a,b)=>String(a).toLowerCase()==String(b).toLowerCase(), notequalto:(a,b)=>String(a).toLowerCase()!=String(b).toLowerCase(), greaterthan:(a,b)=>{const fa=parseFloat(String(a).replace(/[$,]/g,'')),fb=parseFloat(String(b).replace(/[$,]/g,'')); return !isNaN(fa)&&!isNaN(fb)&&fa>fb;}, lessthan:(a,b)=>{const fa=parseFloat(String(a).replace(/[$,]/g,'')),fb=parseFloat(String(b).replace(/[$,]/g,'')); return !isNaN(fa)&&!isNaN(fb)&&fa<fb;}, contains:(a,b)=>String(a).toLowerCase().includes(String(b).toLowerCase()), startswith:(a,b)=>String(a).toLowerCase().startsWith(String(b).toLowerCase()) };
+                reportData = reportData.filter(row => definition.filters.every(f => { const opFn=ops[f.operator]; return !opFn ? true : opFn(row[f.fieldId]||'', f.value); }));
+            }
+            if (definition.sortField && reportData.length > 0 && reportData[0].hasOwnProperty(definition.sortField)) { 
+                const dir = definition.sortOrder === 'desc' ? -1 : 1; const sf = definition.sortField; const fInfo = availableReportFields.find(f=>f.id===sf); const isNum = fInfo&&fInfo.type==='currency';
+                reportData.sort((a,b)=>{ let vA=a[sf],vB=b[sf]; if(isNum){vA=parseFloat(String(vA).replace(/[$,]/g,''))||0;vB=parseFloat(String(vB).replace(/[$,]/g,''))||0;}else{vA=String(vA).toLowerCase();vB=String(vB).toLowerCase();} if(vA<vB)return -1*dir; if(vA>vB)return 1*dir; return 0;});
+            }
+
+            let tableHTML = '<table class="report-table"><thead><tr>' + definition.selectedFields.map(fid => `<th>${(availableReportFields.find(f=>f.id===fid)||{}).name||fid}</th>`).join('') + '</tr></thead><tbody>';
+            if (reportData.length>0) reportData.forEach(row => { tableHTML += '<tr>' + definition.selectedFields.map(fid => {
+                const fieldDef = availableReportFields.find(f=>f.id===fid);
+                const cellValue = row[fid];
+                return `<td>${(fieldDef && fieldDef.type==='currency') ? formatCurrency(cellValue, reportCurrency) : (cellValue||'')}</td>`;
+            }).join('') + '</tr>'; });
+            else tableHTML += `<tr><td colspan="${definition.selectedFields.length||1}" class="preview-placeholder">No data.</td></tr>`;
+            tableHTML += '</tbody></table>'; outputContainer.innerHTML = tableHTML;
+        }
+
+        // --- Page Navigation & Initialization ---
+        function navigateToPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId + '-page').classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.querySelector(`.nav-item[data-page="${pageId}"]`).classList.add('active');
+            const qActions = document.getElementById('quick-actions-container'), pActions = document.getElementById('page-actions-container');
+            if (pageId === 'dashboard') { qActions.style.display = 'block'; pActions.style.display = 'none'; document.querySelectorAll('.sidebar-item').forEach(si=>si.classList.remove('active')); document.querySelector('.sidebar-item[data-panel="financial-overview-panel"]').classList.add('active'); document.querySelectorAll('.dashboard-panel').forEach(p=>p.classList.remove('active')); document.getElementById('financial-overview-panel').classList.add('active');}
+            else { qActions.style.display = 'none'; pActions.style.display = 'block'; }
+            if (pageId === 'reports') { document.querySelectorAll('.report-view').forEach(rv => rv.classList.remove('active')); document.getElementById('reports-gallery').classList.add('active'); }
+        }
+        function init() {
+            initializeEntities(); initializeSampleData(); initializeCustomReportBuilder();
+            refreshAllDataViews();
+            document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',function(){navigateToPage(this.dataset.page)}));
+            document.querySelectorAll('.sidebar-item').forEach(i=>i.addEventListener('click',function(e){e.preventDefault();if(document.getElementById('dashboard-page').classList.contains('active')){document.querySelectorAll('.sidebar-item').forEach(si=>si.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.dashboard-panel').forEach(p=>p.classList.remove('active'));document.getElementById(this.dataset.panel).classList.add('active');}}));
+            document.querySelectorAll('.tab-item').forEach(t=>t.addEventListener('click',function(){const tc=this.closest('.tab-container');tc.querySelectorAll('.tab-item').forEach(i=>i.classList.remove('active'));this.classList.add('active');tc.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.getElementById(this.dataset.tab).classList.add('active');}));
+            document.querySelectorAll('#reports-gallery .action-button[data-report]').forEach(b=>b.addEventListener('click',function(){renderStandardReport(this.dataset.report)}));
+            document.querySelectorAll('button[data-action="back-to-gallery"]').forEach(b=>b.addEventListener('click',function(){this.closest('.report-view').classList.remove('active');document.getElementById('reports-gallery').classList.add('active');}));
+            
+            document.getElementById('consolidated-view-toggle').addEventListener('change', handleConsolidatedViewToggle);
+
+            document.getElementById('btn-add-entity').addEventListener('click',()=>openEntityModal()); document.getElementById('btn-save-entity').addEventListener('click',saveEntity);
+            document.getElementById('btn-add-account').addEventListener('click',()=>openAccountModal()); document.getElementById('btn-save-account').addEventListener('click',saveAccount);
+            document.getElementById('btn-add-fund').addEventListener('click',()=>openFundModal()); document.getElementById('btn-save-fund').addEventListener('click',saveFund);
+            
+            document.getElementById('btn-new-journal-entry').addEventListener('click',()=>openJournalEntryModal()); 
+            document.getElementById('add-journal-line').addEventListener('click',()=>addJournalLineToModal({},false)); 
+            document.getElementById('btn-save-journal-draft').addEventListener('click',()=>saveJournalEntry('Unposted')); 
+            document.getElementById('btn-save-journal-post').addEventListener('click',()=>saveJournalEntry('Posted'));
+            document.getElementById('journal-entry-is-inter-entity').addEventListener('change', function() {
+                const fieldsContainer = document.getElementById('inter-entity-fields-container');
+                const targetEntitySelect = document.getElementById('journal-entry-target-entity');
+                const matchingTxIdInput = document.getElementById('journal-entry-matching-tx-id');
+                if (this.checked) {
+                    fieldsContainer.classList.add('active');
+                    targetEntitySelect.disabled = false;
+                    matchingTxIdInput.disabled = false;
+                } else {
+                    fieldsContainer.classList.remove('active');
+                    targetEntitySelect.disabled = true;
+                    matchingTxIdInput.disabled = true;
+                }
+            });
+            
+            document.getElementById('create-custom-report-definition').addEventListener('click',()=>openReportBuilderModal());
+            document.getElementById('btn-save-report-definition').addEventListener('click',()=>saveCurrentReportDefinition(false));
+            document.getElementById('btn-run-custom-report').addEventListener('click',()=>{const id=saveCurrentReportDefinition(true);if(id){const d=customReportDefinitions.find(def=>def.id===id);if(d){runCustomReport(d);closeModal('report-builder-modal');}else alert("Error: Saved definition not found.");}});
+            document.getElementById('report-builder-add-filter').addEventListener('click',()=>addReportBuilderFilterRow(null));
+            document.getElementById('load-report-definition-select').addEventListener('change',loadSelectedReportDefinitionToBuilder);
+            document.getElementById('btn-refresh-report-preview').addEventListener('click',updateReportBuilderPreview);
+            document.getElementById('report-builder-selected-fields').addEventListener('click',function(e){if(e.target.classList.contains('remove-selected-field')){e.target.closest('.selected-field').remove();updateReportBuilderSortGroupOptions();updateReportBuilderPreview();checkSelectedFieldsPlaceholder();}});
+            document.getElementById('report-builder-filter-container').addEventListener('click',function(e){if(e.target.classList.contains('btn-remove-filter')){const fc=document.getElementById('report-builder-filter-container');e.target.closest('.filter-row').remove();const p=document.getElementById('filters-placeholder');if(fc.children.length===0||(fc.children.length===1&&fc.firstChild.classList&&fc.firstChild.classList.contains('preview-placeholder'))){if(p)p.style.display='block';}updateReportBuilderPreview();}});
+            
+            document.querySelectorAll('[data-action="close-modal"]').forEach(b=>b.addEventListener('click',function(){closeModal(this.dataset.modalId||this.closest('.modal-overlay').id)}));
+            document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModal(this.id)}));
+            navigateToPage('dashboard');
+        }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

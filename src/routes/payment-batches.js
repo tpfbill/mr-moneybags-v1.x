@@ -1,0 +1,422 @@
+// src/routes/payment-batches.js
+const express = require('express');
+const router = express.Router();
+const { pool } = require('../database/connection');
+const { asyncHandler } = require('../utils/helpers');
+
+/**
+ * GET /api/payment-batches
+ * Returns all payment batches, optionally filtered by entity_id, status, or date range
+ */
+router.get('/', asyncHandler(async (req, res) => {
+    const { entity_id, status, from_date, to_date } = req.query;
+    
+    let query = `
+        SELECT pb.*, 
+               e.name as entity_name,
+               f.name as fund_name,
+               cns.company_name as nacha_company_name
+        FROM payment_batches pb
+        LEFT JOIN entities e ON pb.entity_id = e.id
+        LEFT JOIN funds f ON pb.fund_id = f.id
+        LEFT JOIN company_nacha_settings cns ON pb.nacha_settings_id = cns.id
+        WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramIndex = 1;
+    
+    if (entity_id) {
+        query += ` AND pb.entity_id = $${paramIndex++}`;
+        params.push(entity_id);
+    }
+    
+    if (status) {
+        query += ` AND pb.status = $${paramIndex++}`;
+        params.push(status);
+    }
+    
+    if (from_date) {
+        query += ` AND pb.batch_date >= $${paramIndex++}`;
+        params.push(from_date);
+    }
+    
+    if (to_date) {
+        query += ` AND pb.batch_date <= $${paramIndex++}`;
+        params.push(to_date);
+    }
+    
+    query += ` ORDER BY pb.batch_date DESC, pb.created_at DESC`;
+    
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+}));
+
+/**
+ * GET /api/payment-batches/:id
+ * Returns a specific payment batch by ID with its items
+ */
+router.get('/:id', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    
+    // Get the payment batch
+    const batchResult = await pool.query(`
+        SELECT pb.*, 
+               e.name as entity_name,
+               f.name as fund_name,
+               cns.company_name as nacha_company_name
+        FROM payment_batches pb
+        LEFT JOIN entities e ON pb.entity_id = e.id
+        LEFT JOIN funds f ON pb.fund_id = f.id
+        LEFT JOIN company_nacha_settings cns ON pb.nacha_settings_id = cns.id
+        WHERE pb.id = $1
+    `, [id]);
+    
+    if (batchResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Payment batch not found' });
+    }
+    
+    // Get the payment items for this batch
+    const itemsResult = await pool.query(`
+        SELECT pi.*, 
+               v.name as vendor_name,
+               v.vendor_code,
+               vba.account_name as bank_account_name,
+               vba.account_number as bank_account_number
+        FROM payment_items pi
+        LEFT JOIN vendors v ON pi.vendor_id = v.id
+        LEFT JOIN vendor_bank_accounts vba ON pi.vendor_bank_account_id = vba.id
+        WHERE pi.payment_batch_id = $1
+        ORDER BY pi.created_at
+    `, [id]);
+    
+    // Combine batch with its items
+    const batch = batchResult.rows[0];
+    batch.items = itemsResult.rows;
+    
+    res.json(batch);
+}));
+
+/**
+ * POST /api/payment-batches
+ * Creates a new payment batch
+ */
+router.post('/', asyncHandler(async (req, res) => {
+    const {
+        entity_id,
+        fund_id,
+        nacha_settings_id,
+        batch_number,
+        batch_date,
+        effective_date,
+        description,
+        status
+    } = req.body;
+    
+    // Validate required fields
+    if (!entity_id) {
+        return res.status(400).json({ error: 'Entity ID is required' });
+    }
+    
+    if (!batch_number) {
+        return res.status(400).json({ error: 'Batch number is required' });
+    }
+    
+    const { rows } = await pool.query(`
+        INSERT INTO payment_batches (
+            entity_id,
+            fund_id,
+            nacha_settings_id,
+            batch_number,
+            batch_date,
+            effective_date,
+            description,
+            status,
+            total_amount,
+            total_items
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+    `, [
+        entity_id,
+        fund_id,
+        nacha_settings_id,
+        batch_number,
+        batch_date || new Date(),
+        effective_date,
+        description,
+        status || 'Draft',
+        0, // Initial total_amount
+        0  // Initial total_items
+    ]);
+    
+    res.status(201).json(rows[0]);
+}));
+
+/**
+ * PUT /api/payment-batches/:id
+ * Updates an existing payment batch
+ */
+router.put('/:id', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const {
+        entity_id,
+        fund_id,
+        nacha_settings_id,
+        batch_name,
+        batch_date,
+        effective_date,
+        description,
+        status,
+        total_amount,
+        total_items
+    } = req.body;
+    
+    // Validate batch exists
+    const batchCheck = await pool.query('SELECT id FROM payment_batches WHERE id = $1', [id]);
+    if (batchCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Payment batch not found' });
+    }
+    
+    // Update the batch
+    const { rows } = await pool.query(`
+        UPDATE payment_batches
+        SET entity_id = $1,
+            fund_id = $2,
+            nacha_settings_id = $3,
+            batch_name = $4,
+            batch_date = $5,
+            effective_date = $6,
+            description = $7,
+            status = $8,
+            total_amount = $9,
+            total_items = $10,
+            updated_at = NOW()
+        WHERE id = $11
+        RETURNING *
+    `, [
+        entity_id,
+        fund_id,
+        nacha_settings_id,
+        batch_name,
+        batch_date,
+        effective_date,
+        description,
+        status,
+        total_amount,
+        total_items,
+        id
+    ]);
+    
+    res.json(rows[0]);
+}));
+
+/**
+ * DELETE /api/payment-batches/:id
+ * Deletes a payment batch and its items
+ */
+router.delete('/:id', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    
+    // Start a transaction to delete batch and related items
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Delete related payment items first
+        await client.query('DELETE FROM payment_items WHERE payment_batch_id = $1', [id]);
+        
+        // Delete the payment batch
+        const result = await client.query('DELETE FROM payment_batches WHERE id = $1 RETURNING id', [id]);
+        
+        await client.query('COMMIT');
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Payment batch not found' });
+        }
+        
+        res.status(204).send();
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}));
+
+/**
+ * GET /api/payment-batches/:id/items
+ * Returns all payment items for a specific batch
+ */
+router.get('/:id/items', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    
+    const { rows } = await pool.query(`
+        SELECT pi.*, 
+               v.name as vendor_name,
+               v.vendor_code,
+               vba.account_name as bank_account_name,
+               vba.account_number as bank_account_number
+        FROM payment_items pi
+        LEFT JOIN vendors v ON pi.vendor_id = v.id
+        LEFT JOIN vendor_bank_accounts vba ON pi.vendor_bank_account_id = vba.id
+        WHERE pi.payment_batch_id = $1
+        ORDER BY pi.created_at
+    `, [id]);
+    
+    res.json(rows);
+}));
+
+/**
+ * POST /api/payment-batches/:id/items
+ * Adds a new payment item to a batch
+ */
+router.post('/:id/items', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const {
+        vendor_id,
+        vendor_bank_account_id,
+        journal_entry_id,
+        amount,
+        description,
+        status
+    } = req.body;
+    
+    // Validate required fields
+    if (!vendor_id) {
+        return res.status(400).json({ error: 'Vendor ID is required' });
+    }
+    
+    if (!amount || isNaN(parseFloat(amount))) {
+        return res.status(400).json({ error: 'Valid amount is required' });
+    }
+    
+    // Start a transaction to add item and update batch totals
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Verify the batch exists
+        const batchCheck = await client.query('SELECT id FROM payment_batches WHERE id = $1', [id]);
+        if (batchCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Payment batch not found' });
+        }
+        
+        // Insert the payment item
+        const itemResult = await client.query(`
+            INSERT INTO payment_items (
+                payment_batch_id,
+                vendor_id,
+                vendor_bank_account_id,
+                journal_entry_id,
+                amount,
+                description,
+                status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+        `, [
+            id,
+            vendor_id,
+            vendor_bank_account_id,
+            journal_entry_id,
+            amount,
+            description,
+            status || 'Pending'
+        ]);
+        
+        // Update the batch totals
+        await client.query(`
+            UPDATE payment_batches
+            SET total_amount = (
+                SELECT COALESCE(SUM(amount), 0)
+                FROM payment_items
+                WHERE payment_batch_id = $1
+            ),
+            total_items = (
+                SELECT COUNT(*)
+                FROM payment_items
+                WHERE payment_batch_id = $1
+            ),
+            updated_at = NOW()
+            WHERE id = $1
+        `, [id]);
+        
+        await client.query('COMMIT');
+        
+        // Get the updated item with related data
+        const { rows } = await pool.query(`
+            SELECT pi.*, 
+                   v.name as vendor_name,
+                   v.vendor_code,
+                   vba.account_name as bank_account_name,
+                   vba.account_number as bank_account_number
+            FROM payment_items pi
+            LEFT JOIN vendors v ON pi.vendor_id = v.id
+            LEFT JOIN vendor_bank_accounts vba ON pi.vendor_bank_account_id = vba.id
+            WHERE pi.id = $1
+        `, [itemResult.rows[0].id]);
+        
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}));
+
+/**
+ * DELETE /api/payment-batches/:batchId/items/:itemId
+ * Removes a payment item from a batch
+ */
+router.delete('/:batchId/items/:itemId', asyncHandler(async (req, res) => {
+    const { batchId, itemId } = req.params;
+    
+    // Start a transaction to delete item and update batch totals
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Verify the item exists and belongs to the batch
+        const itemCheck = await client.query(
+            'SELECT id FROM payment_items WHERE id = $1 AND payment_batch_id = $2',
+            [itemId, batchId]
+        );
+        
+        if (itemCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Payment item not found or does not belong to this batch' });
+        }
+        
+        // Delete the payment item
+        await client.query('DELETE FROM payment_items WHERE id = $1', [itemId]);
+        
+        // Update the batch totals
+        await client.query(`
+            UPDATE payment_batches
+            SET total_amount = (
+                SELECT COALESCE(SUM(amount), 0)
+                FROM payment_items
+                WHERE payment_batch_id = $1
+            ),
+            total_items = (
+                SELECT COUNT(*)
+                FROM payment_items
+                WHERE payment_batch_id = $1
+            ),
+            updated_at = NOW()
+            WHERE id = $1
+        `, [batchId]);
+        
+        await client.query('COMMIT');
+        
+        res.status(204).send();
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}));
+
+module.exports = router;

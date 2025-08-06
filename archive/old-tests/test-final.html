@@ -1,0 +1,128 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Header Fix - Final Attempt</title>
+    <style>
+        /* Force scroll bar to be always visible to prevent layout shifting */
+        html { overflow-y: scroll; }
+        
+        /* Reset all browser defaults */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* Use a stacking context on the body */
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            font-family: Arial, sans-serif;
+            position: relative;
+            min-height: 100vh;
+        }
+        
+        /* Create a separate layer for header with transform */
+        .site-wrapper {
+            padding-top: 70px !important; /* Force spacing for header */
+        }
+        
+        /* Header with all possible fixes applied */
+        .page-header {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 60px !important;
+            z-index: 2147483647 !important; /* Maximum z-index possible */
+            background-color: #1976d2 !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+            transform: translateZ(999px) !important; /* Force onto own layer */
+            border-bottom: 5px solid #ff0000 !important;
+            
+            /* Flexbox for content alignment */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 0 20px !important;
+        }
+        
+        /* Header title with high visibility styling */
+        .header-title {
+            color: white !important;
+            font-size: 20px !important;
+            font-weight: bold !important;
+            /* Add text shadow for contrast */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5) !important;
+        }
+        
+        /* Spacer div to force content down */
+        .header-spacer {
+            display: block !important;
+            width: 100% !important;
+            height: 60px !important;
+            visibility: hidden !important;
+        }
+        
+        /* Content area */
+        .main-content {
+            background-color: #f5f5f5 !important;
+            position: relative !important;
+            z-index: 1 !important;
+            padding: 20px !important;
+            min-height: calc(100vh - 70px) !important;
+            margin-top: 10px !important; /* Extra margin for safety */
+        }
+        
+        /* Test box */
+        .test-box {
+            background-color: white !important;
+            border-radius: 5px !important;
+            padding: 20px !important;
+            margin-bottom: 15px !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Site wrapper -->
+    <div class="site-wrapper">
+        <!-- Fixed header -->
+        <header class="page-header">
+            <h1 class="header-title">NON-PROFIT FUND ACCOUNTING SYSTEM</h1>
+            <div>User: Admin</div>
+        </header>
+        
+        <!-- Extra spacer element to push content down -->
+        <div class="header-spacer"></div>
+        
+        <!-- Main content area -->
+        <main class="main-content">
+            <div class="test-box">
+                <h2>Dashboard</h2>
+                <p>This content should appear completely below the red border of the header.</p>
+            </div>
+            
+            <div class="test-box">
+                <h3>Test Section</h3>
+                <p>This is another section that should be below the header.</p>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Script to force layout calculation -->
+    <script>
+        // Force browser to recalculate layout after load
+        window.onload = function() {
+            // Force repaint by accessing offsetHeight
+            document.querySelector('.page-header').offsetHeight;
+            
+            // Add extra pixels to the top padding of main content just to be safe
+            setTimeout(function() {
+                document.querySelector('.site-wrapper').style.paddingTop = '75px';
+            }, 100);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Endpoint Test - Entities and Funds</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #0d6efd;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        .json-display {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .section {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        .success {
+            color: #198754;
+        }
+        .error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Endpoint Test - Entities and Funds</h1>
+    <p>This page tests the API endpoints for entities and funds to verify they're working correctly.</p>
+
+    <div class="section">
+        <h2>Entity and Fund Selection</h2>
+        <div class="form-group">
+            <label for="entitySelect">Entity:</label>
+            <select id="entitySelect">
+                <option value="">-- Select Entity --</option>
+                <!-- Entities will be populated dynamically -->
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="fundSelect">Fund:</label>
+            <select id="fundSelect" disabled>
+                <option value="">-- Select Fund --</option>
+                <!-- Funds will be populated dynamically -->
+            </select>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Console Log</h2>
+        <div id="consoleLog" class="log"></div>
+    </div>
+
+    <div class="section">
+        <h2>Raw Data</h2>
+        <h3>Entities JSON:</h3>
+        <div id="entitiesJson" class="json-display">Loading entities...</div>
+
+        <h3>Funds JSON:</h3>
+        <div id="fundsJson" class="json-display">Select an entity to load funds...</div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE_URL = 'http://localhost:3000';
+        
+        // DOM Elements
+        const entitySelect = document.getElementById('entitySelect');
+        const fundSelect = document.getElementById('fundSelect');
+        const entitiesJsonDisplay = document.getElementById('entitiesJson');
+        const fundsJsonDisplay = document.getElementById('fundsJson');
+        const consoleLogDisplay = document.getElementById('consoleLog');
+        
+        // Logging function
+        function log(message, type = 'info') {
+            console.log(message);
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (type === 'error') {
+                logEntry.classList.add('error');
+            } else if (type === 'success') {
+                logEntry.classList.add('success');
+            }
+            consoleLogDisplay.appendChild(logEntry);
+            consoleLogDisplay.scrollTop = consoleLogDisplay.scrollHeight;
+        }
+        
+        // Fetch entities from API
+        async function fetchEntities() {
+            try {
+                log('Fetching entities from API...');
+                const response = await fetch(`${API_BASE_URL}/api/entities`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const entities = await response.json();
+                log(`Successfully fetched ${entities.length} entities`, 'success');
+                
+                // Display raw JSON
+                entitiesJsonDisplay.textContent = JSON.stringify(entities, null, 2);
+                
+                // Populate entity dropdown
+                populateEntityDropdown(entities);
+                
+                return entities;
+            } catch (error) {
+                log(`Error fetching entities: ${error.message}`, 'error');
+                entitiesJsonDisplay.textContent = `Error: ${error.message}`;
+                return [];
+            }
+        }
+        
+        // Fetch funds for a specific entity
+        async function fetchFunds(entityId) {
+            try {
+                log(`Fetching funds for entity ID: ${entityId}`);
+                const url = entityId ? 
+                    `${API_BASE_URL}/api/funds?entityId=${entityId}` : 
+                    `${API_BASE_URL}/api/funds`;
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const funds = await response.json();
+                log(`Successfully fetched ${funds.length} funds for entity ID: ${entityId}`, 'success');
+                
+                // Display raw JSON
+                fundsJsonDisplay.textContent = JSON.stringify(funds, null, 2);
+                
+                // Populate fund dropdown
+                populateFundDropdown(funds);
+                
+                return funds;
+            } catch (error) {
+                log(`Error fetching funds: ${error.message}`, 'error');
+                fundsJsonDisplay.textContent = `Error: ${error.message}`;
+                return [];
+            }
+        }
+        
+        // Populate entity dropdown
+        function populateEntityDropdown(entities) {
+            log('Populating entity dropdown...');
+            
+            // Clear existing options except the first one
+            while (entitySelect.options.length > 1) {
+                entitySelect.remove(1);
+            }
+            
+            // Add entity options
+            entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = `${entity.name} (${entity.code})`;
+                entitySelect.appendChild(option);
+            });
+            
+            log(`Added ${entities.length} entities to dropdown`, 'success');
+        }
+        
+        // Populate fund dropdown
+        function populateFundDropdown(funds) {
+            log('Populating fund dropdown...');
+            
+            // Clear existing options except the first one
+            while (fundSelect.options.length > 1) {
+                fundSelect.remove(1);
+            }
+            
+            // Enable the dropdown
+            fundSelect.disabled = false;
+            
+            // Add fund options
+            funds.forEach(fund => {
+                const option = document.createElement('option');
+                option.value = fund.id;
+                option.textContent = `${fund.name} (${fund.code})`;
+                fundSelect.appendChild(option);
+            });
+            
+            log(`Added ${funds.length} funds to dropdown`, 'success');
+        }
+        
+        // Event Listeners
+        entitySelect.addEventListener('change', function() {
+            const selectedEntityId = this.value;
+            
+            // Reset fund dropdown if no entity selected
+            if (!selectedEntityId) {
+                log('No entity selected, resetting fund dropdown');
+                fundSelect.disabled = true;
+                while (fundSelect.options.length > 1) {
+                    fundSelect.remove(1);
+                }
+                fundsJsonDisplay.textContent = 'Select an entity to load funds...';
+                return;
+            }
+            
+            // Fetch funds for selected entity
+            fetchFunds(selectedEntityId);
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Page loaded, initializing API tests...');
+            fetchEntities();
+        });
+    </script>
+</body>
+</html>

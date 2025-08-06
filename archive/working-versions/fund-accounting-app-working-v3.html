@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Profit Fund Accounting System - v6.0 Working v3</title>
+    <style>
+        /* Basic reset */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; padding-bottom: 180px; /* Space for fixed log output */ }
+        .header { background-color: #1976d2; color: white; padding: 15px 20px; border-bottom: 3px solid #0d47a1; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .header h1 { font-size: 20px; }
+        .entity-selector-container { display: flex; align-items: center; gap: 8px; }
+        #entity-selector { padding: 6px 10px; border-radius: 4px; border: 1px solid #0d47a1; background-color: white; color: #333; min-width: 180px; }
+        .main-nav { background-color: #f0f0f0; padding: 10px 0; border-bottom: 1px solid #ddd; }
+        .nav-container { display: flex; justify-content: center; gap: 20px; max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .nav-item { padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 500; }
+        .nav-item:hover { background-color: #e0e0e0; }
+        .nav-item.active { background-color: #2196f3; color: white; }
+        .container { display: flex; max-width: 1200px; margin: 20px auto; padding: 0 20px; gap: 20px; }
+        .sidebar { width: 250px; background-color: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; align-self: flex-start; }
+        .sidebar-menu { list-style: none; }
+        .sidebar-menu li { margin-bottom: 10px; }
+        .sidebar-menu a { display: block; padding: 10px; color: #333; text-decoration: none; border-radius: 4px; cursor: pointer; }
+        .sidebar-menu a:hover { background-color: #f0f0f0; }
+        .sidebar-menu a.active { background-color: #e3f2fd; color: #1976d2; border-left: 3px solid #1976d2; }
+        .main-content { flex: 1; background-color: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; }
+        .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .content-header h2 { margin: 0; font-size: 1.5em; }
+        .action-button { background-color: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 500; }
+        .action-button:hover { background-color: #43a047; }
+        .btn-secondary { background-color: #757575; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 500; }
+        .btn-secondary:hover { background-color: #616161; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .data-table th, .data-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        .data-table th { background-color: #f9f9f9; font-weight: 600; }
+        .data-table tbody tr:hover { background-color: #f5f5f5; }
+        .page { display: none; } 
+        .page.active { display: block; } 
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+        .card { background-color: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; border-top: 3px solid #1976d2; display: flex; flex-direction: column;}
+        .card > p { flex-grow: 1; margin-bottom: 15px; }
+        .card-title { font-size: 18px; margin-bottom: 10px; }
+        .card-value { font-size: 24px; font-weight: 600; color: #1976d2; }
+        .dashboard-panel { display: none; } 
+        .dashboard-panel.active { display: block; } 
+        .mt-20 { margin-top: 20px; }
+        .preview-placeholder { text-align: center; padding: 20px; color: #757575; font-style: italic; }
+        
+        /* Log Output Styling - Fixed at Bottom */
+        #log-output-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #222; /* Darker background for contrast */
+            border-top: 2px solid #444;
+            z-index: 10000; /* High z-index to be on top */
+            padding: 5px 10px;
+            box-sizing: border-box;
+            color: #ccc;
+        }
+        #log-output {
+            max-height: 140px; /* Max height for the scrollable area */
+            overflow-y: auto;
+            background-color: #282c34; /* Dark background for log entries */
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            border: 1px solid #444;
+            border-radius: 3px;
+        }
+        .log-entry { padding: 1px 0; border-bottom: 1px dotted #444; }
+        .log-entry:last-child { border-bottom: none; }
+        .log-step { color: #61afef; font-weight: bold; } /* Light blue for steps */
+        .log-success { color: #98c379; } /* Light green for success */
+        .log-error { color: #e06c75; font-weight: bold; } /* Light red for errors */
+        .log-info { color: #abb2bf; } /* Light grey for info */
+
+        #init-status-indicator { position: fixed; bottom: 160px; /* Above log output */ right: 10px; padding: 8px 12px; border-radius: 4px; font-size: 14px; font-weight: 500; z-index: 10001; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        #init-status-indicator.initializing { background-color: #fff8e1; color: #ff8f00; border: 1px solid #ffecb3; }
+        #init-status-indicator.success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+        #init-status-indicator.error { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        .status { display: inline-block; padding: 4px 8px; border-radius: 30px; font-size: 12px; font-weight: 500; }
+        .status-active { background-color: #e8f5e9; color: #2e7d32; }
+        .status-inactive { background-color: #f5f5f5; color: #757575; }
+         /* Modal Styles (Simplified for now) */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 9990; }
+        .modal-dialog { background-color: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.2); min-width: 300px; max-width: 500px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .modal-title { font-size: 1.2em; font-weight: bold; }
+        .modal-close-btn { background: none; border: none; font-size: 1.5em; cursor: pointer; }
+        .modal-footer { margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Fund Accounting (Working v3.0)</h1>
+            <div class="entity-selector-container">
+                <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                <select id="entity-selector">
+                    <option value="">Loading Entities...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-nav" id="mainNavContainer"> 
+        <div class="nav-container">
+            <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+            <div class="nav-item" data-page="reports">Reports</div>
+            <div class="nav-item" data-page="settings">Settings</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="dashboard-page" class="page active">
+            <div class="content-header"><h2>Dashboard</h2></div>
+            <p>Welcome to the Dashboard. Entity-specific content would appear here.</p>
+            <p>Current Entity ID: <span id="dashboard-current-entity">-</span></p>
+        </div>
+        
+        <div id="chart-of-accounts-page" class="page">
+            <div class="content-header">
+                <h2>Chart of Accounts</h2>
+                <button class="action-button" id="btnAddAccount">Add Account</button>
+            </div>
+            <table class="data-table" id="chart-of-accounts-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Sample data will be populated here by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div id="reports-page" class="page">
+            <div class="content-header"><h2>Reports (Minimal)</h2></div>
+            <p>This is the simplified reports page. Full report functionality will be added back incrementally.</p>
+        </div>
+        <div id="settings-page" class="page">
+            <div class="content-header"><h2>Settings (Minimal)</h2></div>
+            <p>This is the simplified settings page. Full settings functionality with tabs will be added back incrementally.</p>
+        </div>
+    </div>
+    
+    <div id="init-status-indicator" class="initializing">Status: Initializing Script...</div>
+    <div id="log-output-container"><div id="log-output"></div></div>
+
+    <!-- Placeholder Modals -->
+    <div id="account-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="account-modal-title">Account</h3>
+                <button class="modal-close-btn" data-modal-id="account-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Account Add/Edit Form Placeholder. ID: <span id="edit-account-id-display">-</span></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="account-modal">Cancel</button>
+                <button class="action-button" id="save-account-btn">Save Account</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const APP_VERSION = "v6.0-working-v3";
+        const statusIndicatorDiv = document.getElementById('init-status-indicator');
+        const logOutputDiv = document.getElementById('log-output');
+
+        function logMsg(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const fullMessage = `[${timestamp}] [${APP_VERSION}] [${type.toUpperCase()}]: ${message}`;
+            console.log(fullMessage);
+            if (logOutputDiv) {
+                const p = document.createElement('p');
+                p.className = `log-entry log-${type}`;
+                p.textContent = fullMessage;
+                logOutputDiv.appendChild(p);
+                logOutputDiv.scrollTop = logOutputDiv.scrollHeight;
+            }
+        }
+
+        function updateAppStatus(message, statusType) {
+            if (statusIndicatorDiv) {
+                statusIndicatorDiv.textContent = `Status: ${message}`;
+                statusIndicatorDiv.className = `status-indicator ${statusType}`;
+            }
+            logMsg(`Status Update: ${message}`, statusType === 'error' ? 'error' : 'info');
+        }
+
+        let currentEntityId = null; 
+        const entities = [ 
+            { id: 'ent1', name: 'Main Organization HQ', baseCurrency: 'USD' },
+            { id: 'ent2', name: 'Branch Office Alpha', baseCurrency: 'CAD' }
+        ];
+        const accounts = [
+            { id: 'acc1', entityId: 'ent1', code: '1000', name: 'Cash - Main HQ', type: 'Asset', balance: 50000, status: 'Active' },
+            { id: 'acc2', entityId: 'ent1', code: '4000', name: 'Revenue - Main HQ', type: 'Revenue', balance: 100000, status: 'Active' },
+            { id: 'acc3', entityId: 'ent2', code: '1010', name: 'Cash - Branch Alpha', type: 'Asset', balance: 10000, status: 'Active' },
+            { id: 'acc4', entityId: 'ent2', code: '5000', name: 'Expense - Branch Alpha', type: 'Expense', balance: 5000, status: 'Inactive' }
+        ];
+        
+        function getEntityById(id) { return entities.find(e => e.id === id); }
+        function getEntityName(id) { const e = getEntityById(id); return e ? e.name : "N/A"; }
+        function getEntityCurrency(id) { const e = getEntityById(id); return e ? e.baseCurrency : 'USD'; }
+        function formatCurrency(amount, currencyCode) {
+            return `${(amount || 0).toFixed(2)} ${currencyCode}`;
+        }
+        function getAccountsForDisplay() { 
+            if (!currentEntityId) return [];
+            return accounts.filter(a => a.entityId === currentEntityId); 
+        }
+        
+        function populateEntitySelector() {
+            logMsg("Populating entity selector...", "step");
+            const selector = document.getElementById('entity-selector');
+            if (!selector) {
+                logMsg("Entity selector dropdown (#entity-selector) not found!", "error");
+                throw new Error("Entity selector dropdown not found!");
+            }
+            selector.innerHTML = '<option value="">-- Select Entity --</option>'; 
+            entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = entity.name;
+                selector.appendChild(option);
+            });
+
+            if (entities.length > 0) {
+                currentEntityId = entities[0].id; 
+                selector.value = currentEntityId;
+                logMsg(`Default entity set to: ${currentEntityId} (${entities[0].name})`, "info");
+            } else {
+                logMsg("No entities available to populate selector.", "warn");
+            }
+            updateDashboardEntityDisplay();
+            logMsg("Entity selector populated.", "success");
+        }
+
+        function handleEntityChange(event) {
+            currentEntityId = event.target.value;
+            logMsg(`Entity changed to: ${currentEntityId} (${getEntityName(currentEntityId)})`, "info");
+            updateDashboardEntityDisplay();
+            renderChartOfAccountsTable(); 
+        }
+        
+        function updateDashboardEntityDisplay() {
+            const displayEl = document.getElementById('dashboard-current-entity');
+            if (displayEl) {
+                displayEl.textContent = currentEntityId ? `${getEntityName(currentEntityId)} (ID: ${currentEntityId})` : 'None Selected';
+            }
+        }
+
+        function navigateToPage(pageId) {
+            logMsg(`Navigating to page: ${pageId}`, "info");
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const targetPage = document.getElementById(pageId + '-page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+                logMsg(`Page ${pageId} activated.`, "success");
+            } else {
+                logMsg(`Page element not found: ${pageId}-page`, "error");
+                return; 
+            }
+
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            const activeNavItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+            if (activeNavItem) activeNavItem.classList.add('active');
+            else logMsg(`Nav item for page ${pageId} not found.`, "warn");
+        }
+        
+        function renderChartOfAccountsTable() {
+            logMsg("Rendering Chart of Accounts Table...", "step");
+            const tbody = document.getElementById('chart-of-accounts-table')?.querySelector('tbody');
+            if (!tbody) { 
+                logMsg("Chart of Accounts table body not found!", "error"); 
+                return; 
+            }
+            tbody.innerHTML = ''; 
+            const accountsToDisplay = getAccountsForDisplay();
+            if (accountsToDisplay.length === 0) {
+                const row = tbody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 6;
+                cell.className = 'preview-placeholder';
+                cell.textContent = 'No accounts found for the selected entity.';
+                logMsg("No accounts to display for current entity.", "info");
+                return;
+            }
+            accountsToDisplay.forEach(acc => {
+                const r = tbody.insertRow();
+                const currency = getEntityCurrency(acc.entityId);
+                r.innerHTML = `
+                    <td>${acc.code}</td>
+                    <td>${acc.name}</td>
+                    <td>${acc.type}</td>
+                    <td>${formatCurrency(acc.balance || 0, currency)}</td>
+                    <td><span class="status status-${acc.status.toLowerCase()}">${acc.status}</span></td>
+                    <td><button class="action-button btn-edit-account" data-id="${acc.id}">Edit</button></td>
+                `;
+            });
+            logMsg(`Chart of Accounts Table rendered with ${accountsToDisplay.length} rows.`, "success");
+        }
+        
+        function openAccountModal(accountId = null) {
+            const title = accountId ? `Edit Account (ID: ${accountId})` : 'Add New Account';
+            openModalWithTitle('account-modal', title, accountId);
+        }
+
+        /* ------------------------------------------------------------------
+           Generic Modal Helpers
+        ------------------------------------------------------------------ */
+        /**
+         * Open a modal overlay and optionally update its title and ID display
+         * @param {string} modalId  - The ID of the modal overlay element
+         * @param {string} title    - Title text to inject into `.modal-title`
+         * @param {?string} editId  - Optional ID being edited (only shown for account-modal)
+         */
+        function openModalWithTitle(modalId, title, editId = null) {
+            logMsg(`Opening modal: ${modalId} with title: ${title}`, "info");
+            const modal = document.getElementById(modalId);
+            if (!modal) {
+                logMsg(`Modal element not found: ${modalId}`, "error");
+                return;
+            }
+
+            // Set modal title
+            const titleEl = modal.querySelector('.modal-title');
+            if (titleEl) titleEl.textContent = title;
+
+            // If this is the account modal, update the placeholder ID span
+            if (modalId === 'account-modal') {
+                const idDisplay = document.getElementById('edit-account-id-display');
+                if (idDisplay) idDisplay.textContent = editId || 'New';
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        /**
+         * Close a modal overlay by ID
+         * @param {string} modalId - The modal overlay element ID
+         */
+        function closeModalById(modalId) {
+            logMsg(`Closing modal: ${modalId}`, "info");
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'none';
+            } else {
+                logMsg(`Modal element not found for closing: ${modalId}`, "error");
+            }
+        }
+
+
+        function initApp() {
+            logMsg(`initApp() called. Document readyState: ${document.readyState}`, "info");
+            updateAppStatus("Initialization Started...", "initializing");
+
+            try {
+                logMsg("Step 0: Verifying base DOM elements...", "step");
+                if (!document.body || !statusIndicatorDiv || !logOutputDiv || !document.querySelector('.main-nav')) {
+                    throw new Error("Essential base DOM elements (body, status, log, .main-nav) not found!");
+                }
+                logMsg("Step 0: Base DOM elements verified.", "success");
+                updateAppStatus("Base DOM Verified", "initializing");
+
+                logMsg("Step 1: Populating Entity Selector...", "step");
+                populateEntitySelector();
+                updateAppStatus("Entity Selector Populated", "initializing");
+
+                logMsg("Step 2: Attaching Event Handlers...", "step");
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.addEventListener('click', function() { navigateToPage(this.dataset.page); });
+                });
+                logMsg("Main navigation listeners attached.", "info");
+
+                const entitySelectorEl = document.getElementById('entity-selector');
+                if (entitySelectorEl) entitySelectorEl.addEventListener('change', handleEntityChange);
+                else logMsg("Entity selector element for event listener not found!", "error");
+                
+                const btnAddAccount = document.getElementById('btnAddAccount');
+                if (btnAddAccount) {
+                    btnAddAccount.addEventListener('click', () => {
+                        logMsg("Add Account button clicked.", "info");
+                        openAccountModal();
+                    });
+                    logMsg("Event listener for 'Add Account' button attached.", "success");
+                } else {
+                    logMsg("Add Account button (#btnAddAccount) NOT FOUND for listener attachment.", "error");
+                }
+
+                const coaTable = document.getElementById('chart-of-accounts-table');
+                if (coaTable) {
+                    coaTable.addEventListener('click', function(event) {
+                        if (event.target && event.target.classList.contains('btn-edit-account')) {
+                            const accountId = event.target.dataset.id;
+                            logMsg(`Edit Account button clicked for ID: ${accountId}.`, "info");
+                            openAccountModal(accountId);
+                        }
+                    });
+                    logMsg("Delegated event listener for 'Edit Account' buttons in CoA table attached.", "success");
+                } else {
+                     logMsg("Chart of Accounts table (#chart-of-accounts-table) NOT FOUND for delegated event listener.", "error");
+                }
+                
+                // Modal close buttons
+                document.querySelectorAll('.modal-close-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        closeModalById(this.dataset.modalId);
+                    });
+                });
+                document.querySelectorAll('.modal-overlay').forEach(modalOverlay => {
+                    modalOverlay.addEventListener('click', function(event) {
+                        if (event.target === this) { 
+                            closeModalById(this.id);
+                        }
+                    });
+                });
+                 // Placeholder save buttons in modals
+                document.getElementById('save-account-btn')?.addEventListener('click', () => { logMsg("Save Account clicked (placeholder).", "info"); closeModalById('account-modal'); });
+
+
+                logMsg("Step 2: Core event handlers attached.", "success");
+                updateAppStatus("Event Handlers Attached", "initializing");
+
+                logMsg("Step 3: Setting Initial Page & Rendering Data...", "step");
+                navigateToPage('dashboard'); 
+                renderChartOfAccountsTable(); // Render CoA table on initial load or when needed
+                logMsg("Step 3: Initial page set and data rendered.", "success");
+                updateAppStatus("Initial Page Rendered", "initializing");
+                
+                updateAppStatus("All Initialization Steps Succeeded!", "success");
+                logMsg("APP INITIALIZATION COMPLETE: SUCCESS", "success");
+
+            } catch (error) {
+                logMsg(`CRITICAL ERROR during initialization: ${error.message}\nStack: ${error.stack}`, "error");
+                updateAppStatus(`Initialization FAILED: ${error.message}. Check console.`, "error");
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            logMsg("Document is loading. Adding DOMContentLoaded listener for initApp().", "info");
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            logMsg("Document already loaded. Calling initApp() directly.", "info");
+            initApp(); 
+        }
+        
+        logMsg("End of initial script block.", "info");
+    </script>
+</body>
+</html>

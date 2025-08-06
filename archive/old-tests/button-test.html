@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Event Handler Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+        .container { max-width: 800px; margin: 0 auto; background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        button { padding: 10px 15px; margin: 10px 5px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 4px; background-color: #e7e7e7; }
+        button:hover { background-color: #ddd; }
+        #outputDiv { margin-top: 20px; padding: 15px; border: 1px solid #ddd; background-color: #fff; min-height: 60px; font-family: monospace; white-space: pre-wrap; }
+        .status { position: fixed; bottom: 10px; right: 10px; background-color: #ffc; border: 1px solid #e0c000; padding: 10px; font-size: 12px; border-radius: 4px; }
+        .status.success { background-color: #cfc; border-color: #0a0; }
+        .status.error { background-color: #fcc; border-color: #c00; }
+        .test-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed #ccc; }
+        .test-group:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Button Event Handler Test</h1>
+        <p>This page tests different ways of attaching event handlers to buttons. Check the "Output Area" and the browser console (F12) for messages.</p>
+
+        <div id="outputDiv">Output will appear here.</div>
+        <div id="jsInitStatus" class="status">JS Initializing...</div>
+
+        <div class="test-group">
+            <h2>Test Group 1: Basic Event Handlers</h2>
+            <button id="btnA" onclick="document.getElementById('outputDiv').innerText = 'Button A (Inline onclick) clicked at ' + new Date().toLocaleTimeString(); console.log('BTN_TEST: Button A (Inline onclick) clicked.');">
+                Button A (Inline onclick)
+            </button>
+
+            <button id="btnB">
+                Button B (element.onclick)
+            </button>
+
+            <button id="btnC">
+                Button C (addEventListener)
+            </button>
+        </div>
+
+        <div class="test-group">
+            <h2>Test Group 2: DOM Manipulation & Local Function Call</h2>
+            <button id="btnD">
+                Button D (addEventListener - Complex DOM)
+            </button>
+            <button id="btnE">
+                Button E (addEventListener - Call Local Func)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        console.log("BTN_TEST: Script block started.");
+        const outputDiv = document.getElementById('outputDiv');
+        const jsInitStatusDiv = document.getElementById('jsInitStatus');
+
+        function updateOutput(message, isError = false) {
+            if (outputDiv) {
+                const timestamp = new Date().toLocaleTimeString();
+                outputDiv.innerHTML = `[${timestamp}] ${message}`;
+                outputDiv.style.color = isError ? 'red' : 'green';
+                console.log(`BTN_TEST_LOG: ${message}`);
+            } else {
+                console.error("BTN_TEST_ERROR: outputDiv not found when trying to update.");
+            }
+        }
+
+        function localTestFunction(buttonName) {
+            console.log(`BTN_TEST: localTestFunction called by ${buttonName}.`);
+            updateOutput(`${buttonName} called localTestFunction successfully.`);
+        }
+
+        function attachEventHandlers() {
+            console.log("BTN_TEST: attachEventHandlers() called.");
+            try {
+                // Button B (element.onclick)
+                const buttonB = document.getElementById('btnB');
+                if (buttonB) {
+                    buttonB.onclick = function() {
+                        updateOutput('Button B (element.onclick) clicked.');
+                    };
+                    console.log("BTN_TEST: Handler for Button B attached.");
+                } else {
+                    console.error("BTN_TEST_ERROR: Button B not found.");
+                    updateOutput('Error: Button B not found.', true);
+                }
+
+                // Button C (addEventListener)
+                const buttonC = document.getElementById('btnC');
+                if (buttonC) {
+                    buttonC.addEventListener('click', function() {
+                        updateOutput('Button C (addEventListener) clicked.');
+                    });
+                    console.log("BTN_TEST: Handler for Button C attached.");
+                } else {
+                    console.error("BTN_TEST_ERROR: Button C not found.");
+                    updateOutput('Error: Button C not found.', true);
+                }
+
+                // Button D (addEventListener - Complex DOM)
+                const buttonD = document.getElementById('btnD');
+                if (buttonD) {
+                    buttonD.addEventListener('click', function() {
+                        console.log("BTN_TEST: Button D clicked.");
+                        if (outputDiv) {
+                            outputDiv.innerHTML = `<strong>Button D:</strong> innerHTML updated at ${new Date().toLocaleTimeString()}`;
+                            setTimeout(() => {
+                                outputDiv.textContent = `Button D: textContent updated at ${new Date().toLocaleTimeString()}`;
+                                updateOutput('Button D finished complex DOM update.');
+                            }, 500);
+                        }
+                    });
+                    console.log("BTN_TEST: Handler for Button D attached.");
+                } else {
+                    console.error("BTN_TEST_ERROR: Button D not found.");
+                    updateOutput('Error: Button D not found.', true);
+                }
+                
+                // Button E (addEventListener - Call Local Func)
+                const buttonE = document.getElementById('btnE');
+                if (buttonE) {
+                    buttonE.addEventListener('click', function() {
+                        localTestFunction('Button E');
+                    });
+                     console.log("BTN_TEST: Handler for Button E attached.");
+                } else {
+                    console.error("BTN_TEST_ERROR: Button E not found.");
+                    updateOutput('Error: Button E not found.', true);
+                }
+
+
+                if (jsInitStatusDiv) {
+                    jsInitStatusDiv.textContent = 'JS Initialized & Handlers Attached!';
+                    jsInitStatusDiv.className = 'status success';
+                    console.log("BTN_TEST: All handlers attached, status updated.");
+                }
+                
+            } catch (e) {
+                console.error("BTN_TEST_ERROR: Error in attachEventHandlers():", e);
+                if (jsInitStatusDiv) {
+                    jsInitStatusDiv.textContent = 'Error during JS Init! Check console.';
+                    jsInitStatusDiv.className = 'status error';
+                }
+                updateOutput(`Initialization Error: ${e.message}`, true);
+            }
+        }
+
+        // Ensure DOM is ready before attaching handlers
+        if (document.readyState === 'loading') {
+            console.log("BTN_TEST: Document loading, waiting for DOMContentLoaded.");
+            document.addEventListener('DOMContentLoaded', attachEventHandlers);
+        } else {
+            console.log("BTN_TEST: Document already loaded, calling attachEventHandlers() directly.");
+            attachEventHandlers();
+        }
+
+        console.log("BTN_TEST: Script block finished.");
+    </script>
+</body>
+</html>

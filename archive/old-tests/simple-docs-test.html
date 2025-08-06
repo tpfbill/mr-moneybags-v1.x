@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Documentation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #1976d2;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .loading {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        #result {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            overflow: auto;
+            max-height: 500px;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        .document-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .document-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: white;
+        }
+        .document-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .document-info {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Documentation Test</h1>
+    <p>This page makes a direct API call to fetch documentation files without any external dependencies.</p>
+    
+    <button id="fetchBtn" onclick="fetchDocuments()">Fetch Documents</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    
+    <div id="status" class="loading">Ready to fetch documents...</div>
+    
+    <h2>Log Output</h2>
+    <div id="logs"></div>
+    
+    <h2>Documents</h2>
+    <div id="documents"></div>
+    
+    <h2>Raw Response</h2>
+    <div id="result">
+        <pre>No data fetched yet.</pre>
+    </div>
+    
+    <script>
+        // Log both to console and to page
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            const logsContainer = document.getElementById('logs');
+            logsContainer.appendChild(logEntry);
+            
+            console.log(`[${type}] ${message}`);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            document.getElementById('result').innerHTML = '<pre>Logs cleared.</pre>';
+            document.getElementById('documents').innerHTML = '';
+            document.getElementById('status').className = 'loading';
+            document.getElementById('status').textContent = 'Ready to fetch documents...';
+        }
+        
+        // Update status display
+        function updateStatus(message, type) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = type;
+        }
+        
+        // Display raw JSON data
+        function displayRawData(data) {
+            const resultElement = document.getElementById('result');
+            resultElement.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+        
+        // Display documents in a grid
+        function displayDocuments(documents) {
+            const documentsContainer = document.getElementById('documents');
+            
+            if (!documents || documents.length === 0) {
+                documentsContainer.innerHTML = '<p>No documents found.</p>';
+                return;
+            }
+            
+            const documentsList = document.createElement('div');
+            documentsList.className = 'document-list';
+            
+            documents.forEach(doc => {
+                const docCard = document.createElement('div');
+                docCard.className = 'document-card';
+                
+                const docUrl = doc.url.startsWith('/') 
+                    ? `http://localhost:3000${doc.url}` 
+                    : doc.url;
+                
+                const sizeKB = Math.round((doc.size || 0) / 1024);
+                const lastModified = new Date(doc.lastModified).toLocaleDateString();
+                
+                docCard.innerHTML = `
+                    <div class="document-title">${doc.displayName || doc.filename}</div>
+                    <div class="document-info">
+                        <div>Size: ${sizeKB} KB</div>
+                        <div>Updated: ${lastModified}</div>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <a href="${docUrl}" target="_blank">View Document</a>
+                    </div>
+                `;
+                
+                documentsList.appendChild(docCard);
+            });
+            
+            documentsContainer.innerHTML = '';
+            documentsContainer.appendChild(documentsList);
+        }
+        
+        // Fetch documents from API
+        async function fetchDocuments() {
+            const apiUrl = 'http://localhost:3000/api/documents';
+            
+            updateStatus('Fetching documents...', 'loading');
+            log(`Starting fetch from: ${apiUrl}`);
+            
+            try {
+                log(`Making fetch request to ${apiUrl}`);
+                const response = await fetch(apiUrl);
+                
+                log(`Received response with status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                log('Parsing JSON response');
+                const data = await response.json();
+                
+                log(`Successfully parsed JSON. Found ${data.documents?.length || 0} documents.`);
+                displayRawData(data);
+                
+                if (data.success && Array.isArray(data.documents)) {
+                    updateStatus(`Successfully loaded ${data.documents.length} documents`, 'success');
+                    displayDocuments(data.documents);
+                } else {
+                    updateStatus('Invalid response format from server', 'error');
+                    log('Invalid response format: success flag missing or documents not an array', 'error');
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                updateStatus(`Error: ${error.message}`, 'error');
+                displayRawData({ error: error.message });
+            }
+        }
+        
+        // Auto-fetch on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Page loaded. Click "Fetch Documents" to start.');
+        });
+    </script>
+</body>
+</html>

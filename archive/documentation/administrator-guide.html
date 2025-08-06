@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nonprofit Fund Accounting System - Administrator's Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+        }
+        .guide-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        .cover-page {
+            text-align: center;
+            padding: 50px 20px;
+            border-bottom: 2px solid #1976d2;
+            margin-bottom: 30px;
+        }
+        .cover-page h1 {
+            font-size: 36px;
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        .cover-page h2 {
+            font-size: 20px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cover-page p {
+            font-size: 14px;
+            color: #777;
+        }
+        .toc {
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .toc h2 {
+            font-size: 20px;
+            color: #1976d2;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .toc ul li {
+            margin-bottom: 8px;
+        }
+        .toc ul li a {
+            text-decoration: none;
+            color: #2e7d32;
+        }
+        .toc ul li a:hover {
+            text-decoration: underline;
+        }
+        .toc ul ul {
+            padding-left: 20px;
+            margin-top: 5px;
+        }
+        h1.main-title {
+            font-size: 32px;
+            color: #1976d2;
+            border-bottom: 2px solid #1976d2;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        h2.section-title {
+            font-size: 24px;
+            color: #2e7d32;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 8px;
+        }
+        h3.subsection-title {
+            font-size: 20px;
+            color: #455a64;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        h4.subsubsection-title {
+            font-size: 16px;
+            color: #555;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        p {
+            margin-bottom: 15px;
+        }
+        ul.feature-list {
+            list-style-type: disc;
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        ul.feature-list li {
+            margin-bottom: 8px;
+        }
+        .text-screenshot {
+            background-color: #f0f0f0;
+            border: 1px dashed #ccc;
+            padding: 15px;
+            margin: 15px 0;
+            font-style: italic;
+            color: #555;
+        }
+        .text-screenshot strong {
+            color: #333;
+            font-style: normal;
+        }
+        .tip {
+            background-color: #e3f2fd;
+            border-left: 4px solid #1976d2;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+        .tip strong {
+            color: #1976d2;
+        }
+        table.guide-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table.guide-table th, table.guide-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        table.guide-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .page-header, .page-footer {
+            position: fixed;
+            width: 100%;
+            background-color: #f0f0f0;
+            padding: 5px 20px;
+            font-size: 12px;
+            color: #666;
+            box-sizing: border-box;
+        }
+        .page-header {
+            top: 0;
+            left: 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .page-footer {
+            bottom: 0;
+            left: 0;
+            border-top: 1px solid #ddd;
+            text-align: center;
+        }
+        .page-footer .page-number::before {
+            content: "Page ";
+        }
+        .page-break-before {
+            page-break-before: always;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #c7254e;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #eee;
+            margin: 20px 0;
+        }
+        @media print {
+            body {
+                margin: 0;
+                padding: 20mm; /* Standard print margins */
+                font-size: 10pt;
+            }
+            .guide-container {
+                border: none;
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+            }
+            .cover-page {
+                page-break-after: always;
+            }
+            .toc {
+                page-break-after: always;
+            }
+            h2.section-title {
+                page-break-before: always;
+            }
+            .page-header, .page-footer {
+                display: none; /* Typically handled by browser print settings */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="guide-container">
+        <div class="cover-page">
+            <h1>Nonprofit Fund Accounting System</h1>
+            <h2>Administrator's Guide</h2>
+            <p>Version 9.0</p>
+            <p>Date: July 22, 2025</p>
+        </div>
+
+        <div class="toc page-break-before">
+            <h2>Table of Contents</h2>
+            <ul>
+                <li><a href="#introduction">1. Introduction and Scope</a></li>
+                <li><a href="#system-requirements">2. System Requirements</a>
+                    <ul>
+                        <li><a href="#linux-deployment">2.1 Traditional Linux Deployment</a></li>
+                        <li><a href="#docker-deployment">2.2 Docker Deployment (Windows or Linux)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#installation">3. Installation Procedures</a>
+                    <ul>
+                        <li><a href="#linux-server">3.1 Traditional Linux Server</a></li>
+                        <li><a href="#docker-install">3.2 Docker Deployment (Windows/Linux)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#initial-config">4. Initial System Configuration</a></li>
+                <li><a href="#database-admin">5. Database Administration</a></li>
+                <li><a href="#user-management">6. User Management</a></li>
+                <li><a href="#entity-fund">7. Entity and Fund Hierarchy Administration</a>
+                    <ul>
+                        <li><a href="#inter-entity">7.4 Inter-Entity Transfer Configuration</a></li>
+                    </ul>
+                </li>
+                <li><a href="#nacha">8. NACHA Vendor Payment System Administration</a>
+                    <ul>
+                        <li><a href="#nacha-overview">8.1 Overview</a></li>
+                        <li><a href="#nacha-schema">8.2 Database Schema Additions</a></li>
+                        <li><a href="#nacha-setup">8.3 Initial Setup</a></li>
+                        <li><a href="#nacha-workflow">8.4 Payment Batch Workflow</a></li>
+                        <li><a href="#nacha-storage">8.5 File Storage & Download</a></li>
+                        <li><a href="#nacha-security">8.6 Security Considerations</a></li>
+                        <li><a href="#nacha-troubleshooting">8.7 Monitoring & Troubleshooting</a></li>
+                    </ul>
+                </li>
+                <li><a href="#backup-recovery">9. Backup and Recovery Procedures</a>
+                    <ul>
+                        <li><a href="#backup">9.1 Backup</a></li>
+                        <li><a href="#recovery">9.2 Recovery</a></li>
+                    </ul>
+                </li>
+                <li><a href="#monitoring">10. System Monitoring and Maintenance</a></li>
+                <li><a href="#security">11. Security Considerations</a></li>
+                <li><a href="#performance">12. Performance Tuning</a></li>
+                <li><a href="#troubleshooting">13. Troubleshooting Common Issues</a></li>
+                <li><a href="#updates">14. Update and Upgrade Procedures</a></li>
+                <li><a href="#integration">15. Integration Management</a></li>
+                <li><a href="#best-practices">16. Best Practices for Production</a></li>
+            </ul>
+        </div>
+
+        <div id="introduction" class="page-break-before">
+            <h2 class="section-title">1. Introduction and Scope</h2>
+            <p>Welcome to the Administrator's Guide for the Nonprofit Fund Accounting System. This document provides comprehensive instructions for system administrators responsible for deploying, managing, and maintaining the application.</p>
+            <p>This guide is intended for technical users with command-line access to the server environment. It covers installation, configuration, security, maintenance, and troubleshooting for both traditional Linux and Docker-based deployments. For end-user functionality, please refer to the <code>nonprofit-accounting-user-guide.html</code>.</p>
+            <hr>
+        </div>
+
+        <div id="system-requirements" class="page-break-before">
+            <h2 class="section-title">2. System Requirements</h2>
+            
+            <h3 id="linux-deployment" class="subsection-title">2.1. Traditional Linux Deployment</h3>
+            <ul class="feature-list">
+                <li><strong>Operating System</strong>: Ubuntu Server 22.04 LTS (Recommended) or other modern Debian/RHEL-based distro.</li>
+                <li><strong>Software</strong>:
+                    <ul>
+                        <li>Node.js v18.x or later</li>
+                        <li>PostgreSQL v14 or later</li>
+                        <li>Nginx (or another web server as a reverse proxy)</li>
+                        <li>Git</li>
+                    </ul>
+                </li>
+                <li><strong>Hardware</strong>: Minimum 1 vCPU, 1 GB RAM, 25 GB Storage.</li>
+            </ul>
+
+            <h3 id="docker-deployment" class="subsection-title">2.2. Docker Deployment (Windows or Linux)</h3>
+            <ul class="feature-list">
+                <li><strong>Docker Desktop for Windows</strong> with WSL 2 backend enabled, or <strong>Docker Engine</strong> on Linux.</li>
+                <li><strong>Docker Compose</strong></li>
+                <li><strong>Git</strong></li>
+                <li><strong>Hardware</strong>: Minimum 2 CPU cores, 4 GB RAM, 50 GB Storage.</li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="installation" class="page-break-before">
+            <h2 class="section-title">3. Installation Procedures</h2>
+            
+            <h3 id="linux-server" class="subsection-title">3.1. Traditional Linux Server</h3>
+            <p>This is a summary of the full deployment process.</p>
+            <ol>
+                <li><strong>Connect & Update</strong>: <code>ssh user@your-server-ip</code> then <code>sudo apt update && sudo apt upgrade -y</code>.</li>
+                <li><strong>Create App User</strong>: <code>sudo adduser npfa</code> and <code>sudo usermod -aG sudo npfa</code>. Switch to user with <code>sudo su - npfa</code>.</li>
+                <li><strong>Install Dependencies</strong>:
+                    <ul>
+                        <li><strong>Node.js</strong>: Use <code>nodesource</code> to install v18.</li>
+                        <li><strong>PostgreSQL</strong>: <code>sudo apt install postgresql postgresql-contrib</code>.</li>
+                        <li><strong>Nginx</strong>: <code>sudo apt install nginx</code>.</li>
+                    </ul>
+                </li>
+                <li><strong>Clone Repository</strong>: <code>git clone -b v9.0 https://github.com/tpfbill/nonprofit-fund-accounting.git</code> into <code>/home/npfa/</code>.</li>
+                <li><strong>Install App Dependencies</strong>: <code>cd nonprofit-fund-accounting && npm install</code>.</li>
+                <li><strong>Configure Environment</strong>: Create a <code>.env</code> file with your database credentials and <code>NODE_ENV=production</code>.</li>
+                <li><strong>Set up Database</strong>: Create the user and database in PostgreSQL.</li>
+                <li><strong>Initialize Database</strong>: Run the SQL scripts from within the app directory:
+                    <pre><code>psql -h localhost -U postgres -d fund_accounting_db -f database/db-init.sql
+psql -h localhost -U postgres -d fund_accounting_db -f add_top_level_organization.sql
+node add-test-data.js</code></pre>
+                </li>
+                <li><strong>Create Systemd Service</strong>: Create <code>/etc/systemd/system/npfa.service</code> to run the app as a service.</li>
+                <li><strong>Configure Nginx</strong>: Set up a reverse proxy in <code>/etc/nginx/sites-available/</code> to forward requests to the Node.js app on port 3000.</li>
+                <li><strong>Enable Firewall & SSL</strong>: Use <code>ufw</code> and <code>certbot</code> to secure the server.</li>
+            </ol>
+
+            <h3 id="docker-install" class="subsection-title">3.2. Docker Deployment (Windows/Linux)</h3>
+            <p>For detailed instructions, refer to <strong><code>DOCKER_SETUP_WINDOWS.md</code></strong>. The process is:</p>
+            <ol>
+                <li><strong>Clone Repository</strong>: <code>git clone -b v9.0 https://github.com/tpfbill/nonprofit-fund-accounting.git</code>.</li>
+                <li><strong>Configure Environment</strong>: Rename <code>.env.docker</code> to <code>.env</code>.</li>
+                <li><strong>Build & Run</strong>: <code>docker-compose up -d --build</code>.</li>
+                <li><strong>Initialize Database</strong>:
+                    <pre><code>docker-compose exec app sh
+# Inside container:
+apk add --no-cache postgresql-client
+psql -h db -U postgres -d fund_accounting_db -f database/db-init.sql
+psql -h db -U postgres -d fund_accounting_db -f add_top_level_organization.sql
+node add-test-data.js
+exit</code></pre>
+                </li>
+                <li><strong>Access</strong>: Open <code>http://localhost:3000</code> in your browser.</li>
+            </ol>
+            <hr>
+        </div>
+
+        <div id="initial-config" class="page-break-before">
+            <h2 class="section-title">4. Initial System Configuration</h2>
+            <p>After installation, perform these initial setup steps via the application's UI:</p>
+            <ol>
+                <li><strong>Log In</strong>: Use the default administrator credentials (if any) or create the first user directly in the database.</li>
+                <li><strong>Organization Settings</strong>: Navigate to <code>Settings > Organization</code> and configure your organization's name, address, and financial settings.</li>
+                <li><strong>Fiscal Years</strong>: Navigate to <code>Settings > Fiscal Years</code> to define your fiscal periods.</li>
+                <li><strong>Chart of Accounts</strong>: Navigate to <code>Chart of Accounts</code> and either import your CoA from AccuFund or configure it manually.</li>
+                <li><strong>Funds</strong>: Navigate to <code>Funds</code> and set up your fund structure.</li>
+            </ol>
+            <hr>
+        </div>
+
+        <div id="database-admin" class="page-break-before">
+            <h2 class="section-title">5. Database Administration</h2>
+            <ul class="feature-list">
+                <li><strong>Read-Only User for BI Tools</strong>: It is highly recommended to create a separate, read-only user for connecting third-party BI tools like Metabase or Tableau.
+                    <pre><code>-- Connect to psql as the postgres user
+CREATE ROLE readonly_user LOGIN PASSWORD 'your_secure_password';
+GRANT CONNECT ON DATABASE fund_accounting_db TO readonly_user;
+GRANT USAGE ON SCHEMA public TO readonly_user;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly_user;</code></pre>
+                </li>
+                <li><strong>Manual Migrations</strong>: If a future update requires a database schema change, a migration script (<code>.sql</code> file) will be provided. Run it using <code>psql</code>. Always back up the database first.</li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="user-management" class="page-break-before">
+            <h2 class="section-title">6. User Management</h2>
+            <p>User management is handled within the application UI:</p>
+            <ul class="feature-list">
+                <li><strong>Location</strong>: <code>Settings > Users</code></li>
+                <li><strong>Actions</strong>:
+                    <ul>
+                        <li><strong>Add User</strong>: Click "Add User" and fill in the details.</li>
+                        <li><strong>Edit User</strong>: Click the "Edit" button next to a user to change their name, email, or role.</li>
+                        <li><strong>Deactivate User</strong>: Edit the user and change their status to "Inactive".</li>
+                    </ul>
+                </li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="entity-fund" class="page-break-before">
+            <h2 class="section-title">7. Entity and Fund Hierarchy Administration</h2>
+            <p>The organizational structure is critical for proper reporting.</p>
+            <ul class="feature-list">
+                <li><strong>Reference</strong>: <code>docs/HIERARCHY_GUIDE.md</code> provides a deep dive into the architecture.</li>
+                <li><strong>Management</strong>: Handled in <code>Settings > Entities</code>.</li>
+                <li><strong>Key Principles</strong>:
+                    <ul>
+                        <li>There should be <strong>one</strong> top-level entity with <code>is_consolidated = true</code>.</li>
+                        <li>Child entities should correctly point to their parent.</li>
+                        <li>Funds are always associated with a single entity.</li>
+                        <li>Use the "All Entities" filter on the Funds and Journal Entries pages to manage items before deleting an entity.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3 id="inter-entity" class="subsection-title">7.4 Inter-Entity Transfer Configuration</h3>
+            <p>The <strong>Inter-Entity Transfer</strong> feature (introduced in v8.6, enhanced in v9.0) allows you to move cash between sibling entities while automatically creating a balanced pair of journal entries and maintaining accurate <strong>Due To / Due From</strong> balances.</p>
+
+            <h4 class="subsubsection-title">1. Purpose</h4>
+            <ul class="feature-list">
+                <li>Eliminate manual dual-entry work when one legal entity advances or reimburses funds to another.</li>
+                <li>Preserve an auditable trail by linking the two journal entries with a shared <strong><code>matching_transaction_id</code></strong>.</li>
+            </ul>
+
+            <h4 class="subsubsection-title">2. Required Account Types</h4>
+            <p>Each entity that will participate in transfers must have:</p>
+            <table class="guide-table">
+                <tr>
+                    <th>Account Type</th>
+                    <th>Typical Code Range</th>
+                    <th>Example Name</th>
+                </tr>
+                <tr>
+                    <td><strong>Asset</strong></td>
+                    <td>19-xxxx</td>
+                    <td>"Due From &lt;Other Entity&gt;"</td>
+                </tr>
+                <tr>
+                    <td><strong>Liability</strong></td>
+                    <td>29-xxxx</td>
+                    <td>"Due To &lt;Other Entity&gt;"</td>
+                </tr>
+            </table>
+            <p>These accounts should be <strong>Active</strong> and mapped to the correct entity.</p>
+
+            <h4 class="subsubsection-title">3. Setup Checklist</h4>
+            <ol>
+                <li>Navigate to <strong>Chart of Accounts → Add Account</strong>.</li>
+                <li>Select the <strong>Entity</strong> field so the account belongs to the right legal entity.</li>
+                <li>Choose <strong>Type = Asset</strong> (for "Due From") or <strong>Liability</strong> (for "Due To").</li>
+                <li>Use consistent codes (e.g., <code>1901</code>, <code>2901</code>) so the dropdown filters in the wizard recognise them.</li>
+                <li>Repeat for every pair of entities that may transact.</li>
+            </ol>
+
+            <h4 class="subsubsection-title">4. Best Practices</h4>
+            <ul class="feature-list">
+                <li>Create one dedicated Due To / Due From account <strong>per counter-party</strong> instead of a single pooled account.</li>
+                <li>Agree on a naming convention (e.g., "Due From – TPF" / "Due To – TPF-ES") to make reconciliation easier.</li>
+                <li>Post transfers <strong>as-of the actual cash movement date</strong> to keep books aligned with bank activity.</li>
+                <li>Review the <strong>Inter-Entity Transfers</strong> list (Reports → Inter-Entity) monthly to ensure all pairs are present and balanced.</li>
+            </ul>
+
+            <h4 class="subsubsection-title">5. Troubleshooting</h4>
+            <table class="guide-table">
+                <tr>
+                    <th>Issue</th>
+                    <th>Likely Cause</th>
+                    <th>Resolution</th>
+                </tr>
+                <tr>
+                    <td>"No Due From accounts found" in wizard</td>
+                    <td>Asset account not matching filter (name lacks "Due From" or code not <code>19…</code>)</td>
+                    <td>Edit or create the correct account and retry.</td>
+                </tr>
+                <tr>
+                    <td>Transfer posts but entity balances don't match</td>
+                    <td>One of the journal entries was edited or deleted</td>
+                    <td>Use the <strong>matching_transaction_id</strong> to locate both entries, correct or repost.</td>
+                </tr>
+                <tr>
+                    <td>Wizard hangs on submission</td>
+                    <td>Database constraint failure (missing fund/account ID)</td>
+                    <td>Check server logs; ensure all selected IDs exist and are active.</td>
+                </tr>
+            </table>
+            <hr>
+        </div>
+
+        <div id="nacha" class="page-break-before">
+            <h2 class="section-title">8. NACHA Vendor Payment System Administration</h2>
+
+            <h3 id="nacha-overview" class="subsection-title">8.1 Overview</h3>
+            <p>Version 9.0 provides a fully-integrated NACHA (ACH) <strong>Vendor Payment System</strong> that lets your organization pay suppliers electronically and generate bank-ready ACH files. The feature set includes:</p>
+            <ul class="feature-list">
+                <li>Vendor master records with multiple bank accounts</li>
+                <li>Company-wide NACHA settings (Originating DFI, Company ID, SEC code)</li>
+                <li>Payment batch workflow (draft → approved → processed)</li>
+                <li>Automatic trace-number generation and <strong>961-byte</strong> ACH file creation</li>
+                <li>Secure file storage and download tracking</li>
+            </ul>
+
+            <h3 id="nacha-schema" class="subsection-title">8.2 Database Schema Additions</h3>
+            <p>The following tables were added (see <code>nacha-vendor-payments-schema.sql</code>):</p>
+            <table class="guide-table">
+                <tr>
+                    <th>Table</th>
+                    <th>Purpose</th>
+                </tr>
+                <tr>
+                    <td><code>vendors</code></td>
+                    <td>Stores supplier / contractor master data</td>
+                </tr>
+                <tr>
+                    <td><code>vendor_bank_accounts</code></td>
+                    <td>ACH routing & account info (supports multiple per vendor)</td>
+                </tr>
+                <tr>
+                    <td><code>company_nacha_settings</code></td>
+                    <td>One record per legal entity containing ACH parameters</td>
+                </tr>
+                <tr>
+                    <td><code>payment_batches</code></td>
+                    <td>Container for one or more vendor payments</td>
+                </tr>
+                <tr>
+                    <td><code>payment_items</code></td>
+                    <td>Individual payment lines linked to a batch & vendor</td>
+                </tr>
+                <tr>
+                    <td><code>nacha_files</code></td>
+                    <td>Metadata for each generated ACH file</td>
+                </tr>
+            </table>
+            <p>All tables include audit columns (<code>created_at</code>, <code>updated_at</code>, <code>created_by</code>, etc.) and appropriate foreign-key constraints.</p>
+
+            <h3 id="nacha-setup" class="subsection-title">8.3 Initial Setup</h3>
+            <ol>
+                <li><strong>Company NACHA Settings</strong><br>
+                Navigate to <strong>Settings → NACHA</strong> and create a record for each entity that will originate ACH files. Required fields:
+                <ul>
+                    <li>Originating DFI (8-digit routing)</li>
+                    <li>Immediate Destination (bank routing)</li>
+                    <li>Company ID (Tax ID)</li>
+                    <li>SEC Code (<code>CCD</code> or <code>PPD</code>)</li>
+                </ul>
+                </li>
+                <li><strong>Vendors & Bank Accounts</strong>
+                <ul>
+                    <li>Go to <strong>Vendors</strong> → <em>Add Vendor</em>. Complete address & tax fields.</li>
+                    <li>Add at least one bank account. Routing numbers are validated via ABA checksum; account numbers are masked after save.</li>
+                </ul>
+                </li>
+                <li><strong>User Permissions</strong><br>
+                Only users with the <strong>Finance Manager</strong> or <strong>Administrator</strong> role can approve batches or generate ACH files. Assign roles under <strong>Settings → Users</strong>.</li>
+            </ol>
+
+            <h3 id="nacha-workflow" class="subsection-title">8.4 Payment Batch Workflow</h3>
+            <ol>
+                <li><strong>Create Batch</strong> → <em>draft</em> status.</li>
+                <li><strong>Add Payment Items</strong> (amount > 0, memo & invoice refs optional).</li>
+                <li><strong>Approve</strong> → moves to <em>approved</em>; locks items from further edits.</li>
+                <li><strong>Generate NACHA File</strong> → status changes to <em>processed</em>; <code>trace_number</code> field on each item is populated automatically.</li>
+                <li><strong>Transmit to Bank</strong> – download the <code>.txt</code> file from <strong>Files → Download</strong> and upload via your bank portal. Mark <em>transmitted</em> in the UI for audit completeness.</li>
+            </ol>
+
+            <h3 id="nacha-storage" class="subsection-title">8.5 File Storage & Download</h3>
+            <ul class="feature-list">
+                <li>Files are stored under <code>&lt;project&gt;/nacha-files/</code> (ignored by Git).</li>
+                <li>Download endpoint: <code>GET /api/nacha-files/:id/download</code> returns the file with <code>Content-Disposition: attachment</code>.</li>
+                <li>The table <code>nacha_files</code> tracks created & transmitted timestamps, batch linkage, and <strong>file_control_total</strong> for quick reconciliation.</li>
+            </ul>
+
+            <h3 id="nacha-security" class="subsection-title">8.6 Security Considerations</h3>
+            <ul class="feature-list">
+                <li><strong>Least-Privilege Access</strong> – restrict NACHA screens to finance staff.</li>
+                <li><strong>File Permissions</strong> – the <code>nacha-files/</code> directory is <code>chmod 700</code> and owned by the app user.</li>
+                <li><strong>Data at Rest</strong> – Account numbers are stored encrypted or truncated (last 4 digits visible).</li>
+                <li><strong>Transport Security</strong> – Always access the server over HTTPS; never email NACHA files.</li>
+                <li><strong>Audit Trail</strong> – All CRUD actions on vendors, batches, and files are logged with user IDs.</li>
+            </ul>
+
+            <h3 id="nacha-troubleshooting" class="subsection-title">8.7 Monitoring & Troubleshooting</h3>
+            <table class="guide-table">
+                <tr>
+                    <th>Symptom</th>
+                    <th>Likely Cause</th>
+                    <th>Resolution</th>
+                </tr>
+                <tr>
+                    <td>Batch stuck in <em>approved</em></td>
+                    <td>Trace-number generation error</td>
+                    <td>Check server logs; ensure <code>company_nacha_settings</code> exists</td>
+                </tr>
+                <tr>
+                    <td>"Routing number invalid"</td>
+                    <td>Fails ABA checksum</td>
+                    <td>Verify 9-digit routing with vendor</td>
+                </tr>
+                <tr>
+                    <td>File control total mismatch</td>
+                    <td>Manual edit of file</td>
+                    <td>Regenerate file; do <strong>not</strong> edit ACH files manually</td>
+                </tr>
+                <tr>
+                    <td>Download 404</td>
+                    <td>File deleted or wrong ID</td>
+                    <td>Verify <code>nacha_files.path</code>; regenerate if needed</td>
+                </tr>
+            </table>
+            <hr>
+        </div>
+
+        <div id="backup-recovery" class="page-break-before">
+            <h2 class="section-title">9. Backup and Recovery Procedures</h2>
+
+            <h3 id="backup" class="subsection-title">9.1. Backup</h3>
+            <p>Automated backup scripts are included in the <code>scripts/</code> directory.</p>
+            <ul class="feature-list">
+                <li><strong>Linux</strong>: Schedule <code>scripts/update-linux.sh</code> to run daily via <code>cron</code>. It automatically creates backups before updating. For manual backups:
+                    <pre><code>pg_dump -U postgres -h localhost fund_accounting_db > backup.sql</code></pre>
+                </li>
+                <li><strong>Docker</strong>: Schedule <code>scripts/update-docker-windows.ps1</code> to run daily. For manual backups:
+                    <pre><code>docker-compose exec -T db pg_dump -U postgres -d fund_accounting_db > backup.sql</code></pre>
+                </li>
+            </ul>
+
+            <h3 id="recovery" class="subsection-title">9.2. Recovery</h3>
+            <p>In case of failure, use the backups to restore the system.</p>
+            <ul class="feature-list">
+                <li><strong>Linux</strong>:
+                    <ol>
+                        <li>Stop the application: <code>sudo systemctl stop npfa</code>.</li>
+                        <li>Restore the database: <code>sudo -u postgres psql -d fund_accounting_db -f /path/to/backup.sql</code>.</li>
+                        <li>Restore application files if needed from the <code>.tar.gz</code> backup.</li>
+                        <li>Start the application: <code>sudo systemctl start npfa</code>.</li>
+                    </ol>
+                </li>
+                <li><strong>Docker</strong>:
+                    <ol>
+                        <li>Stop the containers: <code>docker-compose down</code>.</li>
+                        <li>Restore the database: <code>cat /path/to/backup.sql | docker-compose exec -T db psql -U postgres -d fund_accounting_db</code>.</li>
+                        <li>Start the containers: <code>docker-compose up -d</code>.</li>
+                    </ol>
+                </li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="monitoring" class="page-break-before">
+            <h2 class="section-title">10. System Monitoring and Maintenance</h2>
+            <ul class="feature-list">
+                <li><strong>Checking Service Status</strong>:
+                    <ul>
+                        <li><strong>Linux</strong>: <code>sudo systemctl status npfa.service</code></li>
+                        <li><strong>Docker</strong>: <code>docker-compose ps</code></li>
+                    </ul>
+                </li>
+                <li><strong>Viewing Logs</strong>:
+                    <ul>
+                        <li><strong>Linux</strong>: <code>sudo journalctl -u npfa -f</code> (live logs)</li>
+                        <li><strong>Docker</strong>: <code>docker-compose logs -f app</code> (live logs)</li>
+                    </ul>
+                </li>
+                <li><strong>Log Rotation</strong>: Ensure <code>logrotate</code> is configured for Nginx and the application logs to prevent disk space issues.</li>
+                <li><strong>Database Maintenance</strong>: Periodically run <code>VACUUM</code> and <code>ANALYZE</code> on the PostgreSQL database to maintain performance.</li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="security" class="page-break-before">
+            <h2 class="section-title">11. Security Considerations</h2>
+            <ul class="feature-list">
+                <li><strong>Firewall</strong>: Use <code>ufw</code> on Linux to allow only necessary ports (SSH, HTTP, HTTPS).</li>
+                <li><strong>SSL/HTTPS</strong>: Always deploy with an SSL certificate. Use Certbot with Nginx for free, auto-renewing certificates.</li>
+                <li><strong>Database Security</strong>:
+                    <ul>
+                        <li>Use a strong, unique password for the <code>postgres</code> user.</li>
+                        <li>Configure <code>pg_hba.conf</code> to only allow connections from trusted hosts.</li>
+                        <li>Use the dedicated read-only user for external BI tools.</li>
+                    </ul>
+                </li>
+                <li><strong>Application Security</strong>:
+                    <ul>
+                        <li>Run the Node.js process as a non-root user (<code>npfa</code>).</li>
+                        <li>Keep Node.js and npm packages updated (<code>npm audit</code>).</li>
+                    </ul>
+                </li>
+                <li><strong>SSH Security</strong>: Disable password authentication and use SSH keys for server access.</li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="performance" class="page-break-before">
+            <h2 class="section-title">12. Performance Tuning</h2>
+            <ul class="feature-list">
+                <li><strong>Database</strong>: Ensure PostgreSQL has adequate <code>shared_buffers</code> and <code>work_mem</code> configured in <code>postgresql.conf</code> based on server RAM.</li>
+                <li><strong>Nginx</strong>: Enable gzip compression and caching for static assets in your Nginx site configuration.</li>
+                <li><strong>Node.js</strong>: For high-traffic environments, use a process manager like <code>pm2</code> to run the Node.js application in cluster mode, leveraging all CPU cores.</li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="troubleshooting" class="page-break-before">
+            <h2 class="section-title">13. Troubleshooting Common Issues</h2>
+            <table class="guide-table">
+                <tr>
+                    <th>Symptom</th>
+                    <th>Likely Cause</th>
+                    <th>Solution</th>
+                </tr>
+                <tr>
+                    <td><strong>502 Bad Gateway</strong></td>
+                    <td>The Node.js application (<code>npfa.service</code> or <code>app</code> container) is not running or has crashed.</td>
+                    <td>
+                        1. Check the application logs for errors (<code>journalctl</code> or <code>docker-compose logs</code>). <br>
+                        2. Ensure the database is running. <br>
+                        3. Restart the application service.
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>"DB Offline"</strong></td>
+                    <td>The Node.js application cannot connect to the PostgreSQL database.</td>
+                    <td>
+                        1. Verify PostgreSQL is running. <br>
+                        2. Check the <code>.env</code> file for correct database credentials (host, user, password, dbname). <br>
+                        3. Ensure network connectivity between the app and DB servers (or containers).
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>404 Not Found on API routes</strong></td>
+                    <td>Nginx is not proxying requests correctly, or the Node.js routes are not registered.</td>
+                    <td>
+                        1. Ensure the API routes are defined <em>before</em> the <code>app.use(express.static(...))</code> line in <code>server.js</code>. <br>
+                        2. Check the Nginx configuration for a correct <code>proxy_pass</code> directive.
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Permission Denied errors</strong></td>
+                    <td>File system permissions are incorrect.</td>
+                    <td>Ensure the <code>npfa</code> user owns the application directory: <code>sudo chown -R npfa:npfa /home/npfa/nonprofit-fund-accounting</code>.</td>
+                </tr>
+            </table>
+            <hr>
+        </div>
+
+        <div id="updates" class="page-break-before">
+            <h2 class="section-title">14. Update and Upgrade Procedures</h2>
+            <p>The repository includes automated update scripts in the <code>scripts/</code> directory. <strong>It is highly recommended to use these scripts for all updates.</strong></p>
+            <ul class="feature-list">
+                <li><strong>Linux</strong>: <code>scripts/update-linux.sh</code></li>
+                <li><strong>Docker on Windows</strong>: <code>scripts/update-docker-windows.ps1</code></li>
+            </ul>
+            <p>These scripts automatically handle backups, code pulling, dependency updates, service restarts, and verification. Refer to the comments within the scripts for detailed information.</p>
+            <hr>
+        </div>
+
+        <div id="integration" class="page-break-before">
+            <h2 class="section-title">15. Integration Management</h2>
+            <ul class="feature-list">
+                <li><strong>Natural Language Query (NLQ)</strong>: The NLQ engine relies on pattern matching defined in <code>natural-language-queries.html</code>. To add new query types, new patterns must be added to the <code>NLQ_PATTERNS</code> object in that file.</li>
+                <li><strong>Custom Reports Builder</strong>: This feature uses a secure <code>REPORT_BUILDER_FIELD_MAP</code> in <code>server.js</code> to whitelist accessible tables and fields. To expose new data sources or fields to the report builder, they must be added to this map.</li>
+                <li><strong>BI Tools</strong>: Connect using the dedicated read-only database user. The BI tool will have direct access to all tables and can build reports on the same data as the main application.</li>
+            </ul>
+            <hr>
+        </div>
+
+        <div id="best-practices" class="page-break-before">
+            <h2 class="section-title">16. Best Practices for Production</h2>
+            <ol>
+                <li><strong>Automate Backups</strong>: Ensure the backup script is running daily via <code>cron</code> or Windows Task Scheduler.</li>
+                <li><strong>Separate Environments</strong>: Maintain separate development, staging, and production environments. Test all updates in staging before deploying to production.</li>
+                <li><strong>Use Version Control</strong>: All changes, including configuration, should be committed to Git. Use feature branches for development and merge to the main production branch (<code>v9.0</code> in our case) for deployment.</li>
+                <li><strong>Monitor Actively</strong>: Use tools like <code>htop</code> for real-time monitoring and set up alerts for service failures or high resource usage.</li>
+                <li><strong>Secure Credentials</strong>: Never commit secrets (like passwords or API keys) directly to Git. Use environment files (<code>.env</code>) and add them to <code>.gitignore</code>.</li>
+            </ol>
+            <p>This guide provides the foundation for successfully administering the Non-Profit Fund Accounting System. For further technical details, refer to the other documentation files in the repository.</p>
+        </div>
+
+        <div class="page-footer">
+            <span class="page-number"></span> | Non-Profit Fund Accounting System - Administrator's Guide | Generated: <script>document.write(new Date().toLocaleDateString());</script>
+        </div>
+    </div>
+</body>
+</html>

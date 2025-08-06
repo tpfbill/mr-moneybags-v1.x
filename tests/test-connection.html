@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow: auto;
+            max-height: 400px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0069d9;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    
+    <div id="status" class="loading">Testing connection to API...</div>
+    
+    <button id="test-button">Test Connection</button>
+    
+    <h2>Response Data:</h2>
+    <pre id="response-data">Waiting for response...</pre>
+    
+    <h2>Connection Details:</h2>
+    <div id="connection-details">
+        <p><strong>Frontend URL:</strong> http://localhost:8080</p>
+        <p><strong>API URL:</strong> http://localhost:3000/api/entities</p>
+        <p><strong>Last tested:</strong> <span id="last-tested">Not tested yet</span></p>
+    </div>
+
+    <script>
+        // Function to test the API connection
+        async function testConnection() {
+            const statusEl = document.getElementById('status');
+            const responseDataEl = document.getElementById('response-data');
+            const lastTestedEl = document.getElementById('last-tested');
+            
+            // Update status to loading
+            statusEl.className = 'loading';
+            statusEl.textContent = 'Testing connection to API...';
+            responseDataEl.textContent = 'Waiting for response...';
+            
+            try {
+                console.log('Attempting to fetch from http://localhost:3000/api/entities');
+                const startTime = performance.now();
+                
+                // Make the API request
+                const response = await fetch('http://localhost:3000/api/entities');
+                
+                const endTime = performance.now();
+                const responseTime = (endTime - startTime).toFixed(2);
+                
+                if (response.ok) {
+                    // Parse the JSON response
+                    const data = await response.json();
+                    
+                    // Update status to success
+                    statusEl.className = 'success';
+                    statusEl.textContent = `Connection successful! Response time: ${responseTime}ms`;
+                    
+                    // Display the response data
+                    responseDataEl.textContent = JSON.stringify(data, null, 2);
+                    
+                    console.log('Connection successful', data);
+                } else {
+                    // Handle HTTP error
+                    statusEl.className = 'error';
+                    statusEl.textContent = `Connection failed with status: ${response.status} ${response.statusText}`;
+                    responseDataEl.textContent = `Error: ${response.status} ${response.statusText}`;
+                    
+                    console.error('Connection failed', response);
+                }
+            } catch (error) {
+                // Handle network or other errors
+                statusEl.className = 'error';
+                statusEl.textContent = `Connection error: ${error.message}`;
+                responseDataEl.textContent = `Error: ${error.message}\n\nThis could be due to CORS restrictions, network issues, or the API server not running.`;
+                
+                console.error('Connection error', error);
+            }
+            
+            // Update last tested time
+            lastTestedEl.textContent = new Date().toLocaleString();
+        }
+        
+        // Add click event to the test button
+        document.getElementById('test-button').addEventListener('click', testConnection);
+        
+        // Test connection when the page loads
+        window.addEventListener('load', testConnection);
+    </script>
+</body>
+</html>

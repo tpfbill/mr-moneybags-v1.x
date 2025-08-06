@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fund Accounting - DEBUG Version</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #f0f0f0; }
+        .header { background-color: #333; color: white; padding: 15px; text-align: center; }
+        .main-nav { background-color: #555; padding: 10px; text-align: center; }
+        .nav-item { display: inline-block; padding: 5px 10px; margin: 0 5px; color: white; cursor: pointer; border: 1px solid #777; }
+        .nav-item.active { background-color: #777; }
+        .container { display: flex; max-width: 1200px; margin: 20px auto; background-color: white; padding: 10px; }
+        .sidebar { width: 200px; background-color: #eee; padding: 10px; margin-right: 10px;}
+        .sidebar-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #ddd; }
+        .sidebar-item:hover { background-color: #ddd; }
+        .main-content { flex: 1; padding: 10px; border: 1px solid #ccc; }
+        .page { display: none; }
+        .page.active { display: block; }
+        #init-status { position: fixed; bottom: 10px; right: 10px; background-color: lightcoral; padding: 10px; border: 1px solid red; z-index: 1000;}
+        #init-status.success { background-color: lightgreen; border-color: green; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Fund Accounting System (DEBUG MODE)</h1>
+        <div id="init-status">Initializing...</div>
+    </div>
+
+    <div class="main-nav">
+        <div class="nav-item" data-page="dashboard">Dashboard</div>
+        <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+        <div class="nav-item" data-page="reports">Reports</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <h3>Quick Actions</h3>
+            <div class="sidebar-item" data-action="action1">Debug Action 1</div>
+            <div class="sidebar-item" data-action="action2">Debug Action 2</div>
+        </div>
+        <div class="main-content">
+            <div id="dashboard-page" class="page">
+                <h2>Dashboard Page Content</h2>
+                <p>This is the dashboard. If you see this, page switching works for Dashboard.</p>
+            </div>
+            <div id="chart-of-accounts-page" class="page">
+                <h2>Chart of Accounts Page Content</h2>
+                <p>This is the Chart of Accounts. If you see this, page switching works for CoA.</p>
+            </div>
+            <div id="reports-page" class="page">
+                <h2>Reports Page Content</h2>
+                <p>This is the Reports page. If you see this, page switching works for Reports.</p>
+            </div>
+            <div id="action-output">Action Output Area</div>
+        </div>
+    </div>
+
+    <script>
+        console.log("DEBUG: Script execution started.");
+
+        function showPage(pageId) {
+            console.log(`DEBUG: showPage called for pageId: ${pageId}`);
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            const targetPage = document.getElementById(pageId + '-page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+                console.log(`DEBUG: Page ${pageId} should now be visible.`);
+            } else {
+                console.error(`DEBUG: Page element not found for ID: ${pageId}-page`);
+            }
+        }
+
+        function init() {
+            console.log("DEBUG: init() function called.");
+            const initStatusDiv = document.getElementById('init-status');
+            initStatusDiv.textContent = "DEBUG: init() started...";
+
+            // Main navigation
+            const navItems = document.querySelectorAll('.nav-item');
+            console.log(`DEBUG: Found ${navItems.length} nav items.`);
+            navItems.forEach(item => {
+                const pageId = item.getAttribute('data-page');
+                console.log(`DEBUG: Attaching click listener to nav-item for page: ${pageId}`);
+                item.addEventListener('click', function() {
+                    console.log(`DEBUG: Nav item clicked! data-page: ${pageId}`);
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                    showPage(pageId);
+                });
+            });
+
+            // Sidebar actions
+            const sidebarItems = document.querySelectorAll('.sidebar-item');
+            console.log(`DEBUG: Found ${sidebarItems.length} sidebar items.`);
+            sidebarItems.forEach(item => {
+                const actionId = item.getAttribute('data-action');
+                console.log(`DEBUG: Attaching click listener to sidebar-item for action: ${actionId}`);
+                item.addEventListener('click', function() {
+                    console.log(`DEBUG: Sidebar item clicked! data-action: ${actionId}`);
+                    document.getElementById('action-output').textContent = `Action triggered: ${actionId}`;
+                });
+            });
+            
+            // Set initial page
+            const firstNavItem = document.querySelector('.nav-item');
+            if (firstNavItem) {
+                 console.log("DEBUG: Setting initial page based on first nav item.");
+                 firstNavItem.classList.add('active');
+                 showPage(firstNavItem.getAttribute('data-page'));
+            } else {
+                console.error("DEBUG: No nav items found to set initial page.");
+            }
+
+
+            initStatusDiv.textContent = "DEBUG: JavaScript Initialized Successfully!";
+            initStatusDiv.classList.add('success');
+            console.log("DEBUG: init() function completed.");
+        }
+
+        if (document.readyState === 'loading') {
+            console.log("DEBUG: Document is loading, waiting for DOMContentLoaded.");
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            console.log("DEBUG: Document already loaded, calling init() directly.");
+            init(); 
+        }
+        console.log("DEBUG: Script execution finished.");
+    </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Super Simple Test</title>
+    <style>
+        /* Complete reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        
+        /* Simple header */
+        .header {
+            background-color: #1976d2;
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-bottom: 5px solid red;
+        }
+        
+        /* Super obvious buttons */
+        .button-container {
+            margin: 20px 0;
+            text-align: center;
+            padding: 20px;
+            background-color: #ffeb3b; /* Bright yellow */
+            border: 3px dashed #f44336; /* Red border */
+        }
+        
+        button {
+            background-color: #4caf50; /* Green */
+            color: white;
+            padding: 15px 30px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        /* Content boxes */
+        .content-box {
+            background-color: #f5f5f5;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Basic Header Test</h1>
+        <p>This is a simple header with red bottom border</p>
+    </div>
+    
+    <div class="button-container">
+        <h2>THESE ARE THE BUTTONS (in yellow box with dashed red border)</h2>
+        <button onclick="alert('Test 1')">Test Button 1</button>
+        <button onclick="alert('Test 2')">Test Button 2</button>
+        <button onclick="alert('Test 3')">Test Button 3</button>
+    </div>
+    
+    <div class="content-box">
+        <h3>Content Box</h3>
+        <p>This is some content below the header and buttons.</p>
+    </div>
+    
+    <div class="content-box">
+        <h3>Another Content Box</h3>
+        <p>More content for testing the layout.</p>
+    </div>
+</body>
+</html>

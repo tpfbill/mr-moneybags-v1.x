@@ -1,0 +1,39 @@
+/* Emergency CSS fixes for report display */
+
+/* Make sure report views are properly displayed when active */
+.report-view.active {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure report container shows */
+.report-view.active .report-container {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure report tables show */
+.report-view.active table.data-table {
+    display: table !important;
+    width: 100% !important;
+    margin-bottom: 1.5rem !important;
+}
+
+/* Fix table rows */
+.report-view.active table.data-table tr {
+    display: table-row !important;
+}
+
+/* Fix table cells */
+.report-view.active table.data-table th,
+.report-view.active table.data-table td {
+    display: table-cell !important;
+    padding: 0.5rem !important;
+}
+
+/* Add spacing between multiple tables */
+.report-view.active table.data-table + table.data-table {
+    margin-top: 2rem !important;
+}

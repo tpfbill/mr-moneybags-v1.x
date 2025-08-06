@@ -1,0 +1,124 @@
+<!-- entity-modal-update.html -->
+<!-- Enhanced Entity Modal with support for three-level hierarchy -->
+<div id="entity-modal" class="modal-overlay">
+    <div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header">
+            <h3 class="modal-title" id="entity-modal-title-text">Entity</h3>
+            <button class="modal-close-btn" data-modal-id="entity-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Hidden field for entity ID when editing -->
+            <input type="hidden" id="entity-id-edit">
+            
+            <!-- Basic Entity Information -->
+            <div class="form-section">
+                <h4>Basic Information</h4>
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="entity-name-input">Entity Name *</label>
+                            <input type="text" id="entity-name-input" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="entity-code-input">Entity Code *</label>
+                            <input type="text" id="entity-code-input" class="form-input" required>
+                            <small class="form-help">A unique code for this entity (e.g., TPF, TPF-ES)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hierarchy Settings -->
+            <div class="form-section">
+                <h4>Hierarchy Settings</h4>
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="entity-parent-select">Parent Entity</label>
+                            <select id="entity-parent-select" class="form-input">
+                                <option value="">-- No Parent (Top Level) --</option>
+                                <!-- Options will be populated dynamically -->
+                            </select>
+                            <small class="form-help">Select the parent organization for this entity</small>
+                        </div>
+                    </div>
+                    <div class="form-column">
+                        <div class="form-group checkbox-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="entity-consolidated-checkbox" class="form-checkbox">
+                                Consolidate Children
+                            </label>
+                            <small class="form-help">When enabled, this entity will consolidate financial data from all child entities</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Financial Settings -->
+            <div class="form-section">
+                <h4>Financial Settings</h4>
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="entity-currency-select">Base Currency</label>
+                            <select id="entity-currency-select" class="form-input">
+                                <option value="USD">USD - US Dollar</option>
+                                <option value="EUR">EUR - Euro</option>
+                                <option value="GBP">GBP - British Pound</option>
+                                <option value="CAD">CAD - Canadian Dollar</option>
+                                <option value="AUD">AUD - Australian Dollar</option>
+                                <!-- Add more currencies as needed -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="entity-fiscal-start-input">Fiscal Year Start</label>
+                            <input type="text" id="entity-fiscal-start-input" class="form-input" placeholder="MM-DD" value="01-01">
+                            <small class="form-help">Format: MM-DD (e.g., 01-01 for January 1st)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Status -->
+            <div class="form-section">
+                <h4>Status</h4>
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="entity-status-select">Status</label>
+                            <select id="entity-status-select" class="form-input">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Additional Information -->
+            <div class="form-section">
+                <h4>Additional Information</h4>
+                <div class="form-group">
+                    <label class="form-label" for="entity-description-textarea">Description</label>
+                    <textarea id="entity-description-textarea" class="form-input" rows="3"></textarea>
+                </div>
+            </div>
+            
+            <!-- Hierarchy Visualization (when editing) -->
+            <div id="entity-modal-hierarchy-preview" class="form-section" style="display: none;">
+                <h4>Current Position in Hierarchy</h4>
+                <div id="entity-hierarchy-preview-container" class="hierarchy-preview">
+                    <!-- Will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary modal-close-btn" data-modal-id="entity-modal">Cancel</button>
+            <button class="action-button" id="btn-save-entity">Save Entity</button>
+        </div>
+    </div>
+</div>

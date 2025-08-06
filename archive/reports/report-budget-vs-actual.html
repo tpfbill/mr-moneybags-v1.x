@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget vs. Actual Report</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .report-subtitle {
+            font-size: 20px;
+            margin: 10px 0;
+        }
+        .report-date {
+            font-size: 16px;
+            color: #666;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .data-table th, .data-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f0f0f0;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .font-weight-bold {
+            font-weight: bold;
+        }
+        .actions {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* --- Centered navigation back button (matches other pages) --- */
+        .navigation {
+            margin-top: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .button {
+            background-color: #607D8B;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+            text-decoration: none;
+        }
+        .button:hover { background-color: #455A64; }
+        .button.secondary { background-color: #607D8B; }
+        .button.secondary:hover { background-color: #455A64; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="report-header">
+            <!-- Organization name will be set dynamically via JS -->
+            <div id="organization-name" class="report-title">Loading...</div>
+            <div class="report-subtitle">Budget vs. Actual Report</div>
+            <div class="report-date">For the Year Ended June 30, 2025</div>
+        </div>
+        
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Account</th>
+                    <th class="text-right">Budget</th>
+                    <th class="text-right">Actual</th>
+                    <th class="text-right">Variance</th>
+                    <th class="text-right">% Variance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Revenue</strong></td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                </tr>
+                <tr>
+                    <td>Contributions and Grants</td>
+                    <td class="text-right">$300,000.00</td>
+                    <td class="text-right">$325,000.00</td>
+                    <td class="text-right">$25,000.00</td>
+                    <td class="text-right">8.3%</td>
+                </tr>
+                <tr>
+                    <td>Program Service Fees</td>
+                    <td class="text-right">$40,000.00</td>
+                    <td class="text-right">$35,000.00</td>
+                    <td class="text-right">($5,000.00)</td>
+                    <td class="text-right">-12.5%</td>
+                </tr>
+                <tr>
+                    <td>Investment Income</td>
+                    <td class="text-right">$10,000.00</td>
+                    <td class="text-right">$5,000.00</td>
+                    <td class="text-right">($5,000.00)</td>
+                    <td class="text-right">-50.0%</td>
+                </tr>
+                <tr class="font-weight-bold">
+                    <td>Total Revenue</td>
+                    <td class="text-right">$350,000.00</td>
+                    <td class="text-right">$365,000.00</td>
+                    <td class="text-right">$15,000.00</td>
+                    <td class="text-right">4.3%</td>
+                </tr>
+                <tr>
+                    <td><strong>Expenses</strong></td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                    <td class="text-right"></td>
+                </tr>
+                <tr>
+                    <td>Program Services</td>
+                    <td class="text-right">$120,000.00</td>
+                    <td class="text-right">$100,000.00</td>
+                    <td class="text-right">$20,000.00</td>
+                    <td class="text-right">16.7%</td>
+                </tr>
+                <tr>
+                    <td>Management and General</td>
+                    <td class="text-right">$30,000.00</td>
+                    <td class="text-right">$25,000.00</td>
+                    <td class="text-right">$5,000.00</td>
+                    <td class="text-right">16.7%</td>
+                </tr>
+                <tr>
+                    <td>Fundraising</td>
+                    <td class="text-right">$20,000.00</td>
+                    <td class="text-right">$15,000.00</td>
+                    <td class="text-right">$5,000.00</td>
+                    <td class="text-right">25.0%</td>
+                </tr>
+                <tr class="font-weight-bold">
+                    <td>Total Expenses</td>
+                    <td class="text-right">$170,000.00</td>
+                    <td class="text-right">$140,000.00</td>
+                    <td class="text-right">$30,000.00</td>
+                    <td class="text-right">17.6%</td>
+                </tr>
+                <tr class="font-weight-bold">
+                    <td>Net Surplus/(Deficit)</td>
+                    <td class="text-right">$180,000.00</td>
+                    <td class="text-right">$225,000.00</td>
+                    <td class="text-right">$45,000.00</td>
+                    <td class="text-right">25.0%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Centered navigation button -->
+        <div class="navigation">
+            <button id="btn-back-to-main"
+                    class="button secondary"
+                    onclick="window.location.href='/index.html'">
+                &larr; Back to Main Dashboard
+            </button>
+        </div>
+
+        <div class="actions">
+            <div>
+                <button onclick="window.print()">Print Report</button>
+                <button onclick="alert('Export to PDF functionality would be implemented here.')">Export to PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dynamically load the organization name -->
+    <script>
+    (function () {
+        async function loadOrganizationName() {
+            try {
+                const entities = await fetch('/api/entities').then(r => r.json());
+                const topLevel = entities.find(
+                    e => e.parent_entity_id === null && e.is_consolidated === true
+                );
+                document.getElementById('organization-name').textContent =
+                    (topLevel && topLevel.name) ? topLevel.name : 'Nonprofit Organization';
+            } catch (err) {
+                console.error('Failed to fetch organization name:', err);
+                document.getElementById('organization-name').textContent =
+                    'Nonprofit Organization';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', loadOrganizationName);
+    })();
+    </script>
+</body>
+</html>

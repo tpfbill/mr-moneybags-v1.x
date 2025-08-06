@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug index-new.html</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #2196F3;
+            margin-top: 20px;
+        }
+        .panel {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #0b7dda;
+        }
+        pre {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            max-height: 300px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .status-item {
+            margin-bottom: 5px;
+        }
+        .status-item.found {
+            color: green;
+        }
+        .status-item.not-found {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Debug index-new.html</h1>
+        <p>This page helps diagnose why <code>index-new.html</code> might not be displaying data. It tests API endpoints, checks for DOM element existence, and inspects global application objects.</p>
+        
+        <div class="panel">
+            <h2>Actions</h2>
+            <button id="openMainAppBtn">Open index-new.html</button>
+            <button id="refreshAllTestsBtn">Run All Tests</button>
+        </div>
+
+        <div class="panel">
+            <h2>API Endpoint Tests</h2>
+            <button id="testEntitiesApiBtn">Test /api/entities</button>
+            <button id="testFundsApiBtn">Test /api/funds</button>
+            <button id="testJournalEntriesApiBtn">Test /api/journal-entries</button>
+            <div id="apiResults"></div>
+        </div>
+        
+        <div class="panel">
+            <h2>DOM Element Existence Check</h2>
+            <button id="checkDomElementsBtn">Check DOM Elements</button>
+            <div id="domCheckResults"></div>
+        </div>
+
+        <div class="panel">
+            <h2>Global Object Check (from index-new.html)</h2>
+            <p>This requires <code>index-new.html</code> to be open in another tab/window for <code>window.opener</code> to work, or you can paste the script into its console.</p>
+            <button id="checkGlobalObjectsBtn">Check Global Objects</button>
+            <div id="globalObjectResults"></div>
+        </div>
+    </div>
+
+    <script>
+        // Result containers
+        const apiResultsDiv = document.getElementById('apiResults');
+        const domCheckResultsDiv = document.getElementById('domCheckResults');
+        const globalObjectResultsDiv = document.getElementById('globalObjectResults');
+
+        // Utility functions
+        function formatJson(data) {
+            return JSON.stringify(data, null, 2);
+        }
+        
+        function displayResult(container, title, data, isSuccess = true) {
+            const resultHtml = `
+                <h3>${title} <span class="${isSuccess ? 'success' : 'error'}">${isSuccess ? 'SUCCESS' : 'ERROR'}</span></h3>
+                <pre>${formatJson(data)}</pre>
+            `;
+            container.innerHTML = resultHtml;
+        }
+
+        function displayError(container, title, error) {
+            const errorHtml = `
+                <h3>${title} <span class="error">ERROR</span></h3>
+                <p class="error">${error.message}</p>
+                <pre>${error.stack || 'No stack trace available'}</pre>
+            `;
+            container.innerHTML = errorHtml;
+        }
+
+        // API Tests
+        async function testApiEndpoint(endpoint, resultContainer) {
+            try {
+                resultContainer.innerHTML = `<h3>Testing ${endpoint}...</h3><pre>Loading...</pre>`;
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayResult(resultContainer, `API Test: ${endpoint}`, data);
+            } catch (error) {
+                displayError(resultContainer, `API Test: ${endpoint}`, error);
+            }
+        }
+
+        // DOM Element Check
+        function checkDomElements() {
+            const elementsToCheck = [
+                { id: 'db-status-indicator', description: 'DB Status Indicator' },
+                { id: 'entity-selector', description: 'Entity Selector Dropdown' },
+                { id: 'dashboard-title', description: 'Dashboard Title' },
+                { id: 'dashboard-summary-cards', description: 'Dashboard Summary Cards Container' },
+                { id: 'dashboard-fund-balances', description: 'Dashboard Fund Balances Table Body' },
+                { id: 'dashboard-recent-transactions', description: 'Dashboard Recent Transactions Table Body' },
+                { id: 'chart-of-accounts-table', description: 'Chart of Accounts Table Body' },
+                { id: 'funds-table', description: 'Funds Table Body' },
+                { id: 'journal-entries-table', description: 'Journal Entries Table Body' },
+                { id: 'entity-relationship-viz', description: 'Entity Hierarchy Visualization Container' },
+                { id: 'entities-table', description: 'Entities Table Body (Settings)' }
+            ];
+
+            let resultsHtml = '<h3>DOM Element Check Results</h3>';
+            let allFound = true;
+
+            elementsToCheck.forEach(item => {
+                const element = document.getElementById(item.id);
+                if (element) {
+                    resultsHtml += `<p class="status-item found">✅ Found: ${item.description} (ID: ${item.id})</p>`;
+                } else {
+                    resultsHtml += `<p class="status-item not-found">❌ NOT Found: ${item.description} (ID: ${item.id})</p>`;
+                    allFound = false;
+                }
+            });
+
+            if (allFound) {
+                resultsHtml += `<p class="success">All critical DOM elements found!</p>`;
+            } else {
+                resultsHtml += `<p class="error">Some critical DOM elements are missing. This could cause rendering issues.</p>`;
+            }
+            domCheckResultsDiv.innerHTML = resultsHtml;
+        }
+
+        // Global Object Check
+        function checkGlobalObjects() {
+            let results = {};
+            let appWindow = window.open('index-new.html', '_blank'); // Open in new tab to avoid same-origin issues if not already open
+
+            if (!appWindow) {
+                displayError(globalObjectResultsDiv, 'Global Object Check', new Error('Could not open index-new.html. Please allow pop-ups.'));
+                return;
+            }
+
+            // Give the app time to load
+            setTimeout(async () => {
+                try {
+                    // Check if we can access the window (might be blocked by same-origin policy if not on same domain)
+                    if (!appWindow.document) {
+                        throw new Error('Cannot access main application document (likely due to same-origin policy). Please run this script directly in the console of index-new.html.');
+                    }
+
+                    results.windowAppExists = typeof appWindow.app !== 'undefined';
+                    results.windowEntityHierarchyExists = typeof appWindow.entityHierarchy !== 'undefined';
+                    results.windowDbExists = typeof appWindow.db !== 'undefined';
+
+                    if (results.windowAppExists) {
+                        results.appStateExists = typeof appWindow.app._state !== 'undefined';
+                        if (results.appStateExists) {
+                            results.appStateEntitiesCount = appWindow.app._state.entities ? appWindow.app._state.entities.length : 0;
+                            results.appStateFundsCount = appWindow.app._state.funds ? appWindow.app._state.funds.length : 0;
+                            results.appStateJournalEntriesCount = appWindow.app._state.journalEntries ? appWindow.app._state.journalEntries.length : 0;
+                            results.appStateSelectedEntityId = appWindow.app._state.selectedEntityId;
+                            results.appStateIsConsolidatedView = appWindow.app._state.isConsolidatedView;
+                        }
+                        results.appLoadEntityDataFunction = typeof appWindow.app.loadEntityData === 'function';
+                        results.appLoadFundDataFunction = typeof appWindow.app.loadFundData === 'function';
+                        results.appLoadJournalEntryDataFunction = typeof appWindow.app.loadJournalEntryData === 'function';
+                        results.appLoadDashboardDataFunction = typeof appWindow.app.loadDashboardData === 'function';
+                        results.appRenderFunction = typeof appWindow.app.render === 'function';
+                    }
+
+                    if (results.windowEntityHierarchyExists) {
+                        results.entityHierarchyLoadHierarchyDataFunction = typeof appWindow.entityHierarchy.loadHierarchyData === 'function';
+                        results.entityHierarchyInitializeVisualizationFunction = typeof appWindow.entityHierarchy.initializeHierarchyVisualization === 'function';
+                    }
+
+                    if (results.windowDbExists) {
+                        results.dbFetchEntitiesFunction = typeof appWindow.db.fetchEntities === 'function';
+                        results.dbFetchFundsFunction = typeof appWindow.db.fetchFunds === 'function';
+                        results.dbFetchJournalEntriesFunction = typeof appWindow.db.fetchJournalEntries === 'function';
+                        results.dbIsConnectedFunction = typeof appWindow.db.isConnected === 'function';
+                        results.dbIsConnected = results.dbIsConnectedFunction ? appWindow.db.isConnected() : 'N/A';
+                    }
+                    
+                    displayResult(globalObjectResultsDiv, 'Global Object Check', results);
+                } catch (error) {
+                    displayError(globalObjectResultsDiv, 'Global Object Check', error);
+                } finally {
+                    // Close the opened window after a delay or if it's not the main app
+                    // appWindow.close(); // Don't close automatically, user might want to inspect
+                }
+            }, 2000); // Give index-new.html time to load and initialize
+        }
+
+        // Event Listeners
+        document.getElementById('openMainAppBtn').addEventListener('click', () => {
+            window.open('index-new.html', '_blank');
+        });
+
+        document.getElementById('testEntitiesApiBtn').addEventListener('click', () => {
+            testApiEndpoint('/api/entities', apiResultsDiv);
+        });
+
+        document.getElementById('testFundsApiBtn').addEventListener('click', () => {
+            testApiEndpoint('/api/funds', apiResultsDiv);
+        });
+
+        document.getElementById('testJournalEntriesApiBtn').addEventListener('click', () => {
+            testApiEndpoint('/api/journal-entries', apiResultsDiv);
+        });
+
+        document.getElementById('checkDomElementsBtn').addEventListener('click', checkDomElements);
+        document.getElementById('checkGlobalObjectsBtn').addEventListener('click', checkGlobalObjects);
+
+        document.getElementById('refreshAllTestsBtn').addEventListener('click', () => {
+            testApiEndpoint('/api/entities', apiResultsDiv);
+            testApiEndpoint('/api/funds', apiResultsDiv);
+            testApiEndpoint('/api/journal-entries', apiResultsDiv);
+            checkDomElements();
+            checkGlobalObjects();
+        });
+
+        // Initial run of DOM check on load
+        document.addEventListener('DOMContentLoaded', () => {
+            checkDomElements();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inter-Entity Transfer Wizard | Non-Profit Fund Accounting</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .required-field::after {
+            content: "*";
+            color: red;
+            margin-left: 4px;
+        }
+        .transfer-arrow {
+            font-size: 2rem;
+            color: #6c757d;
+        }
+        .account-preview {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .journal-entry-preview {
+            font-size: 0.9rem;
+        }
+        .journal-entry-preview table {
+            margin-bottom: 0;
+        }
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            margin-right: 0.5rem;
+        }
+        #confirmationDetails {
+            background-color: #f0f8ff;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+        }
+        /* -----------------------------------------------------------
+         * Navigation button (match Custom Reports page style)
+         * --------------------------------------------------------- */
+        .navigation {
+            margin-top: 15px;
+            text-align: center;
+        }
+        .button {
+            background-color: #607D8B;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        .button:hover { background-color: #455A64; }
+        .button.secondary { background-color: #607D8B; }
+        .button.secondary:hover { background-color: #455A64; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4 mb-5">
+        <!-- Page Heading & Centered Back Button -->
+        <div class="row">
+            <div class="col">
+                <h2 class="mb-4">
+                    <i class="fas fa-exchange-alt me-2"></i> Inter-Entity Transfer Wizard
+                </h2>
+
+                <!-- Navigation back to main dashboard -->
+                <div class="navigation text-center mb-4">
+                    <button id="btn-back-to-main"
+                            class="button secondary"
+                            onclick="window.location.href='/index.html?v=' + Date.now()">
+                        &larr; Back to Main Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wizard Steps -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="progress" style="height: 3px;">
+                    <div class="progress-bar" role="progressbar" id="wizard-progress" style="width: 33%;" aria-valuenow="33" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <div class="wizard-step active" id="step1-indicator">
+                        <span class="badge rounded-pill bg-primary">1</span> Transfer Details
+                    </div>
+                    <div class="wizard-step" id="step2-indicator">
+                        <span class="badge rounded-pill bg-secondary">2</span> Review
+                    </div>
+                    <div class="wizard-step" id="step3-indicator">
+                        <span class="badge rounded-pill bg-secondary">3</span> Confirmation
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Area -->
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-danger d-none" role="alert" id="errorAlert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span id="errorMessage"></span>
+                </div>
+                <div class="alert alert-info d-none" role="alert" id="infoAlert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span id="infoMessage"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Transfer Details Form -->
+        <div id="step1" class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-edit me-2"></i> Transfer Details
+                    </div>
+                    <div class="card-body">
+                        <form id="transferForm">
+                            <div class="row mb-3">
+                                <div class="col-md-5">
+                                    <label for="fromEntity" class="form-label required-field">From Entity</label>
+                                    <select class="form-select" id="fromEntity" required>
+                                        <option value="">Select source entity</option>
+                                        <!-- Will be populated via API -->
+                                    </select>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-center justify-content-center">
+                                    <div class="transfer-arrow text-center">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="toEntity" class="form-label required-field">To Entity</label>
+                                    <select class="form-select" id="toEntity" required>
+                                        <option value="">Select target entity</option>
+                                        <!-- Will be populated via API -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="transferDate" class="form-label required-field">Transfer Date</label>
+                                    <input type="date" class="form-control" id="transferDate" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="transferAmount" class="form-label required-field">Amount</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="transferAmount" min="0.01" step="0.01" required placeholder="0.00">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="fromFund" class="form-label required-field">From Fund</label>
+                                    <select class="form-select" id="fromFund" required>
+                                        <option value="">Select source fund</option>
+                                        <!-- Will be populated based on fromEntity -->
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="toFund" class="form-label required-field">To Fund</label>
+                                    <select class="form-select" id="toFund" required>
+                                        <option value="">Select target fund</option>
+                                        <!-- Will be populated based on toEntity -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="fromDueFromAccount" class="form-label required-field">Due From Account (Source)</label>
+                                    <select class="form-select" id="fromDueFromAccount" required>
+                                        <option value="">Select Due From account</option>
+                                        <!-- Will be populated based on fromEntity -->
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="toDueToAccount" class="form-label required-field">Due To Account (Target)</label>
+                                    <select class="form-select" id="toDueToAccount" required>
+                                        <option value="">Select Due To account</option>
+                                        <!-- Will be populated based on toEntity -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label for="transferDescription" class="form-label required-field">Description</label>
+                                    <textarea class="form-control" id="transferDescription" rows="2" required placeholder="Purpose of this transfer"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label for="referenceNumber" class="form-label">Reference Number</label>
+                                    <input type="text" class="form-control" id="referenceNumber" placeholder="Optional reference number">
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-secondary me-2" onclick="window.history.back()">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="toReviewBtn">
+                                    Continue to Review <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Review -->
+        <div id="step2" class="row d-none">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-check-circle me-2"></i> Review Transfer
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5>Transfer Summary</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <tbody>
+                                            <tr>
+                                                <th style="width: 30%">From Entity</th>
+                                                <td id="reviewFromEntity"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>To Entity</th>
+                                                <td id="reviewToEntity"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Amount</th>
+                                                <td id="reviewAmount"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Date</th>
+                                                <td id="reviewDate"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Description</th>
+                                                <td id="reviewDescription"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Reference Number</th>
+                                                <td id="reviewReference"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <i class="fas fa-file-invoice-dollar me-2"></i> Source Journal Entry
+                                    </div>
+                                    <div class="card-body journal-entry-preview">
+                                        <p><strong>Entity:</strong> <span id="previewSourceEntity"></span></p>
+                                        <p><strong>Fund:</strong> <span id="previewSourceFund"></span></p>
+                                        <table class="table table-sm table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>Account</th>
+                                                    <th>Debit</th>
+                                                    <th>Credit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td id="previewSourceDueFrom"></td>
+                                                    <td id="previewSourceDebit"></td>
+                                                    <td></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Cash</td>
+                                                    <td></td>
+                                                    <td id="previewSourceCredit"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <i class="fas fa-file-invoice-dollar me-2"></i> Target Journal Entry
+                                    </div>
+                                    <div class="card-body journal-entry-preview">
+                                        <p><strong>Entity:</strong> <span id="previewTargetEntity"></span></p>
+                                        <p><strong>Fund:</strong> <span id="previewTargetFund"></span></p>
+                                        <table class="table table-sm table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>Account</th>
+                                                    <th>Debit</th>
+                                                    <th>Credit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>Cash</td>
+                                                    <td id="previewTargetDebit"></td>
+                                                    <td></td>
+                                                </tr>
+                                                <tr>
+                                                    <td id="previewTargetDueTo"></td>
+                                                    <td></td>
+                                                    <td id="previewTargetCredit"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-secondary me-2" id="backToDetailsBtn">
+                                <i class="fas fa-arrow-left me-2"></i> Back
+                            </button>
+                            <button type="button" class="btn btn-success" id="submitTransferBtn">
+                                <i class="fas fa-check me-2"></i> Submit Transfer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Confirmation -->
+        <div id="step3" class="row d-none">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <i class="fas fa-check-circle me-2"></i> Transfer Completed Successfully
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center mb-4">
+                            <div class="display-1 text-success">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <h4 class="mt-3">Inter-Entity Transfer Completed</h4>
+                            <p class="text-muted">Both journal entries have been created successfully.</p>
+                        </div>
+
+                        <div id="confirmationDetails" class="mb-4">
+                            <h5>Transfer Details</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>From:</strong> <span id="confirmFromEntity"></span></p>
+                                    <p><strong>Amount:</strong> <span id="confirmAmount"></span></p>
+                                    <p><strong>Date:</strong> <span id="confirmDate"></span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>To:</strong> <span id="confirmToEntity"></span></p>
+                                    <p><strong>Reference:</strong> <span id="confirmReference"></span></p>
+                                    <p><strong>Transaction ID:</strong> <span id="confirmTransactionId"></span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <i class="fas fa-file-invoice-dollar me-2"></i> Source Journal Entry
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Journal Entry ID:</strong> <span id="sourceJournalId"></span></p>
+                                        <a href="#" class="btn btn-outline-primary btn-sm" id="viewSourceLink">
+                                            <i class="fas fa-eye me-2"></i> View Source Entry
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <i class="fas fa-file-invoice-dollar me-2"></i> Target Journal Entry
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Journal Entry ID:</strong> <span id="targetJournalId"></span></p>
+                                        <a href="#" class="btn btn-outline-primary btn-sm" id="viewTargetLink">
+                                            <i class="fas fa-eye me-2"></i> View Target Entry
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-center">
+                            <button type="button" class="btn btn-primary me-2" id="newTransferBtn">
+                                <i class="fas fa-plus me-2"></i> Create Another Transfer
+                            </button>
+                            <a href="/index.html?v=20250722" class="btn btn-secondary">
+                                <i class="fas fa-home me-2"></i> Return to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 id="loadingMessage">Processing transfer...</h5>
+                    <p class="text-muted" id="loadingDetails">Creating journal entries</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Dynamic API base URL - automatically uses current host (works with
+        // localhost, Tailscale IP/hostname, Docker, VM guests, etc.)
+        const API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+        
+        // Global variables
+        let entities = [];
+        let funds = [];
+        let accounts = {};
+        let loadingModal;
+
+        // Initialize on document ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Bootstrap components
+            loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+            
+            // Fetch initial data
+            fetchEntities();
+            
+            // Set up event listeners
+            document.getElementById('fromEntity').addEventListener('change', handleFromEntityChange);
+            document.getElementById('toEntity').addEventListener('change', handleToEntityChange);
+            document.getElementById('transferAmount').addEventListener('input', updateReviewAmount);
+            document.getElementById('toReviewBtn').addEventListener('click', goToReview);
+            document.getElementById('backToDetailsBtn').addEventListener('click', backToDetails);
+            document.getElementById('submitTransferBtn').addEventListener('click', submitTransfer);
+            document.getElementById('newTransferBtn').addEventListener('click', resetWizard);
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('transferDate').value = today;
+        });
+
+        // Fetch all entities from the API
+        async function fetchEntities() {
+            showInfo("Loading entities...");
+            try {
+                const response = await fetch(`${API_BASE}/api/entities`);
+                if (!response.ok) throw new Error('Failed to fetch entities');
+                
+                entities = await response.json();
+                populateEntityDropdowns();
+                hideInfo();
+            } catch (error) {
+                showError("Error loading entities: " + error.message);
+            }
+        }
+
+        // Populate entity dropdowns with fetched data
+        function populateEntityDropdowns() {
+            const fromEntitySelect = document.getElementById('fromEntity');
+            const toEntitySelect = document.getElementById('toEntity');
+            
+            // Clear existing options except the first one
+            fromEntitySelect.innerHTML = '<option value="">Select source entity</option>';
+            toEntitySelect.innerHTML = '<option value="">Select target entity</option>';
+            
+            // Add entities to dropdowns
+            entities.forEach(entity => {
+                if (entity.parent_entity_id) { // Only include child entities, not parent
+                    const option = document.createElement('option');
+                    option.value = entity.id;
+                    option.textContent = `${entity.code} - ${entity.name}`;
+                    
+                    fromEntitySelect.appendChild(option.cloneNode(true));
+                    toEntitySelect.appendChild(option);
+                }
+            });
+        }
+
+        // Handle change of source entity
+        async function handleFromEntityChange() {
+            const entityId = document.getElementById('fromEntity').value;
+            if (!entityId) return;
+            
+            // Clear and disable target entity options that match source
+            const toEntitySelect = document.getElementById('toEntity');
+            for (let i = 0; i < toEntitySelect.options.length; i++) {
+                if (toEntitySelect.options[i].value === entityId) {
+                    toEntitySelect.options[i].disabled = true;
+                } else {
+                    toEntitySelect.options[i].disabled = false;
+                }
+            }
+            
+            // If the currently selected target matches source, clear it
+            if (toEntitySelect.value === entityId) {
+                toEntitySelect.value = '';
+            }
+            
+            // Fetch funds and accounts for this entity
+            await fetchFundsForEntity(entityId, 'fromFund');
+            await fetchAccountsForEntity(entityId, 'from');
+        }
+
+        // Handle change of target entity
+        async function handleToEntityChange() {
+            const entityId = document.getElementById('toEntity').value;
+            if (!entityId) return;
+            
+            // Clear and disable source entity options that match target
+            const fromEntitySelect = document.getElementById('fromEntity');
+            for (let i = 0; i < fromEntitySelect.options.length; i++) {
+                if (fromEntitySelect.options[i].value === entityId) {
+                    fromEntitySelect.options[i].disabled = true;
+                } else {
+                    fromEntitySelect.options[i].disabled = false;
+                }
+            }
+            
+            // If the currently selected source matches target, clear it
+            if (fromEntitySelect.value === entityId) {
+                fromEntitySelect.value = '';
+            }
+            
+            // Fetch funds and accounts for this entity
+            await fetchFundsForEntity(entityId, 'toFund');
+            await fetchAccountsForEntity(entityId, 'to');
+        }
+
+        // Fetch funds for an entity
+        async function fetchFundsForEntity(entityId, targetElement) {
+            showInfo("Loading funds...");
+            try {
+                const response = await fetch(`${API_BASE}/api/funds?entityId=${entityId}`);
+                if (!response.ok) throw new Error('Failed to fetch funds');
+                
+                const entityFunds = await response.json();
+                populateFundDropdown(entityFunds, targetElement);
+                hideInfo();
+            } catch (error) {
+                showError("Error loading funds: " + error.message);
+            }
+        }
+
+        // Populate fund dropdown
+        function populateFundDropdown(funds, targetElement) {
+            const fundSelect = document.getElementById(targetElement);
+            fundSelect.innerHTML = '<option value="">Select fund</option>';
+            
+            funds.forEach(fund => {
+                const option = document.createElement('option');
+                option.value = fund.id;
+                option.textContent = `${fund.code} - ${fund.name}`;
+                fundSelect.appendChild(option);
+            });
+        }
+
+        // Fetch accounts for an entity
+        async function fetchAccountsForEntity(entityId, prefix) {
+            showInfo("Loading accounts...");
+            try {
+                const response = await fetch(`${API_BASE}/api/accounts?entityId=${entityId}`);
+                if (!response.ok) throw new Error('Failed to fetch accounts');
+                
+                const entityAccounts = await response.json();
+                
+                // Store accounts for this entity
+                accounts[entityId] = entityAccounts;
+                
+                // Populate appropriate dropdown based on prefix
+                if (prefix === 'from') {
+                    populateDueFromAccounts(entityAccounts, 'fromDueFromAccount');
+                } else {
+                    populateDueToAccounts(entityAccounts, 'toDueToAccount');
+                }
+                
+                hideInfo();
+            } catch (error) {
+                showError("Error loading accounts: " + error.message);
+            }
+        }
+
+        // Populate Due From accounts dropdown
+        function populateDueFromAccounts(accounts, targetElement) {
+            const accountSelect = document.getElementById(targetElement);
+            accountSelect.innerHTML = '<option value="">Select Due From account</option>';
+            
+            // Filter for Asset accounts that look like "Due From"
+            const dueFromAccounts = accounts.filter(account => 
+                account.type === 'Asset' && 
+                (account.name.toLowerCase().includes('due from') || account.code.startsWith('19'))
+            );
+            // Debugging: inspect available and filtered accounts
+            console.log('All accounts:', accounts);
+            console.log('Filtered Due From accounts:', dueFromAccounts);
+            
+            dueFromAccounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = `${account.code} - ${account.name}`;
+                accountSelect.appendChild(option);
+            });
+            
+            // If no matching accounts found, show message
+            if (dueFromAccounts.length === 0) {
+                const option = document.createElement('option');
+                option.disabled = true;
+                option.textContent = 'No Due From accounts found';
+                accountSelect.appendChild(option);
+                showError("No Due From accounts found for this entity. Please create an Asset account with 'Due From' in the name.");
+            }
+        }
+
+        // Populate Due To accounts dropdown
+        function populateDueToAccounts(accounts, targetElement) {
+            const accountSelect = document.getElementById(targetElement);
+            accountSelect.innerHTML = '<option value="">Select Due To account</option>';
+            
+            // Filter for Liability accounts that look like "Due To"
+            const dueToAccounts = accounts.filter(account => 
+                account.type === 'Liability' && 
+                (account.name.toLowerCase().includes('due to') || account.code.startsWith('29'))
+            );
+            // Debugging: inspect available and filtered accounts
+            console.log('All accounts:', accounts);
+            console.log('Filtered Due To accounts:', dueToAccounts);
+            
+            dueToAccounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = `${account.code} - ${account.name}`;
+                accountSelect.appendChild(option);
+            });
+            
+            // If no matching accounts found, show message
+            if (dueToAccounts.length === 0) {
+                const option = document.createElement('option');
+                option.disabled = true;
+                option.textContent = 'No Due To accounts found';
+                accountSelect.appendChild(option);
+                showError("No Due To accounts found for this entity. Please create a Liability account with 'Due To' in the name.");
+            }
+        }
+
+        // Update the review amount when input changes
+        function updateReviewAmount() {
+            const amount = document.getElementById('transferAmount').value;
+            if (amount) {
+                const formattedAmount = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD'
+                }).format(amount);
+                
+                document.getElementById('reviewAmount').textContent = formattedAmount;
+                document.getElementById('previewSourceDebit').textContent = formattedAmount;
+                document.getElementById('previewSourceCredit').textContent = formattedAmount;
+                document.getElementById('previewTargetDebit').textContent = formattedAmount;
+                document.getElementById('previewTargetCredit').textContent = formattedAmount;
+            }
+        }
+
+        // Proceed to review step
+        function goToReview() {
+            // Validate form
+            const form = document.getElementById('transferForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Get values from form
+            const fromEntityId = document.getElementById('fromEntity').value;
+            const toEntityId = document.getElementById('toEntity').value;
+            const amount = document.getElementById('transferAmount').value;
+            const date = document.getElementById('transferDate').value;
+            const description = document.getElementById('transferDescription').value;
+            const reference = document.getElementById('referenceNumber').value || 'N/A';
+            const fromFundId = document.getElementById('fromFund').value;
+            const toFundId = document.getElementById('toFund').value;
+            const fromDueFromAccountId = document.getElementById('fromDueFromAccount').value;
+            const toDueToAccountId = document.getElementById('toDueToAccount').value;
+            
+            // Find entity, fund and account objects
+            const fromEntity = entities.find(e => e.id === fromEntityId);
+            const toEntity = entities.find(e => e.id === toEntityId);
+            const fromFund = funds.find(f => f.id === fromFundId) || { code: '', name: '' };
+            const toFund = funds.find(f => f.id === toFundId) || { code: '', name: '' };
+            const fromDueFromAccount = accounts[fromEntityId]?.find(a => a.id === fromDueFromAccountId) || { code: '', name: '' };
+            const toDueToAccount = accounts[toEntityId]?.find(a => a.id === toDueToAccountId) || { code: '', name: '' };
+            
+            // Format amount
+            const formattedAmount = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+            
+            // Format date
+            const formattedDate = new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Update review screen
+            document.getElementById('reviewFromEntity').textContent = `${fromEntity.code} - ${fromEntity.name}`;
+            document.getElementById('reviewToEntity').textContent = `${toEntity.code} - ${toEntity.name}`;
+            document.getElementById('reviewAmount').textContent = formattedAmount;
+            document.getElementById('reviewDate').textContent = formattedDate;
+            document.getElementById('reviewDescription').textContent = description;
+            document.getElementById('reviewReference').textContent = reference;
+            
+            // Update journal entry previews
+            document.getElementById('previewSourceEntity').textContent = `${fromEntity.code} - ${fromEntity.name}`;
+            document.getElementById('previewSourceFund').textContent = `${fromFund.code} - ${fromFund.name}`;
+            document.getElementById('previewSourceDueFrom').textContent = `${fromDueFromAccount.code} - ${fromDueFromAccount.name}`;
+            document.getElementById('previewSourceDebit').textContent = formattedAmount;
+            document.getElementById('previewSourceCredit').textContent = formattedAmount;
+            
+            document.getElementById('previewTargetEntity').textContent = `${toEntity.code} - ${toEntity.name}`;
+            document.getElementById('previewTargetFund').textContent = `${toFund.code} - ${toFund.name}`;
+            document.getElementById('previewTargetDueTo').textContent = `${toDueToAccount.code} - ${toDueToAccount.name}`;
+            document.getElementById('previewTargetDebit').textContent = formattedAmount;
+            document.getElementById('previewTargetCredit').textContent = formattedAmount;
+            
+            // Show review step
+            document.getElementById('step1').classList.add('d-none');
+            document.getElementById('step2').classList.remove('d-none');
+            document.getElementById('step1-indicator').classList.remove('active');
+            document.getElementById('step2-indicator').classList.add('active');
+            document.getElementById('wizard-progress').style.width = '66%';
+            document.getElementById('wizard-progress').setAttribute('aria-valuenow', '66');
+        }
+
+        // Go back to details step
+        function backToDetails() {
+            document.getElementById('step2').classList.add('d-none');
+            document.getElementById('step1').classList.remove('d-none');
+            document.getElementById('step2-indicator').classList.remove('active');
+            document.getElementById('step1-indicator').classList.add('active');
+            document.getElementById('wizard-progress').style.width = '33%';
+            document.getElementById('wizard-progress').setAttribute('aria-valuenow', '33');
+        }
+
+        // Submit the transfer (create both journal entries)
+        async function submitTransfer() {
+            // Show loading modal
+            loadingModal.show();
+            document.getElementById('loadingMessage').textContent = 'Processing transfer...';
+            document.getElementById('loadingDetails').textContent = 'Creating journal entries';
+            
+            try {
+                // Get values from form
+                const fromEntityId = document.getElementById('fromEntity').value;
+                const toEntityId = document.getElementById('toEntity').value;
+                const amount = parseFloat(document.getElementById('transferAmount').value);
+                const date = document.getElementById('transferDate').value;
+                const description = document.getElementById('transferDescription').value;
+                const reference = document.getElementById('referenceNumber').value || `IE-${new Date().toISOString().slice(0, 10)}`;
+                const fromFundId = document.getElementById('fromFund').value;
+                const toFundId = document.getElementById('toFund').value;
+                const fromDueFromAccountId = document.getElementById('fromDueFromAccount').value;
+                const toDueToAccountId = document.getElementById('toDueToAccount').value;
+                
+                // Generate a UUID for matching_transaction_id
+                const matchingTransactionId = generateUUID();
+                
+                // Create source journal entry
+                document.getElementById('loadingDetails').textContent = 'Creating source journal entry';
+                const sourceJournalEntry = await createJournalEntry({
+                    entity_id: fromEntityId,
+                    entry_date: date,
+                    reference_number: `${reference}-SRC`,
+                    description: description,
+                    total_amount: amount,
+                    status: 'Posted',
+                    created_by: 'System',
+                    is_inter_entity: true,
+                    target_entity_id: toEntityId,
+                    matching_transaction_id: matchingTransactionId
+                });
+                
+                // Create source journal entry lines
+                await createJournalEntryLines(sourceJournalEntry.id, [
+                    {
+                        account_id: fromDueFromAccountId,
+                        fund_id: fromFundId,
+                        debit_amount: amount,
+                        credit_amount: 0,
+                        description: `Due from ${getEntityCode(toEntityId)}`
+                    },
+                    {
+                        account_id: await getCashAccountId(fromEntityId),
+                        fund_id: fromFundId,
+                        debit_amount: 0,
+                        credit_amount: amount,
+                        description: `Transfer to ${getEntityCode(toEntityId)}`
+                    }
+                ]);
+                
+                // Create target journal entry
+                document.getElementById('loadingDetails').textContent = 'Creating target journal entry';
+                const targetJournalEntry = await createJournalEntry({
+                    entity_id: toEntityId,
+                    entry_date: date,
+                    reference_number: `${reference}-TGT`,
+                    description: description,
+                    total_amount: amount,
+                    status: 'Posted',
+                    created_by: 'System',
+                    is_inter_entity: true,
+                    target_entity_id: fromEntityId,
+                    matching_transaction_id: matchingTransactionId
+                });
+                
+                // Create target journal entry lines
+                await createJournalEntryLines(targetJournalEntry.id, [
+                    {
+                        account_id: await getCashAccountId(toEntityId),
+                        fund_id: toFundId,
+                        debit_amount: amount,
+                        credit_amount: 0,
+                        description: `Transfer from ${getEntityCode(fromEntityId)}`
+                    },
+                    {
+                        account_id: toDueToAccountId,
+                        fund_id: toFundId,
+                        debit_amount: 0,
+                        credit_amount: amount,
+                        description: `Due to ${getEntityCode(fromEntityId)}`
+                    }
+                ]);
+                
+                // Update confirmation screen
+                document.getElementById('confirmFromEntity').textContent = getEntityName(fromEntityId);
+                document.getElementById('confirmToEntity').textContent = getEntityName(toEntityId);
+                document.getElementById('confirmAmount').textContent = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD'
+                }).format(amount);
+                document.getElementById('confirmDate').textContent = new Date(date).toLocaleDateString();
+                document.getElementById('confirmReference').textContent = reference;
+                document.getElementById('confirmTransactionId').textContent = matchingTransactionId;
+                document.getElementById('sourceJournalId').textContent = sourceJournalEntry.id;
+                document.getElementById('targetJournalId').textContent = targetJournalEntry.id;
+                
+                // Set up links to view journal entries
+                document.getElementById('viewSourceLink').href = `journal-entry-detail.html?id=${sourceJournalEntry.id}`;
+                document.getElementById('viewTargetLink').href = `journal-entry-detail.html?id=${targetJournalEntry.id}`;
+                
+                // Hide loading modal and show confirmation
+                loadingModal.hide();
+                document.getElementById('step2').classList.add('d-none');
+                document.getElementById('step3').classList.remove('d-none');
+                document.getElementById('step2-indicator').classList.remove('active');
+                document.getElementById('step3-indicator').classList.add('active');
+                document.getElementById('wizard-progress').style.width = '100%';
+                document.getElementById('wizard-progress').setAttribute('aria-valuenow', '100');
+                
+            } catch (error) {
+                loadingModal.hide();
+                showError("Error creating transfer: " + error.message);
+            }
+        }
+
+        // Create a journal entry
+        async function createJournalEntry(journalEntryData) {
+            const response = await fetch(`${API_BASE}/api/journal-entries`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(journalEntryData)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to create journal entry');
+            }
+            
+            return await response.json();
+        }
+
+        // Create journal entry lines
+        async function createJournalEntryLines(journalEntryId, lines) {
+            for (const line of lines) {
+                const response = await fetch(`${API_BASE}/api/journal-entries/${journalEntryId}/lines`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        journal_entry_id: journalEntryId,
+                        ...line
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to create journal entry line');
+                }
+            }
+        }
+
+        // Get entity code by ID
+        function getEntityCode(entityId) {
+            const entity = entities.find(e => e.id === entityId);
+            return entity ? entity.code : 'Unknown';
+        }
+
+        // Get entity name by ID
+        function getEntityName(entityId) {
+            const entity = entities.find(e => e.id === entityId);
+            return entity ? `${entity.code} - ${entity.name}` : 'Unknown';
+        }
+
+        // Get cash account ID for an entity
+        async function getCashAccountId(entityId) {
+            // Check if we already have accounts for this entity
+            if (!accounts[entityId]) {
+                const response = await fetch(`${API_BASE}/api/accounts?entityId=${entityId}`);
+                if (!response.ok) throw new Error('Failed to fetch accounts');
+                accounts[entityId] = await response.json();
+            }
+            
+            // Find a cash account
+            const cashAccount = accounts[entityId].find(account => 
+                account.type === 'Asset' && 
+                (account.name.toLowerCase().includes('cash') || account.code.startsWith('10'))
+            );
+            
+            if (!cashAccount) {
+                throw new Error(`No cash account found for entity ${getEntityName(entityId)}`);
+            }
+            
+            return cashAccount.id;
+        }
+
+        // Generate a UUID for matching_transaction_id
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // Reset wizard to start over
+        function resetWizard() {
+            // Reset form fields
+            document.getElementById('transferForm').reset();
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('transferDate').value = today;
+            
+            // Reset entity dropdowns
+            populateEntityDropdowns();
+            
+            // Show first step
+            document.getElementById('step3').classList.add('d-none');
+            document.getElementById('step1').classList.remove('d-none');
+            document.getElementById('step3-indicator').classList.remove('active');
+            document.getElementById('step1-indicator').classList.add('active');
+            document.getElementById('wizard-progress').style.width = '33%';
+            document.getElementById('wizard-progress').setAttribute('aria-valuenow', '33');
+            
+            // Clear alerts
+            hideError();
+            hideInfo();
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            errorMessage.textContent = message;
+            errorAlert.classList.remove('d-none');
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                errorAlert.classList.add('d-none');
+            }, 10000);
+        }
+
+        // Hide error message
+        function hideError() {
+            document.getElementById('errorAlert').classList.add('d-none');
+        }
+
+        // Show info message
+        function showInfo(message) {
+            const infoAlert = document.getElementById('infoAlert');
+            const infoMessage = document.getElementById('infoMessage');
+            
+            infoMessage.textContent = message;
+            infoAlert.classList.remove('d-none');
+        }
+
+        // Hide info message
+        function hideInfo() {
+            document.getElementById('infoAlert').classList.add('d-none');
+        }
+    </script>
+</body>
+</html>

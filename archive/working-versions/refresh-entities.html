@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fund Accounting Data Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #2196F3;
+            margin-top: 20px;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #0b7dda;
+        }
+        .panel {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .entity-node {
+            margin: 5px 0;
+            padding: 8px;
+            border-left: 3px solid #2196F3;
+            background-color: #e3f2fd;
+        }
+        .entity-children {
+            margin-left: 20px;
+            padding-left: 10px;
+            border-left: 1px dashed #bbdefb;
+        }
+        .fund-node {
+            margin: 5px 0;
+            padding: 8px;
+            border-left: 3px solid #4caf50;
+            background-color: #e8f5e9;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top-color: #2196F3;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .error {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #388e3c;
+            background-color: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fund Accounting Data Viewer</h1>
+        <p>This standalone page displays your fund accounting data directly from the API, bypassing any UI issues in the main application.</p>
+        
+        <div class="panel">
+            <h2>Actions</h2>
+            <button id="refreshAllBtn">Refresh All Data</button>
+            <button id="openMainAppBtn">Open Main Application</button>
+            <button id="openAPITesterBtn">Open API Tester</button>
+        </div>
+        
+        <div class="panel">
+            <h2>Entity Hierarchy</h2>
+            <div id="hierarchyContainer"></div>
+        </div>
+        
+        <div class="panel">
+            <h2>Entities</h2>
+            <table id="entitiesTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Parent</th>
+                        <th>Consolidates</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="panel">
+            <h2>Funds</h2>
+            <table id="fundsTable">
+                <thead>
+                    <tr>
+                        <th>Entity</th>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Type</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="panel">
+            <h2>Journal Entries</h2>
+            <table id="journalEntriesTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Entity</th>
+                        <th>Reference</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const hierarchyContainer = document.getElementById('hierarchyContainer');
+        const entitiesTable = document.getElementById('entitiesTable').querySelector('tbody');
+        const fundsTable = document.getElementById('fundsTable').querySelector('tbody');
+        const journalEntriesTable = document.getElementById('journalEntriesTable').querySelector('tbody');
+        const refreshAllBtn = document.getElementById('refreshAllBtn');
+        const openMainAppBtn = document.getElementById('openMainAppBtn');
+        const openAPITesterBtn = document.getElementById('openAPITesterBtn');
+        
+        // Data storage
+        let entitiesData = [];
+        let fundsData = [];
+        let journalEntriesData = [];
+        
+        // Utility function to show loading state
+        function showLoading(element) {
+            const loadingSpinner = document.createElement('div');
+            loadingSpinner.className = 'loading';
+            element.innerHTML = 'Loading...';
+            element.appendChild(loadingSpinner);
+        }
+        
+        // Utility function to show error message
+        function showError(element, message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = `Error: ${message}`;
+            element.innerHTML = '';
+            element.appendChild(errorDiv);
+        }
+        
+        // Utility function to format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        }
+        
+        // Utility function to format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            }).format(date);
+        }
+        
+        // Fetch data from API
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`/api/${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        // Load entities
+        async function loadEntities() {
+            showLoading(entitiesTable);
+            try {
+                entitiesData = await fetchData('entities');
+                renderEntitiesTable();
+                return entitiesData;
+            } catch (error) {
+                showError(entitiesTable, `Failed to load entities: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        // Load funds
+        async function loadFunds() {
+            showLoading(fundsTable);
+            try {
+                fundsData = await fetchData('funds');
+                renderFundsTable();
+                return fundsData;
+            } catch (error) {
+                showError(fundsTable, `Failed to load funds: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        // Load journal entries
+        async function loadJournalEntries() {
+            showLoading(journalEntriesTable);
+            try {
+                journalEntriesData = await fetchData('journal-entries');
+                renderJournalEntriesTable();
+                return journalEntriesData;
+            } catch (error) {
+                showError(journalEntriesTable, `Failed to load journal entries: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        // Render entities table
+        function renderEntitiesTable() {
+            entitiesTable.innerHTML = '';
+            
+            entitiesData.forEach(entity => {
+                const row = document.createElement('tr');
+                
+                // Find parent entity name
+                let parentName = 'None';
+                if (entity.parent_entity_id) {
+                    const parent = entitiesData.find(e => e.id === entity.parent_entity_id);
+                    if (parent) {
+                        parentName = parent.name;
+                    }
+                }
+                
+                row.innerHTML = `
+                    <td>${entity.name}</td>
+                    <td>${entity.code}</td>
+                    <td>${parentName}</td>
+                    <td>${entity.is_consolidated ? 'Yes' : 'No'}</td>
+                    <td>${entity.status}</td>
+                `;
+                
+                entitiesTable.appendChild(row);
+            });
+        }
+        
+        // Render funds table
+        function renderFundsTable() {
+            fundsTable.innerHTML = '';
+            
+            fundsData.forEach(fund => {
+                const row = document.createElement('tr');
+                
+                // Find entity name
+                let entityName = 'Unknown';
+                if (fund.entity_id) {
+                    const entity = entitiesData.find(e => e.id === fund.entity_id);
+                    if (entity) {
+                        entityName = entity.name;
+                    }
+                }
+                
+                row.innerHTML = `
+                    <td>${entityName}</td>
+                    <td>${fund.name}</td>
+                    <td>${fund.code}</td>
+                    <td>${fund.type || 'N/A'}</td>
+                    <td>${formatCurrency(fund.balance)}</td>
+                    <td>${fund.status}</td>
+                `;
+                
+                fundsTable.appendChild(row);
+            });
+        }
+        
+        // Render journal entries table
+        function renderJournalEntriesTable() {
+            journalEntriesTable.innerHTML = '';
+            
+            // Sort by date descending
+            const sortedEntries = [...journalEntriesData].sort((a, b) => 
+                new Date(b.entry_date) - new Date(a.entry_date)
+            );
+            
+            sortedEntries.forEach(entry => {
+                const row = document.createElement('tr');
+                
+                // Find entity name
+                let entityName = 'Unknown';
+                if (entry.entity_id) {
+                    const entity = entitiesData.find(e => e.id === entry.entity_id);
+                    if (entity) {
+                        entityName = entity.name;
+                    }
+                }
+                
+                row.innerHTML = `
+                    <td>${formatDate(entry.entry_date)}</td>
+                    <td>${entityName}</td>
+                    <td>${entry.reference_number}</td>
+                    <td>${entry.description}</td>
+                    <td>${formatCurrency(entry.total_amount)}</td>
+                    <td>${entry.status}</td>
+                `;
+                
+                journalEntriesTable.appendChild(row);
+            });
+        }
+        
+        // Build entity hierarchy
+        function buildHierarchyData(entities, funds) {
+            // Create a map of entities by ID
+            const entityMap = {};
+            entities.forEach(entity => {
+                entityMap[entity.id] = {
+                    ...entity,
+                    children: []
+                };
+            });
+            
+            // Find the root entity (The Principle Foundation parent)
+            let rootEntity = entities.find(entity => 
+                entity.parent_entity_id === null && 
+                (entity.name === 'The Principle Foundation' || entity.code === 'TPF_PARENT')
+            );
+            
+            // If no root entity exists, use the first entity without a parent
+            if (!rootEntity) {
+                rootEntity = entities.find(entity => entity.parent_entity_id === null);
+            }
+            
+            // Build the entity hierarchy
+            const hierarchy = {
+                root: rootEntity ? entityMap[rootEntity.id] : null,
+                entities: entityMap
+            };
+            
+            // Add child entities to their parents
+            entities.forEach(entity => {
+                if (entity.parent_entity_id && entityMap[entity.parent_entity_id]) {
+                    entityMap[entity.parent_entity_id].children.push(entityMap[entity.id]);
+                }
+            });
+            
+            // Add funds to their respective entities
+            funds.forEach(fund => {
+                if (entityMap[fund.entity_id]) {
+                    entityMap[fund.entity_id].children.push({
+                        ...fund,
+                        type: 'fund'
+                    });
+                }
+            });
+            
+            return hierarchy;
+        }
+        
+        // Render entity hierarchy
+        function renderEntityHierarchy() {
+            hierarchyContainer.innerHTML = '';
+            
+            if (entitiesData.length === 0) {
+                hierarchyContainer.innerHTML = '<div class="error">No entities found</div>';
+                return;
+            }
+            
+            const hierarchy = buildHierarchyData(entitiesData, fundsData);
+            
+            if (!hierarchy.root) {
+                hierarchyContainer.innerHTML = '<div class="error">No root entity found</div>';
+                return;
+            }
+            
+            const rootNode = createHierarchyNode(hierarchy.root);
+            hierarchyContainer.appendChild(rootNode);
+        }
+        
+        // Create a hierarchy node
+        function createHierarchyNode(node) {
+            const container = document.createElement('div');
+            
+            if (node.type === 'fund') {
+                // Fund node
+                container.className = 'fund-node';
+                container.innerHTML = `
+                    <strong>${node.name}</strong> (${node.code}) - 
+                    ${formatCurrency(node.balance)}
+                `;
+            } else {
+                // Entity node
+                container.className = 'entity-node';
+                container.innerHTML = `
+                    <strong>${node.name}</strong> (${node.code})
+                    ${node.is_consolidated ? ' [Consolidated]' : ''}
+                `;
+                
+                // Add children if any
+                if (node.children && node.children.length > 0) {
+                    const childrenContainer = document.createElement('div');
+                    childrenContainer.className = 'entity-children';
+                    
+                    // First add entity children
+                    const entityChildren = node.children.filter(child => !child.type || child.type !== 'fund');
+                    entityChildren.forEach(child => {
+                        const childNode = createHierarchyNode(child);
+                        childrenContainer.appendChild(childNode);
+                    });
+                    
+                    // Then add fund children
+                    const fundChildren = node.children.filter(child => child.type === 'fund');
+                    fundChildren.forEach(child => {
+                        const childNode = createHierarchyNode(child);
+                        childrenContainer.appendChild(childNode);
+                    });
+                    
+                    container.appendChild(childrenContainer);
+                }
+            }
+            
+            return container;
+        }
+        
+        // Refresh all data
+        async function refreshAllData() {
+            try {
+                // Show loading in hierarchy container
+                hierarchyContainer.innerHTML = '<div>Loading hierarchy...</div><div class="loading"></div>';
+                
+                // Load entities and funds in parallel
+                await Promise.all([
+                    loadEntities(),
+                    loadFunds(),
+                    loadJournalEntries()
+                ]);
+                
+                // Render hierarchy after both entities and funds are loaded
+                renderEntityHierarchy();
+                
+                // Show success message
+                const successDiv = document.createElement('div');
+                successDiv.className = 'success';
+                successDiv.textContent = 'All data refreshed successfully!';
+                
+                // Remove success message after 3 seconds
+                setTimeout(() => {
+                    if (document.body.contains(successDiv)) {
+                        successDiv.remove();
+                    }
+                }, 3000);
+                
+                // Add success message at the top of the container
+                document.querySelector('.container').insertBefore(
+                    successDiv, 
+                    document.querySelector('.container').firstChild.nextSibling
+                );
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                
+                // Show error message at the top of the container
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = `Error refreshing data: ${error.message}`;
+                
+                document.querySelector('.container').insertBefore(
+                    errorDiv, 
+                    document.querySelector('.container').firstChild.nextSibling
+                );
+            }
+        }
+        
+        // Initialize the page
+        async function init() {
+            // Set up event listeners
+            refreshAllBtn.addEventListener('click', refreshAllData);
+            openMainAppBtn.addEventListener('click', () => window.open('index.html', '_blank'));
+            openAPITesterBtn.addEventListener('click', () => window.open('api-tester.html', '_blank'));
+            
+            // Load initial data
+            await refreshAllData();
+        }
+        
+        // Start the application when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API CORS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .test-container {
+            margin: 20px 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .pending {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow: auto;
+            max-height: 400px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0069d9;
+        }
+        .endpoints {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .endpoint {
+            display: flex;
+            align-items: center;
+        }
+        .endpoint input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>API CORS Test</h1>
+    <p>This page tests if the browser can connect to the backend API without CORS issues.</p>
+    
+    <div class="endpoints">
+        <div class="endpoint">
+            <input type="text" id="endpoint-url" value="http://localhost:3000/api/entities" placeholder="API Endpoint URL">
+            <button id="test-button">Test Connection</button>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test Results:</h2>
+        <div id="status-message" class="status pending">Ready to test connection...</div>
+        
+        <h3>Response Headers:</h3>
+        <pre id="response-headers">No data yet</pre>
+        
+        <h3>Response Data:</h3>
+        <pre id="response-data">No data yet</pre>
+    </div>
+    
+    <div class="connection-info">
+        <h2>Connection Information:</h2>
+        <p><strong>Frontend URL:</strong> <span id="frontend-url"></span></p>
+        <p><strong>Backend URL:</strong> <span id="backend-url"></span></p>
+        <p><strong>Last tested:</strong> <span id="last-tested">Not tested yet</span></p>
+    </div>
+    
+    <h2>CORS Troubleshooting:</h2>
+    <ul>
+        <li>If you see a CORS error, the backend server needs to include the appropriate CORS headers.</li>
+        <li>The backend should include: <code>Access-Control-Allow-Origin: *</code> (or specific origin)</li>
+        <li>For preflight requests, the backend should also handle OPTIONS requests.</li>
+        <li>Check that both servers are running (frontend on port 8080, backend on port 3000).</li>
+    </ul>
+
+    <script>
+        // Display the current page URL
+        document.getElementById('frontend-url').textContent = window.location.href;
+        
+        // Function to test the API connection
+        async function testConnection() {
+            const statusEl = document.getElementById('status-message');
+            const headersEl = document.getElementById('response-headers');
+            const dataEl = document.getElementById('response-data');
+            const lastTestedEl = document.getElementById('last-tested');
+            const endpointUrl = document.getElementById('endpoint-url').value;
+            
+            document.getElementById('backend-url').textContent = endpointUrl;
+            
+            // Update status to pending
+            statusEl.className = 'status pending';
+            statusEl.textContent = 'Testing connection...';
+            headersEl.textContent = 'Waiting for response...';
+            dataEl.textContent = 'Waiting for response...';
+            
+            try {
+                console.log(`Attempting to fetch from ${endpointUrl}`);
+                const startTime = performance.now();
+                
+                // Make the API request
+                const response = await fetch(endpointUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const endTime = performance.now();
+                const responseTime = (endTime - startTime).toFixed(2);
+                
+                // Display response headers
+                const headerText = [];
+                response.headers.forEach((value, name) => {
+                    headerText.push(`${name}: ${value}`);
+                });
+                headersEl.textContent = headerText.join('\n');
+                
+                if (response.ok) {
+                    // Parse the JSON response
+                    const data = await response.json();
+                    
+                    // Update status to success
+                    statusEl.className = 'status success';
+                    statusEl.textContent = `Connection successful! Response time: ${responseTime}ms`;
+                    
+                    // Display the response data
+                    dataEl.textContent = JSON.stringify(data, null, 2);
+                    
+                    console.log('Connection successful', data);
+                } else {
+                    // Handle HTTP error
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `Connection failed with status: ${response.status} ${response.statusText}`;
+                    
+                    try {
+                        const errorText = await response.text();
+                        dataEl.textContent = errorText;
+                    } catch (e) {
+                        dataEl.textContent = `Error: ${response.status} ${response.statusText}`;
+                    }
+                    
+                    console.error('Connection failed', response);
+                }
+            } catch (error) {
+                // Handle network or other errors
+                statusEl.className = 'status error';
+                statusEl.textContent = `Connection error: ${error.message}`;
+                dataEl.textContent = `Error: ${error.message}\n\nThis could be due to CORS restrictions, network issues, or the API server not running.`;
+                headersEl.textContent = 'No headers received due to error';
+                
+                console.error('Connection error', error);
+            }
+            
+            // Update last tested time
+            lastTestedEl.textContent = new Date().toLocaleString();
+        }
+        
+        // Add click event to the test button
+        document.getElementById('test-button').addEventListener('click', testConnection);
+        
+        // Test connection when the page loads
+        window.addEventListener('load', testConnection);
+    </script>
+</body>
+</html>

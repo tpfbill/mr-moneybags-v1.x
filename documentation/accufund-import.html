@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccuFund Data Import</title>
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --secondary-color: #263238;
+            --success-color: #4CAF50;
+            --error-color: #F44336;
+            --warning-color: #FFC107;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --text-light-color: #666;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: var(--panel-bg);
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .header {
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            margin: 0;
+            color: var(--primary-color);
+            font-size: 2em;
+        }
+        .header p {
+            margin: 5px 0 0;
+            color: var(--text-light-color);
+        }
+        .wizard-nav {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .wizard-step {
+            display: flex;
+            align-items: center;
+            color: #aaa;
+            font-weight: bold;
+            flex: 1;
+            justify-content: center;
+        }
+        .wizard-step .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #ccc;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        .wizard-step.active .step-number {
+            background-color: var(--primary-color);
+        }
+        .wizard-step.active {
+            color: var(--primary-color);
+        }
+        .wizard-step.completed .step-number {
+            background-color: var(--success-color);
+        }
+        .wizard-step.completed {
+            color: var(--success-color);
+        }
+        .wizard-panel {
+            display: none;
+        }
+        .wizard-panel.active {
+            display: block;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h2 {
+            color: var(--secondary-color);
+            font-size: 1.4em;
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #1976D2;
+        }
+        .button.secondary {
+            background-color: #78909C;
+        }
+        .button.secondary:hover {
+            background-color: #546E7A;
+        }
+        .button:disabled {
+            background-color: #B0BEC5;
+            cursor: not-allowed;
+        }
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #fafafa;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            background-color: #f0f8ff;
+            border-color: var(--primary-color);
+        }
+        .upload-area p {
+            margin: 0;
+            font-size: 1.1em;
+            color: var(--text-light-color);
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .data-table th, .data-table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+        .data-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .table-container {
+            max-height: 400px;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+        }
+        .mapping-table td {
+            vertical-align: middle;
+        }
+        .mapping-table select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar-fill {
+            height: 20px;
+            width: 0%;
+            background-color: var(--primary-color);
+            transition: width 0.5s;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            line-height: 20px;
+        }
+        .log-container {
+            background-color: #263238;
+            color: #eee;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+        .log-container .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #37474F;
+        }
+        .log-container .log-entry.error {
+            color: var(--error-color);
+            font-weight: bold;
+        }
+        .log-container .log-entry.success {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+        .log-container .log-entry.warn {
+            color: var(--warning-color);
+        }
+        .validation-summary {
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .validation-summary ul {
+            padding-left: 20px;
+        }
+        .validation-summary li.error {
+            color: var(--error-color);
+        }
+        .validation-summary li.success {
+            color: var(--success-color);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header class="header">
+            <h1>AccuFund Data Import Utility</h1>
+            <p>Import General Ledger, Chart of Accounts, and Fund data from AccuFund CSV exports.</p>
+        </header>
+
+        <nav class="wizard-nav">
+            <div id="step-1" class="wizard-step active">
+                <div class="step-number">1</div>
+                <div class="step-name">Upload File</div>
+            </div>
+            <div id="step-2" class="wizard-step">
+                <div class="step-number">2</div>
+                <div class="step-name">Map Columns</div>
+            </div>
+            <div id="step-3" class="wizard-step">
+                <div class="step-number">3</div>
+                <div class="step-name">Validate & Preview</div>
+            </div>
+            <div id="step-4" class="wizard-step">
+                <div class="step-number">4</div>
+                <div class="step-name">Import & Results</div>
+            </div>
+        </nav>
+
+        <!-- Step 1: Upload File -->
+        <div id="panel-1" class="wizard-panel active">
+            <section class="section">
+                <h2>Select File to Import</h2>
+                <div id="upload-area" class="upload-area">
+                    <p>Drag & Drop your AccuFund CSV file here, or click to select a file.</p>
+                    <p style="font-size: 0.8em; margin-top: 10px;">Supported formats: General Ledger Detail, Chart of Accounts, Fund List.</p>
+                </div>
+                <input type="file" id="file-input" class="hidden" accept=".csv">
+                <div id="file-info" style="margin-top: 20px;"></div>
+            </section>
+        </div>
+
+        <!-- Step 2: Map Columns -->
+        <div id="panel-2" class="wizard-panel">
+            <section class="section">
+                <h2>Data Preview</h2>
+                <div id="data-preview-container" class="table-container"></div>
+            </section>
+            <section class="section">
+                <h2>Map Columns</h2>
+                <p>Match the columns from your file to the required system fields. We've tried to guess the best matches.</p>
+                <div id="column-mapping-container"></div>
+                <button id="btn-goto-validate" class="button" style="margin-top: 20px;">Validate Data</button>
+            </section>
+        </div>
+
+        <!-- Step 3: Validate & Preview -->
+        <div id="panel-3" class="wizard-panel">
+            <section class="section">
+                <h2>Validation Summary</h2>
+                <div id="validation-summary" class="validation-summary"></div>
+                <button id="btn-start-import" class="button" style="margin-top: 20px;" disabled>Start Import</button>
+            </section>
+        </div>
+
+        <!-- Step 4: Import & Results -->
+        <div id="panel-4" class="wizard-panel">
+            <section class="section">
+                <h2>Import Progress</h2>
+                <div id="progress-status">Importing...</div>
+                <div class="progress-bar">
+                    <div id="progress-bar-fill" class="progress-bar-fill">0%</div>
+                </div>
+                <div id="import-log" class="log-container"></div>
+                <button id="btn-new-import" class="button secondary hidden" style="margin-top: 20px;">Start New Import</button>
+            </section>
+        </div>
+
+        <!-- Import History -->
+        <section class="section">
+            <h2>Import History</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>File Name</th>
+                            <th>Type</th>
+                            <th>Records</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="import-history-body">
+                        <!-- Placeholder -->
+                        <tr>
+                            <td>2025-06-28 14:30</td>
+                            <td>FY2024_GL_Export.csv</td>
+                            <td>General Ledger</td>
+                            <td>12,458</td>
+                            <td><span style="color:var(--success-color);">Success</span></td>
+                            <td><a href="#">View Log</a></td>
+                        </tr>
+                         <tr>
+                            <td>2025-06-27 11:15</td>
+                            <td>COA_Master.csv</td>
+                            <td>Chart of Accounts</td>
+                            <td>215</td>
+                            <td><span style="color:var(--success-color);">Success</span></td>
+                            <td><a href="#">View Log</a></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const state = {
+                file: null,
+                parsedData: [],
+                headers: [],
+                columnMapping: {},
+                validationResults: {},
+            };
+
+            const wizardSteps = document.querySelectorAll('.wizard-step');
+            const wizardPanels = document.querySelectorAll('.wizard-panel');
+
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const fileInfoDiv = document.getElementById('file-info');
+            const dataPreviewContainer = document.getElementById('data-preview-container');
+            const columnMappingContainer = document.getElementById('column-mapping-container');
+            const validationSummaryDiv = document.getElementById('validation-summary');
+            const progressStatusDiv = document.getElementById('progress-status');
+            const progressBarFill = document.getElementById('progress-bar-fill');
+            const importLogDiv = document.getElementById('import-log');
+
+            const btnGotoValidate = document.getElementById('btn-goto-validate');
+            const btnStartImport = document.getElementById('btn-start-import');
+            const btnNewImport = document.getElementById('btn-new-import');
+
+            const targetFields = {
+                transactionId: { label: 'Transaction ID', required: true, hint: 'e.g., Journal Entry Number, Ref #' },
+                entryDate: { label: 'Entry Date', required: true, hint: 'e.g., Date' },
+                debit: { label: 'Debit Amount', required: true, hint: 'e.g., Debit' },
+                credit: { label: 'Credit Amount', required: true, hint: 'e.g., Credit' },
+                accountCode: { label: 'Account Code', required: true, hint: 'e.g., GL Account' },
+                fundCode: { label: 'Fund Code', required: false, hint: 'e.g., Fund' },
+                entityCode: { label: 'Entity Code', required: false, hint: 'e.g., Location, Department' },
+                /* === Inter-Entity Transfer Support (v8.6) === */
+                isInterEntity: { label: 'Is Inter-Entity?', required: false, hint: 'TRUE/FALSE flag, e.g., Inter Entity?' },
+                targetEntityCode: { label: 'Target Entity Code', required: false, hint: 'e.g., Target Entity' },
+                matchingTransactionId: { label: 'Matching Transaction ID', required: false, hint: 'Links paired transfers' },
+                description: { label: 'Description', required: false, hint: 'e.g., Memo, Description' },
+            };
+            
+            function switchPanel(panelIndex) {
+                wizardPanels.forEach(p => p.classList.remove('active'));
+                document.getElementById(`panel-${panelIndex}`).classList.add('active');
+
+                wizardSteps.forEach((s, i) => {
+                    s.classList.remove('active', 'completed');
+                    if (i < panelIndex - 1) s.classList.add('completed');
+                    if (i === panelIndex - 1) s.classList.add('active');
+                });
+            }
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+
+            function handleFile(file) {
+                state.file = file;
+                fileInfoDiv.innerHTML = `<strong>Selected File:</strong> ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    parseCSV(e.target.result);
+                    renderDataPreview();
+                    renderColumnMapping();
+                    switchPanel(2);
+                };
+                reader.readAsText(file);
+            }
+
+            function parseCSV(csvText) {
+                const rows = csvText.split(/\\r?\\n/).map(row => row.split(','));
+                state.headers = rows[0].map(h => h.trim());
+                state.parsedData = rows.slice(1).filter(row => row.some(cell => cell.trim() !== ''));
+            }
+
+            function renderDataPreview() {
+                const previewData = state.parsedData.slice(0, 10);
+                let tableHTML = '<table class="data-table"><thead><tr>';
+                state.headers.forEach(h => tableHTML += `<th>${h}</th>`);
+                tableHTML += '</tr></thead><tbody>';
+                previewData.forEach(row => {
+                    tableHTML += '<tr>';
+                    row.forEach(cell => tableHTML += `<td>${cell}</td>`);
+                    tableHTML += '</tr>';
+                });
+                tableHTML += '</tbody></table>';
+                dataPreviewContainer.innerHTML = tableHTML;
+            }
+
+            function renderColumnMapping() {
+                let tableHTML = '<table class="data-table mapping-table"><thead><tr><th>System Field</th><th>File Column</th><th>Hint</th></tr></thead><tbody>';
+                
+                // Auto-suggest mapping
+                const autoMapping = suggestColumnMappings();
+
+                for (const [field, details] of Object.entries(targetFields)) {
+                    tableHTML += `<tr><td><strong>${details.label}</strong> ${details.required ? '<span style="color:red">*</span>' : ''}</td><td>`;
+                    let optionsHTML = '<option value="">-- Select Column --</option>';
+                    state.headers.forEach((header, index) => {
+                        const selected = (autoMapping[field] === header) ? 'selected' : '';
+                        optionsHTML += `<option value="${header}" ${selected}>${header}</option>`;
+                    });
+                    tableHTML += `<select id="map-${field}">${optionsHTML}</select></td><td>${details.hint}</td></tr>`;
+                }
+                tableHTML += '</tbody></table>';
+                columnMappingContainer.innerHTML = tableHTML;
+            }
+
+            function suggestColumnMappings() {
+                const mapping = {};
+                const fieldKeywords = {
+                    transactionId: ['transaction', 'ref', 'entry', 'journal'],
+                    entryDate: ['date'],
+                    debit: ['debit', 'dr'],
+                    credit: ['credit', 'cr'],
+                    accountCode: ['account'],
+                    fundCode: ['fund'],
+                    entityCode: ['entity', 'location', 'department'],
+                    isInterEntity: ['inter', 'entity', 'transfer', 'inter-entity'],
+                    targetEntityCode: ['target entity', 'counterparty', 'other entity', 'destination'],
+                    matchingTransactionId: ['matching', 'pair id', 'link id'],
+                    description: ['description', 'memo', 'note']
+                };
+
+                for (const [field, keywords] of Object.entries(fieldKeywords)) {
+                    for (const header of state.headers) {
+                        const lowerHeader = header.toLowerCase();
+                        if (keywords.some(kw => lowerHeader.includes(kw))) {
+                            mapping[field] = header;
+                            break;
+                        }
+                    }
+                }
+                return mapping;
+            }
+
+            btnGotoValidate.addEventListener('click', () => {
+                // Store user's mapping choices
+                for (const field of Object.keys(targetFields)) {
+                    state.columnMapping[field] = document.getElementById(`map-${field}`).value;
+                }
+                validateData();
+                renderValidationSummary();
+                switchPanel(3);
+            });
+
+            function validateData() {
+                let errors = [];
+                let warnings = [];
+                let info = [];
+
+                // Check required fields are mapped
+                for (const [field, details] of Object.entries(targetFields)) {
+                    if (details.required && !state.columnMapping[field]) {
+                        errors.push(`Required field '${details.label}' is not mapped.`);
+                    }
+                }
+
+                if (errors.length > 0) {
+                    state.validationResults = { errors, warnings, info, isValid: false };
+                    return;
+                }
+
+                // Check for unbalanced transactions
+                const debitIndex = state.headers.indexOf(state.columnMapping.debit);
+                const creditIndex = state.headers.indexOf(state.columnMapping.credit);
+                const txIdIndex = state.headers.indexOf(state.columnMapping.transactionId);
+
+                const transactions = {};
+                state.parsedData.forEach(row => {
+                    const txId = row[txIdIndex];
+                    if (!transactions[txId]) {
+                        transactions[txId] = { debit: 0, credit: 0, rowCount: 0 };
+                    }
+                    transactions[txId].debit += parseFloat(row[debitIndex]) || 0;
+                    transactions[txId].credit += parseFloat(row[creditIndex]) || 0;
+                    transactions[txId].rowCount++;
+                });
+
+                let unbalancedCount = 0;
+                for (const txId in transactions) {
+                    if (Math.abs(transactions[txId].debit - transactions[txId].credit) > 0.01) {
+                        unbalancedCount++;
+                    }
+                }
+                if (unbalancedCount > 0) {
+                    errors.push(`${unbalancedCount} transactions are not balanced (debits do not equal credits).`);
+                }
+
+                info.push(`Found ${state.parsedData.length} data rows.`);
+                info.push(`Found ${Object.keys(transactions).length} unique transactions.`);
+
+                state.validationResults = { errors, warnings, info, isValid: errors.length === 0 };
+            }
+
+            function renderValidationSummary() {
+                const { errors, warnings, info, isValid } = state.validationResults;
+                let summaryHTML = '<ul>';
+                info.forEach(i => summaryHTML += `<li class="success">✔️ ${i}</li>`);
+                warnings.forEach(w => summaryHTML += `<li class="warn">⚠️ ${w}</li>`);
+                errors.forEach(e => summaryHTML += `<li class="error">❌ ${e}</li>`);
+                summaryHTML += '</ul>';
+
+                if (isValid) {
+                    summaryHTML += '<p class="success">Validation passed! Ready to import.</p>';
+                    btnStartImport.disabled = false;
+                } else {
+                    summaryHTML += '<p class="error">Please fix the critical errors before importing.</p>';
+                    btnStartImport.disabled = true;
+                }
+                validationSummaryDiv.innerHTML = summaryHTML;
+            }
+
+            btnStartImport.addEventListener('click', () => {
+                switchPanel(4);
+                simulateImport();
+            });
+
+            function simulateImport() {
+                let progress = 0;
+                const totalRecords = state.parsedData.length;
+                let processedRecords = 0;
+
+                addLog('Import process started...');
+                const interval = setInterval(() => {
+                    const batchSize = Math.floor(Math.random() * (totalRecords / 10)) + 1;
+                    processedRecords += batchSize;
+                    progress = Math.min(100, Math.floor((processedRecords / totalRecords) * 100));
+                    
+                    progressBarFill.style.width = `${progress}%`;
+                    progressBarFill.textContent = `${progress}%`;
+                    progressStatusDiv.textContent = `Processing record ${processedRecords} of ${totalRecords}...`;
+                    addLog(`Processed batch of ${batchSize} records.`);
+
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        progressStatusDiv.textContent = 'Import Complete!';
+                        addLog('Import finished successfully.', 'success');
+                        btnNewImport.classList.remove('hidden');
+                    }
+                }, 500);
+            }
+            
+            function addLog(message, type = 'info') {
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                importLogDiv.appendChild(entry);
+                importLogDiv.scrollTop = importLogDiv.scrollHeight;
+            }
+            
+            btnNewImport.addEventListener('click', () => {
+                // Reset state and UI for a new import
+                Object.assign(state, { file: null, parsedData: [], headers: [], columnMapping: {}, validationResults: {} });
+                fileInfoDiv.innerHTML = '';
+                btnStartImport.disabled = true;
+                btnNewImport.classList.add('hidden');
+                switchPanel(1);
+            });
+
+            // Initialize
+            switchPanel(1);
+        });
+    </script>
+
+</body>
+</html>

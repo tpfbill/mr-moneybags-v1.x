@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="src/js/override-entities.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Profit Fund Accounting System</title>
+    <!-- Updated cache-busting query string to force latest CSS (visited-state fix) -->
+    <link rel="stylesheet" href="src/css/styles.css?v=20250721170000">
+    <!-- Entity hierarchy visualization styles -->
+    <link rel="stylesheet" href="src/css/entity-hierarchy.css?v=20250721150000">
+    <!-- Chart.js for graphical dashboards -->
+    <script id="chartjs-script"
+            src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+            defer
+            crossorigin="anonymous"
+            onload="console.log('[Chart.js] library loaded:', typeof Chart !== 'undefined');">
+    </script>
+</head>
+<body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Fund Accounting System</h1>
+            <div class="header-right-controls">
+                <div class="db-status-container">
+                    <span id="db-status-indicator" class="offline">DB Offline</span>
+                </div>
+                <div class="consolidated-view-container">
+                    <label for="consolidated-view-toggle">Consolidated View:</label>
+                    <input type="checkbox" id="consolidated-view-toggle">
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                    <select id="entity-selector">
+                        <option value="">Loading Entities...</option>
+                    </select>
+                </div>
+                <div class="user-info"><span>User</span><button class="logout-button" id="btnLogout">Logout</button></div>
+            </div>
+        </div>
+    </div>
+        <!-- (Removed misplaced Documentation section – will be added inside main-content) -->
+
+    <div class="main-nav" id="mainNavContainer"> 
+        <div class="nav-container">
+            <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+            <div class="nav-item" data-page="funds">Funds</div>
+            <div class="nav-item" data-page="journal-entries">Journal Entries</div>
+            <!-- Vendor Payments navigation -->
+            <div class="nav-item" onclick="window.location.href='vendor-payments.html'">Vendor Payments</div>
+            <!-- Inter-Entity Transfer wizard navigation -->
+            <div class="nav-item" onclick="window.location.href='docs/utilities/inter-entity-transfer-wizard.html'">Inter-Entity Transfer</div>
+            <div class="nav-item" data-page="fund-reports">Fund Reports</div>
+            <!-- Custom Reports Builder navigation -->
+            <div class="nav-item" onclick="window.location.href='docs/utilities/custom-reports-builder.html'">Custom Reports</div>
+            <!-- Natural Language Queries navigation -->
+            <div class="nav-item" onclick="window.location.href='docs/utilities/natural-language-queries.html'">Ask Questions</div>
+            <!-- Documentation Library (single-page view) -->
+            <div class="nav-item" data-page="documentation">Documentation</div>
+            <!-- Default Reports (separate from Fund Reports) -->
+            <div class="nav-item" onclick="window.location.href='default-reports.html'">Default Reports</div>
+            <div class="nav-item" data-page="settings">Settings</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="dashboard-page" class="page active">
+            <div class="content-header">
+                <h2 id="dashboard-title">Dashboard</h2>
+                <span id="dashboard-current-entity" style="margin-left:15px;font-size:0.9em;color:#555;"></span>
+                <button class="action-button" id="btnPrintDashboard">Print Report</button>
+            </div>
+            <div id="financial-overview-panel" class="dashboard-panel active">
+                <div class="card-grid" id="dashboard-summary-cards"><p class="preview-placeholder">Dashboard cards loading...</p></div>
+                <h3 class="mt-20">Fund Balances</h3>
+                <table class="data-table" id="dashboard-fund-balances-table">
+                    <thead><tr><th>Fund Name</th><th>Type</th><th>Balance</th><th>% of Total</th></tr></thead>
+                    <tbody><tr><td colspan="4" class="preview-placeholder">Fund balances loading...</td></tr></tbody>
+                </table>
+                <!-- Fund Balance Trends over Time -->
+                <h3 class="mt-20">Fund Balance Trends</h3>
+                <div id="fund-balance-trends-panel" class="dashboard-chart-container">
+                    <div style="margin-bottom:10px;">
+                        <label for="fund-balance-period-select">Period:</label>
+                        <select id="fund-balance-period-select" class="form-input" style="width:auto;">
+                            <option value="30">Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                            <option value="365">Last 12 months</option>
+                            <option value="all">All Time</option>
+                        </select>
+                    </div>
+                    <canvas id="fund-balance-chart" width="600" height="300"
+                            style="max-width:100%;height:300px;background:#fff;border:1px solid #ddd;border-radius:4px;">
+                        <!-- Fallback message -->
+                        Your browser does not support the HTML5 canvas tag.
+                    </canvas>
+                </div>
+                <!-- Income vs Expenses Chart -->
+                <h3 class="mt-20">Income vs Expenses</h3>
+                <div id="income-expense-panel" class="dashboard-chart-container">
+                    <canvas id="income-expense-chart" width="600" height="300"
+                            style="max-width:100%;height:300px;background:#fff;border:1px solid #ddd;border-radius:4px;">
+                        Your browser does not support the HTML5 canvas tag.
+                    </canvas>
+                </div>
+                <!-- Fund Distribution Pie Chart -->
+                <h3 class="mt-20">Fund Distribution</h3>
+                <div id="fund-distribution-panel" class="dashboard-chart-container">
+                    <canvas id="fund-distribution-chart" width="400" height="300"
+                            style="max-width:100%;height:300px;background:#fff;border:1px solid #ddd;border-radius:4px;">
+                        Your browser does not support the HTML5 canvas tag.
+                    </canvas>
+                </div>
+            </div>
+            <div id="recent-transactions-panel" class="dashboard-panel">
+                <h3>Recent Transactions</h3>
+                <table class="data-table" id="dashboard-recent-transactions-table">
+                     <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Amount</th><th>Status</th></tr></thead>
+                     <tbody><tr><td colspan="5" class="preview-placeholder">Recent transactions loading...</td></tr></tbody>
+                </table>
+            </div>
+             <div id="unposted-entries-panel" class="dashboard-panel">
+                <h3 class="mt-20">Unposted Journal Entries</h3>
+                <table class="data-table" id="dashboard-unposted-entries-table">
+                    <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Amount</th><th>Created By</th><th>Actions</th></tr></thead>
+                    <tbody><tr><td colspan="6" class="preview-placeholder">Unposted entries loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="chart-of-accounts-page" class="page">
+            <div class="content-header">
+                <h2>Chart of Accounts</h2>
+                <button class="action-button" id="btnAddAccount">Add Account</button>
+            </div>
+            <table class="data-table" id="chart-of-accounts-table">
+                <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="funds-page" class="page">
+            <div class="content-header">
+                <h2>Funds Management</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="funds-filter-select">Show:</label>
+                    <select id="funds-filter-select" class="form-input" style="width: auto;">
+                        <option value="current">Current Entity Only</option>
+                        <option value="all">All Entities</option>
+                    </select>
+                    <button class="action-button" id="btnAddFund">Add Fund</button>
+                </div>
+            </div>
+            <table class="data-table" id="funds-table">
+                <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Entity</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="journal-entries-page" class="page">
+            <div class="content-header">
+                <h2>Journal Entries</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="journal-entries-filter-select">Show:</label>
+                    <select id="journal-entries-filter-select" class="form-input" style="width: auto;">
+                        <option value="current">Current Entity Only</option>
+                        <option value="all">All Entities</option>
+                    </select>
+                    <button class="action-button" id="btnNewJournalEntry">New Journal Entry</button>
+                </div>
+            </div>
+            <table class="data-table" id="journal-entries-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>Description</th>
+                        <th>Fund</th>
+                        <th>Entity</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <!-- ==================== Fund Reports Page ==================== -->
+        <div id="fund-reports-page" class="page">
+            <div class="content-header">
+                <h2>Fund Reports</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="fund-reports-fund-select">Fund:</label>
+                    <select id="fund-reports-fund-select" class="form-input" style="width: auto;">
+                        <option value="">Select Fund...</option>
+                    </select>
+                    <label for="fund-reports-date-start">From:</label>
+                    <input type="date" id="fund-reports-date-start" class="form-input" style="width: auto;">
+                    <label for="fund-reports-date-end">To:</label>
+                    <input type="date" id="fund-reports-date-end" class="form-input" style="width: auto;">
+                    <button class="action-button" id="fund-reports-generate">Generate Report</button>
+                </div>
+            </div>
+            
+            <div class="tab-container">
+                <div class="tab-menu">
+                    <div class="tab-item active" data-tab="fund-balance-report">Fund Balance</div>
+                    <div class="tab-item" data-tab="fund-activity-report">Fund Activity</div>
+                    <div class="tab-item" data-tab="fund-statement-report">Fund Statement</div>
+                    <div class="tab-item" data-tab="funds-comparison-report">Funds Comparison</div>
+                </div>
+                <div class="tab-content">
+                    <div id="fund-balance-report" class="tab-panel active">
+                        <h3>Fund Balance Report</h3>
+                        <div id="fund-balance-content">
+                            <p>Select a fund and click Generate Report to view balance details.</p>
+                        </div>
+                    </div>
+                    <div id="fund-activity-report" class="tab-panel">
+                        <h3>Fund Activity Report</h3>
+                        <div id="fund-activity-content">
+                            <p>Select a fund and date range, then click Generate Report to view transactions.</p>
+                        </div>
+                    </div>
+                    <div id="fund-statement-report" class="tab-panel">
+                        <h3>Fund Statement Report</h3>
+                        <div id="fund-statement-content">
+                            <p>Select a fund and click Generate Report to view income statement by account type.</p>
+                        </div>
+                    </div>
+                    <div id="funds-comparison-report" class="tab-panel">
+                        <h3>Funds Comparison Report</h3>
+                        <div id="funds-comparison-content">
+                            <p>Click Generate Report to compare all funds.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ================= End Fund Reports Page =================== -->
+
+        <div id="settings-page" class="page">
+            <div class="content-header"><h2>System Settings</h2></div>
+            <div class="tab-container">
+                <div class="tab-menu">
+                    <div class="tab-item active" data-tab="settings-users">Users</div>
+                    <div class="tab-item" data-tab="settings-organization">Organization</div>
+                    <div class="tab-item" data-tab="settings-entities">Entities</div>
+                    <div class="tab-item" data-tab="settings-bank-accounts">Bank Accounts</div>
+                </div>
+                <div class="tab-content">
+                    <div id="settings-users" class="tab-panel active">
+                        <div class="content-header"><h3>User Management</h3><button class="action-button" id="btnAddUser">Add User</button></div>
+                        <table class="data-table" id="users-table">
+                            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="settings-organization" class="tab-panel">
+                        <div class="content-header"><h3>Organization Settings</h3><button class="action-button" id="btnSaveOrganizationSettings">Save Changes</button></div>
+                        <div class="form-section"><h4>General Information</h4><div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label" for="org-name-input">Organization Name</label><input type="text" id="org-name-input" class="form-input"></div></div><div class="form-column"><div class="form-group"><label class="form-label" for="org-tax-id-input">EIN / Tax ID</label><input type="text" id="org-tax-id-input" class="form-input"></div></div></div></div>
+                    </div>
+                     <div id="settings-entities" class="tab-panel">
+                        <div class="content-header"><h3>Entity Management</h3><button class="action-button" id="btn-add-entity">Add Entity</button></div>
+                        <table class="data-table" id="entities-table">
+                            <thead><tr><th>Code</th><th>Name</th><th>Parent</th><th>Status</th><th>Currency</th><th>Fiscal Start</th><th>Consolidated?</th><th>Actions</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <h4 class="mt-20">Entity Relationship Visualization</h4>
+                        <div id="entity-relationship-viz"><p class="preview-placeholder">Entity hierarchy.</p></div>
+                    </div>
+
+                    <!-- ================= Bank Accounts Tab Panel ================= -->
+                    <div id="settings-bank-accounts" class="tab-panel">
+                        <div class="content-header">
+                            <h3>Bank Account Connections</h3>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <button class="action-button" id="btn-sync-bank-accounts" onclick="syncBankAccounts()">Sync All Accounts</button>
+                                <button class="action-button" id="btn-add-bank-account" onclick="openBankAccountModal()">Add Bank Account</button>
+                            </div>
+                        </div>
+
+                        <table class="data-table" id="bank-accounts-table">
+                            <thead>
+                                <tr>
+                                    <th>Bank Name</th>
+                                    <th>Account Name</th>
+                                    <th>Account #</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Balance</th>
+                                    <th>Last Sync</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="8" class="preview-placeholder">No bank accounts connected.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Documentation Page =================== -->
+        <div id="documentation-page" class="page">
+            <div class="content-header">
+                <h2>Documentation</h2>
+            </div>
+            <div class="documentation-content" style="padding: 20px;">
+                <h3 style="margin-bottom:15px;">Available Documentation &amp; Tools</h3>
+
+                <div class="doc-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">
+                    <!-- System Guides -->
+                    <div class="doc-card" style="border:1px solid #ddd;padding:20px;border-radius:5px;background:#fafafa;">
+                        <h4>System Guides</h4>
+                        <ul>
+                            <li><a href="docs/manuals/Administrator_Guide_v9.0.pdf" target="_blank">Administrator Guide&nbsp;(PDF)</a></li>
+                            <li><a href="docs/manuals/User_Guide_v9.0.pdf" target="_blank">User Guide&nbsp;(PDF)</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Installation / Deployment -->
+                    <div class="doc-card" style="border:1px solid #ddd;padding:20px;border-radius:5px;background:#fafafa;">
+                        <h4>Installation Guides</h4>
+                        <ul>
+                            <li><a href="docs/guides/INSTALLATION_GUIDE_VirtualBox_Ubuntu24_v9.x.html" target="_blank">Ubuntu&nbsp;24&nbsp;VirtualBox&nbsp;(HTML)</a></li>
+                            <li><a href="docs/guides/VirtualBox_Ubuntu24_Installation_Guide_v9.0.pdf" target="_blank">Ubuntu&nbsp;24&nbsp;VirtualBox&nbsp;(PDF)</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Migration Guides -->
+                    <div class="doc-card" style="border:1px solid #ddd;padding:20px;border-radius:5px;background:#fafafa;">
+                        <h4>Migration Guides</h4>
+                        <ul>
+                            <li><a href="docs/guides/AccuFund_Migration_Guide_v9.0.pdf" target="_blank">AccuFund Migration Guide</a></li>
+                            <li><a href="docs/guides/AccuFund_Migration_Steps_v9.0.pdf" target="_blank">AccuFund Migration Steps</a></li>
+                            <li><a href="docs/guides/AccuFund_Verification_Procedure_v9.0.pdf" target="_blank">AccuFund Verification Procedure</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Comparison -->
+                    <div class="doc-card" style="border:1px solid #ddd;padding:20px;border-radius:5px;background:#fafafa;">
+                        <h4>Comparison Documents</h4>
+                        <ul>
+                            <li><a href="docs/guides/Zoho_Books_Comparison_v9.0.pdf" target="_blank">Zoho Books Comparison</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- User Tools -->
+                    <div class="doc-card" style="border:1px solid #ddd;padding:20px;border-radius:5px;background:#fafafa;">
+                        <h4>User Tools &amp; Utilities</h4>
+                        <ul>
+                            <li><a href="docs/utilities/inter-entity-transfer-wizard.html" target="_blank">Inter-Entity Transfer Wizard</a></li>
+                            <li><a href="docs/utilities/custom-reports-builder.html" target="_blank">Custom Reports Builder</a></li>
+                            <li><a href="docs/utilities/natural-language-queries.html" target="_blank">Natural Language Queries</a></li>
+                            <li><a href="default-reports.html" target="_blank">Default Financial Reports</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ================= End Documentation Page =================== -->
+    </div>
+    
+    <div id="init-status-indicator" class="initializing">Status: Initializing System...</div>
+    <div id="log-output-container"><div id="log-output"></div></div>
+
+    <!-- Modals -->
+    <div id="account-modal" class="modal-overlay"><div class="modal-dialog"><div class="modal-header"><h3 class="modal-title" id="account-modal-title">Account</h3><button class="modal-close-btn" data-modal-id="account-modal">&times;</button></div><div class="modal-body"><input type="hidden" id="edit-account-id-input"><div class="form-group"><label class="form-label" for="account-code-input">Account Code</label><input type="text" id="account-code-input" class="form-input"></div><div class="form-group"><label class="form-label" for="account-name-input">Account Name</label><input type="text" id="account-name-input" class="form-input"></div><div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label" for="account-type-select">Account Type</label><select id="account-type-select" class="form-input"><option value="Asset">Asset</option><option value="Liability">Liability</option><option value="Equity">Equity</option><option value="Revenue">Revenue</option><option value="Expense">Expense</option></select></div></div><div class="form-column"><div class="form-group"><label class="form-label" for="account-status-select">Status</label><select id="account-status-select" class="form-input"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div></div></div><div class="form-group"><label class="form-label" for="account-description-textarea">Description</label><textarea id="account-description-textarea" class="form-input" rows="3"></textarea></div></div><div class="modal-footer"><button class="btn-secondary modal-close-btn" data-modal-id="account-modal">Cancel</button><button class="action-button" id="save-account-btn">Save Account</button></div></div></div>
+    <div id="fund-modal" class="modal-overlay"><div class="modal-dialog"><div class="modal-header"><h3 class="modal-title" id="fund-modal-title">Fund</h3><button class="modal-close-btn" data-modal-id="fund-modal">&times;</button></div><div class="modal-body"><input type="hidden" id="edit-fund-id-input"><div class="form-group"><label class="form-label" for="fund-code-input">Fund Code</label><input type="text" id="fund-code-input" class="form-input"></div><div class="form-group"><label class="form-label" for="fund-name-input">Fund Name</label><input type="text" id="fund-name-input" class="form-input"></div><div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label" for="fund-type-select">Fund Type</label><select id="fund-type-select" class="form-input"><option value="Unrestricted">Unrestricted</option><option value="Temporarily Restricted">Temporarily Restricted</option><option value="Permanently Restricted">Permanently Restricted</option></select></div></div><div class="form-column"><div class="form-group"><label class="form-label" for="fund-status-select">Status</label><select id="fund-status-select" class="form-input"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div></div></div><div class="form-group"><label class="form-label" for="fund-description-textarea">Description</label><textarea id="fund-description-textarea" class="form-input" rows="3"></textarea></div></div><div class="modal-footer"><button class="btn-secondary modal-close-btn" data-modal-id="fund-modal">Cancel</button><button class="btn-danger" id="delete-fund-btn" style="display:none;">Delete Fund</button><button class="action-button" id="save-fund-btn">Save Fund</button></div></div></div>
+    <div id="journal-entry-modal" class="modal-overlay"><div class="modal-dialog modal-dialog-lg"><div class="modal-header"><h3 class="modal-title" id="journal-entry-modal-title">New Journal Entry</h3><button class="modal-close-btn" data-modal-id="journal-entry-modal">&times;</button></div><div class="modal-body"><input type="hidden" id="edit-je-id-input"><div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-date">Date</label><input type="date" id="journal-entry-date" class="form-input"></div></div><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-reference">Reference</label><input type="text" id="journal-entry-reference" class="form-input" readonly></div></div></div><div class="form-group"><label class="form-label" for="journal-entry-description">Description</label><input type="text" id="journal-entry-description" class="form-input" placeholder="Enter transaction description..."></div><div class="form-group"><label class="form-label"><input type="checkbox" id="journal-entry-is-inter-entity" class="form-input"> Is Inter-Entity Transfer?</label></div><div id="inter-entity-fields-container" class="inter-entity-fields"><div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-target-entity">Target Entity</label><select id="journal-entry-target-entity" class="form-input"><option value="">Select Target Entity...</option></select></div></div><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-matching-tx-id">Matching Transaction ID (Optional)</label><input type="text" id="journal-entry-matching-tx-id" class="form-input" placeholder="Auto-generated if blank"></div></div></div></div><h4 style="margin: 20px 0 10px 0;">Journal Entry Lines</h4><table class="data-table" id="journal-lines-table"><thead><tr><th>Account</th><th>Fund</th><th>Debit</th><th>Credit</th><th>Description</th><th>Action</th></tr></thead><tbody id="journal-lines"></tbody></table><button id="add-journal-line" class="btn-secondary" style="margin-top: 10px;">Add Line</button><div class="totals-summary"><div class="form-group"><label class="form-label">Total Debits</label><input type="text" id="journal-total-debits" class="form-input" value="$0.00" readonly></div><div class="form-group"><label class="form-label">Total Credits</label><input type="text" id="journal-total-credits" class="form-input" value="$0.00" readonly></div><div class="form-group"><label class="form-label">Difference</label><input type="text" id="journal-difference" class="form-input" value="$0.00" readonly></div></div></div><div class="modal-footer"><button class="btn-secondary modal-close-btn" data-modal-id="journal-entry-modal">Cancel</button><button class="action-button" id="btn-save-journal-draft">Save as Draft</button><button class="action-button" id="btn-save-journal-post">Save & Post</button></div></div></div>
+    <!-- Enhanced Entity Modal -->
+    <div id="entity-modal" class="modal-overlay">
+        <div class="modal-dialog modal-dialog-lg">
+            <div class="modal-header">
+                <h3 class="modal-title" id="entity-modal-title-text">Entity</h3>
+                <button class="modal-close-btn" data-modal-id="entity-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Hidden field for entity ID when editing -->
+                <input type="hidden" id="entity-id-edit">
+
+                <!-- Basic Entity Information -->
+                <div class="form-section">
+                    <h4>Basic Information</h4>
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="entity-name-input">Entity Name *</label>
+                                <input type="text" id="entity-name-input" class="form-input" required>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="entity-code-input">Entity Code *</label>
+                                <input type="text" id="entity-code-input" class="form-input" required>
+                                <small class="form-help">A unique code for this entity (e.g., TPF, TPF-ES)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hierarchy Settings -->
+                <div class="form-section">
+                    <h4>Hierarchy Settings</h4>
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="entity-parent-select">Parent Entity</label>
+                                <select id="entity-parent-select" class="form-input">
+                                    <option value="">-- No Parent (Top Level) --</option>
+                                </select>
+                                <small class="form-help">Select the parent organization for this entity</small>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group checkbox-group">
+                                <label class="form-label">
+                                    <input type="checkbox" id="entity-consolidated-checkbox" class="form-checkbox">
+                                    Consolidate Children
+                                </label>
+                                <small class="form-help">When enabled, this entity will consolidate financial data from all child entities</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Settings -->
+                <div class="form-section">
+                    <h4>Financial Settings</h4>
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="entity-currency-select">Base Currency</label>
+                                <select id="entity-currency-select" class="form-input">
+                                    <option value="USD">USD - US Dollar</option>
+                                    <option value="EUR">EUR - Euro</option>
+                                    <option value="GBP">GBP - British Pound</option>
+                                    <option value="CAD">CAD - Canadian Dollar</option>
+                                    <option value="AUD">AUD - Australian Dollar</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="entity-fiscal-start-input">Fiscal Year Start</label>
+                                <input type="text" id="entity-fiscal-start-input" class="form-input" placeholder="MM-DD" value="01-01">
+                                <small class="form-help">Format: MM-DD (e.g., 01-01 for January 1st)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="form-section">
+                    <h4>Status</h4>
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="entity-status-select">Status</label>
+                                <select id="entity-status-select" class="form-input">
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Information -->
+                <div class="form-section">
+                    <h4>Additional Information</h4>
+                    <div class="form-group">
+                        <label class="form-label" for="entity-description-textarea">Description</label>
+                        <textarea id="entity-description-textarea" class="form-input" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <!-- Hierarchy Visualization (when editing) -->
+                <div id="entity-modal-hierarchy-preview" class="form-section" style="display: none;">
+                    <h4>Current Position in Hierarchy</h4>
+                    <div id="entity-hierarchy-preview-container" class="hierarchy-preview">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="entity-modal">Cancel</button>
+                <button class="action-button" id="btn-save-entity">Save Entity</button>
+            </div>
+        </div>
+    </div>
+    <div id="user-modal" class="modal-overlay" style="display:none;"><div class="modal-dialog"><div class="modal-header"><h3 class="modal-title" id="user-modal-title">User</h3><button class="modal-close-btn" data-modal-id="user-modal">&times;</button></div><div class="modal-body"><input type="hidden" id="edit-user-id-input"><div class="form-group"><label class="form-label" for="user-name-input">Full Name</label><input type="text" id="user-name-input" class="form-input"></div></div><div class="modal-footer"><button class="btn-secondary modal-close-btn" data-modal-id="user-modal">Cancel</button><button class="action-button" id="save-user-btn">Save User</button></div></div></div>
+    <div id="report-builder-modal" class="modal-overlay"><div class="modal-dialog modal-dialog-lg"><div class="modal-header"><h3 class="modal-title" id="report-builder-modal-title">Report Builder</h3><button class="modal-close-btn" data-modal-id="report-builder-modal">&times;</button></div><div class="modal-body"><p class="preview-placeholder">Full Report Builder UI will go here.</p></div><div class="modal-footer"><button class="btn-secondary modal-close-btn" data-modal-id="report-builder-modal">Cancel</button><button class="action-button">Save & Run</button></div></div></div>
+
+    <!-- ================= Bank Account Modal ================= -->
+    <div id="bank-account-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="bank-account-modal-title">Bank Account</h3>
+                <button class="modal-close-btn" data-modal-id="bank-account-modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <input type="hidden" id="edit-bank-account-id">
+
+                <div class="form-group">
+                    <label class="form-label" for="bank-name-select">Bank Name</label>
+                    <select id="bank-name-select" class="form-input">
+                        <option value="">Select Bank…</option>
+                        <option>Bank of America</option>
+                        <option>Chase</option>
+                        <option>Wells Fargo</option>
+                        <option>US Bank</option>
+                        <option>Capital One</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="bank-account-name-input">Account Name</label>
+                    <input type="text" id="bank-account-name-input" class="form-input">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="bank-account-number-input">Account #</label>
+                            <input type="text" id="bank-account-number-input" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="routing-number-input">Routing #</label>
+                            <input type="text" id="routing-number-input" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="bank-account-type-select">Account Type</label>
+                            <select id="bank-account-type-select" class="form-input">
+                                <option>Checking</option>
+                                <option>Savings</option>
+                                <option>Credit Line</option>
+                                <option>Money Market</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="connection-method-select">Connection Method</label>
+                            <select id="connection-method-select" class="form-input">
+                                <option>Manual</option>
+                                <option>Online Banking</option>
+                                <option>API Integration</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="bank-account-status-select">Status</label>
+                            <select id="bank-account-status-select" class="form-input">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                                <option>Pending</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label class="form-label" for="initial-balance-input">Initial Balance</label>
+                            <input type="number" step="0.01" id="initial-balance-input" class="form-input" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="bank-account-description-textarea">Description</label>
+                    <textarea id="bank-account-description-textarea" class="form-input" rows="3"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="bank-account-modal">Cancel</button>
+                <button class="action-button" id="save-bank-account-btn" onclick="saveBankAccount()">Save Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initialization handler -->
+    <script>
+        // Simple initialization status handler
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('Application starting…');
+
+            const initStatusIndicator = document.getElementById('init-status-indicator');
+            if (initStatusIndicator) {
+                initStatusIndicator.textContent = 'Status: Application initialized successfully.';
+                initStatusIndicator.classList.remove('initializing', 'error');
+                initStatusIndicator.classList.add('success');
+
+                // Hide status indicator after 3 seconds
+                setTimeout(() => {
+                    initStatusIndicator.style.display = 'none';
+                }, 3000);
+            }
+
+            console.log('Application initialized.');
+
+            /* -----------------------------------------------------------
+             *  Ensure bank-account data is fetched whenever the Settings
+             *  nav item is clicked.
+             * --------------------------------------------------------- */
+            const settingsNav = document.querySelector('.nav-item[data-page="settings"]');
+            if (settingsNav) {
+                settingsNav.addEventListener('click', () => {
+                    if (typeof loadBankAccountData === 'function') {
+                        loadBankAccountData();
+                    }
+                });
+            }
+        });
+    </script>
+    
+    <!-- Main application script -->
+    <!-- Main application script -->
+    <!-- Cache-busting timestamp updated to force fresh load -->
+    <script src="src/js/app.js?v=20250722170000"></script>
+</body>
+</html>

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Dropdown Debug - Nonprofit Fund Accounting</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .debug-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .debug-card {
+            margin-bottom: 15px;
+            border-left: 4px solid #0d6efd;
+        }
+        .debug-log {
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            background-color: #212529;
+            color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+        }
+        .log-time {
+            color: #6c757d;
+            margin-right: 10px;
+        }
+        .log-info {
+            color: #0dcaf0;
+        }
+        .log-success {
+            color: #198754;
+        }
+        .log-warning {
+            color: #ffc107;
+        }
+        .log-error {
+            color: #dc3545;
+        }
+        .btn-group {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Modal Dropdown Debug</h1>
+        <p class="lead">Diagnose entity and fund dropdown population issues in modals</p>
+
+        <div class="debug-section">
+            <h2>Browser Information</h2>
+            <div id="browserInfo"></div>
+        </div>
+
+        <div class="debug-section">
+            <h2>Test Modal</h2>
+            <p>This modal mimics the "New Batch" modal in vendor-payments.html</p>
+            
+            <!-- Modal Trigger Buttons -->
+            <div class="btn-group" role="group">
+                <button class="btn btn-primary" id="openModalBtn" data-bs-toggle="modal" data-bs-target="#testModal">
+                    <i class="fas fa-external-link-alt"></i> Open Test Modal
+                </button>
+                <button class="btn btn-outline-secondary" id="clearLogBtn">
+                    <i class="fas fa-trash"></i> Clear Log
+                </button>
+            </div>
+        </div>
+
+        <div class="debug-section">
+            <h2>API Tests</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card debug-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Entity API Test</h5>
+                            <button class="btn btn-primary" id="testEntitiesBtn">
+                                <i class="fas fa-vial"></i> Test /api/entities
+                            </button>
+                            <div id="entitiesResult" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card debug-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Fund API Test</h5>
+                            <button class="btn btn-primary" id="testFundsBtn">
+                                <i class="fas fa-vial"></i> Test /api/funds
+                            </button>
+                            <div id="fundsResult" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="debug-section">
+            <h2>DOM Element Tests</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card debug-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Element Existence Check</h5>
+                            <button class="btn btn-primary" id="checkElementsBtn">
+                                <i class="fas fa-search"></i> Check Elements
+                            </button>
+                            <div id="elementsResult" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card debug-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Modal Event Test</h5>
+                            <button class="btn btn-primary" id="testModalEventsBtn">
+                                <i class="fas fa-bolt"></i> Test Modal Events
+                            </button>
+                            <div id="eventsResult" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="debug-section">
+            <h2>Debug Log</h2>
+            <div id="debugLog" class="debug-log"></div>
+        </div>
+    </div>
+
+    <!-- Test Modal -->
+    <div class="modal fade" id="testModal" tabindex="-1" aria-labelledby="testModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="testModalLabel">Test Modal with Dropdowns</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="testForm">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="entityId" class="form-label">Entity</label>
+                                <select class="form-select" id="entityId" required>
+                                    <option value="">Select Entity</option>
+                                    <!-- Entities will be populated here -->
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fundId" class="form-label">Fund</label>
+                                <select class="form-select" id="fundId">
+                                    <option value="">Select Fund</option>
+                                    <!-- Funds will be populated here -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="description" placeholder="Test description">
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="card bg-light mt-3">
+                        <div class="card-body">
+                            <h6>Modal Debug Controls</h6>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-info" id="modalFetchEntitiesBtn">
+                                    Fetch Entities
+                                </button>
+                                <button class="btn btn-sm btn-info" id="modalFetchFundsBtn">
+                                    Fetch Funds
+                                </button>
+                                <button class="btn btn-sm btn-warning" id="modalClearDropdownsBtn">
+                                    Clear Dropdowns
+                                </button>
+                            </div>
+                            <div class="mt-2">
+                                <small id="modalElementStatus"></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="testSubmitBtn">Submit Test</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Constants
+        const API_BASE_URL = 'http://localhost:3000';
+        let entities = [];
+        let funds = [];
+        let modalInstance = null;
+
+        // Debug logging
+        function logMessage(message, type = 'info') {
+            const logElement = document.getElementById('debugLog');
+            const now = new Date();
+            const timeString = now.toLocaleTimeString() + '.' + now.getMilliseconds().toString().padStart(3, '0');
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry`;
+            
+            logEntry.innerHTML = `
+                <span class="log-time">[${timeString}]</span>
+                <span class="log-${type}">${message}</span>
+            `;
+            
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            // Also log to console for browser tools
+            switch(type) {
+                case 'error': console.error(message); break;
+                case 'warning': console.warn(message); break;
+                case 'success': console.log('%c' + message, 'color: green'); break;
+                default: console.log(message);
+            }
+        }
+
+        // Browser information
+        function displayBrowserInfo() {
+            const browserInfoDiv = document.getElementById('browserInfo');
+            const isIncognito = !window.history.pushState;
+            
+            const info = {
+                'User Agent': navigator.userAgent,
+                'Browser': navigator.appName,
+                'Platform': navigator.platform,
+                'Cookies Enabled': navigator.cookieEnabled ? 'Yes' : 'No',
+                'Language': navigator.language,
+                'Incognito Mode': isIncognito ? 'Yes (likely)' : 'No (likely)',
+                'Window Size': `${window.innerWidth}x${window.innerHeight}`,
+                'Local Storage Available': !!window.localStorage,
+                'Session Storage Available': !!window.sessionStorage
+            };
+            
+            let infoHTML = '<table class="table table-striped table-sm">';
+            for (const [key, value] of Object.entries(info)) {
+                infoHTML += `<tr><th>${key}</th><td>${value}</td></tr>`;
+            }
+            infoHTML += '</table>';
+            
+            browserInfoDiv.innerHTML = infoHTML;
+            logMessage('Browser information collected', 'info');
+        }
+
+        // API Fetch functions
+        async function fetchEntities() {
+            logMessage('Fetching entities from API...', 'info');
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${API_BASE_URL}/api/entities`);
+                const endTime = performance.now();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                entities = await response.json();
+                logMessage(`Fetched ${entities.length} entities in ${(endTime - startTime).toFixed(2)}ms`, 'success');
+                
+                // Populate entity dropdown
+                populateEntityDropdown();
+                
+                return entities;
+            } catch (error) {
+                logMessage(`Error fetching entities: ${error.message}`, 'error');
+                return [];
+            }
+        }
+
+        async function fetchFunds(entityId = null) {
+            logMessage(`Fetching funds from API${entityId ? ' for entity ' + entityId : ''}...`, 'info');
+            try {
+                const startTime = performance.now();
+                const url = entityId 
+                    ? `${API_BASE_URL}/api/funds?entityId=${entityId}` 
+                    : `${API_BASE_URL}/api/funds`;
+                
+                const response = await fetch(url);
+                const endTime = performance.now();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                funds = await response.json();
+                logMessage(`Fetched ${funds.length} funds in ${(endTime - startTime).toFixed(2)}ms`, 'success');
+                
+                // Populate fund dropdown
+                populateFundDropdown();
+                
+                return funds;
+            } catch (error) {
+                logMessage(`Error fetching funds: ${error.message}`, 'error');
+                return [];
+            }
+        }
+
+        // Dropdown population functions
+        function populateEntityDropdown() {
+            const entitySelect = document.getElementById('entityId');
+            if (!entitySelect) {
+                logMessage('Entity select element not found!', 'error');
+                return;
+            }
+            
+            logMessage(`Populating entity dropdown with ${entities.length} entities`, 'info');
+            
+            // Save the current selection if any
+            const currentValue = entitySelect.value;
+            
+            // Clear existing options except the first one
+            while (entitySelect.options.length > 1) {
+                entitySelect.remove(1);
+            }
+            
+            // Add entity options
+            entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = entity.name;
+                entitySelect.appendChild(option);
+            });
+            
+            // Restore selection if possible
+            if (currentValue && Array.from(entitySelect.options).some(opt => opt.value === currentValue)) {
+                entitySelect.value = currentValue;
+                logMessage(`Restored previous entity selection: ${currentValue}`, 'info');
+            }
+            
+            updateModalElementStatus();
+        }
+
+        function populateFundDropdown() {
+            const fundSelect = document.getElementById('fundId');
+            if (!fundSelect) {
+                logMessage('Fund select element not found!', 'error');
+                return;
+            }
+            
+            logMessage(`Populating fund dropdown with ${funds.length} funds`, 'info');
+            
+            // Save the current selection if any
+            const currentValue = fundSelect.value;
+            
+            // Clear existing options except the first one
+            while (fundSelect.options.length > 1) {
+                fundSelect.remove(1);
+            }
+            
+            // Add fund options
+            funds.forEach(fund => {
+                const option = document.createElement('option');
+                option.value = fund.id;
+                option.textContent = fund.name;
+                fundSelect.appendChild(option);
+            });
+            
+            // Restore selection if possible
+            if (currentValue && Array.from(fundSelect.options).some(opt => opt.value === currentValue)) {
+                fundSelect.value = currentValue;
+                logMessage(`Restored previous fund selection: ${currentValue}`, 'info');
+            }
+            
+            updateModalElementStatus();
+        }
+
+        // DOM element status
+        function updateModalElementStatus() {
+            const statusElement = document.getElementById('modalElementStatus');
+            if (!statusElement) return;
+            
+            const entitySelect = document.getElementById('entityId');
+            const fundSelect = document.getElementById('fundId');
+            
+            let statusHTML = '<ul class="mb-0">';
+            
+            if (entitySelect) {
+                statusHTML += `<li>Entity dropdown: ${entitySelect.options.length - 1} options</li>`;
+            } else {
+                statusHTML += '<li class="text-danger">Entity dropdown not found!</li>';
+            }
+            
+            if (fundSelect) {
+                statusHTML += `<li>Fund dropdown: ${fundSelect.options.length - 1} options</li>`;
+            } else {
+                statusHTML += '<li class="text-danger">Fund dropdown not found!</li>';
+            }
+            
+            statusHTML += '</ul>';
+            statusElement.innerHTML = statusHTML;
+        }
+
+        // Test functions
+        async function testEntitiesAPI() {
+            logMessage('Running entity API test...', 'info');
+            const resultElement = document.getElementById('entitiesResult');
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${API_BASE_URL}/api/entities`);
+                const endTime = performance.now();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const timeElapsed = (endTime - startTime).toFixed(2);
+                
+                resultElement.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Success!</strong> Received ${data.length} entities in ${timeElapsed}ms
+                    </div>
+                `;
+                
+                logMessage(`Entity API test successful: ${data.length} entities in ${timeElapsed}ms`, 'success');
+                return true;
+            } catch (error) {
+                resultElement.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Error!</strong> ${error.message}
+                    </div>
+                `;
+                
+                logMessage(`Entity API test failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testFundsAPI() {
+            logMessage('Running fund API test...', 'info');
+            const resultElement = document.getElementById('fundsResult');
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${API_BASE_URL}/api/funds`);
+                const endTime = performance.now();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const timeElapsed = (endTime - startTime).toFixed(2);
+                
+                resultElement.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Success!</strong> Received ${data.length} funds in ${timeElapsed}ms
+                    </div>
+                `;
+                
+                logMessage(`Fund API test successful: ${data.length} funds in ${timeElapsed}ms`, 'success');
+                return true;
+            } catch (error) {
+                resultElement.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Error!</strong> ${error.message}
+                    </div>
+                `;
+                
+                logMessage(`Fund API test failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function checkDOMElements() {
+            logMessage('Checking DOM elements...', 'info');
+            const resultElement = document.getElementById('elementsResult');
+            
+            const elements = {
+                'entityId': document.getElementById('entityId'),
+                'fundId': document.getElementById('fundId'),
+                'testModal': document.getElementById('testModal'),
+                'modalFetchEntitiesBtn': document.getElementById('modalFetchEntitiesBtn'),
+                'modalFetchFundsBtn': document.getElementById('modalFetchFundsBtn')
+            };
+            
+            let allFound = true;
+            let resultHTML = '<ul class="list-group">';
+            
+            for (const [id, element] of Object.entries(elements)) {
+                if (element) {
+                    resultHTML += `<li class="list-group-item list-group-item-success">${id}: Found</li>`;
+                    logMessage(`Element check: ${id} found`, 'info');
+                } else {
+                    resultHTML += `<li class="list-group-item list-group-item-danger">${id}: Not found</li>`;
+                    logMessage(`Element check: ${id} NOT found`, 'error');
+                    allFound = false;
+                }
+            }
+            
+            resultHTML += '</ul>';
+            resultElement.innerHTML = resultHTML;
+            
+            if (allFound) {
+                logMessage('All DOM elements found successfully', 'success');
+            } else {
+                logMessage('Some DOM elements are missing!', 'error');
+            }
+            
+            return allFound;
+        }
+
+        function testModalEvents() {
+            logMessage('Testing modal events...', 'info');
+            const resultElement = document.getElementById('eventsResult');
+            
+            const modal = document.getElementById('testModal');
+            if (!modal) {
+                resultElement.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Error!</strong> Modal element not found
+                    </div>
+                `;
+                logMessage('Modal element not found for event testing', 'error');
+                return false;
+            }
+            
+            resultElement.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>Testing...</strong> Open and close the modal to see events
+                </div>
+            `;
+            
+            // Clear previous event listeners if any
+            const newModal = modal.cloneNode(true);
+            modal.parentNode.replaceChild(newModal, modal);
+            
+            // Add event listeners
+            const events = ['show.bs.modal', 'shown.bs.modal', 'hide.bs.modal', 'hidden.bs.modal'];
+            events.forEach(event => {
+                newModal.addEventListener(event, () => {
+                    logMessage(`Modal event fired: ${event}`, 'success');
+                    
+                    if (event === 'shown.bs.modal') {
+                        // Check if dropdowns exist and have options
+                        const entitySelect = document.getElementById('entityId');
+                        const fundSelect = document.getElementById('fundId');
+                        
+                        if (entitySelect) {
+                            logMessage(`Entity dropdown has ${entitySelect.options.length - 1} options when modal shown`, 'info');
+                        }
+                        
+                        if (fundSelect) {
+                            logMessage(`Fund dropdown has ${fundSelect.options.length - 1} options when modal shown`, 'info');
+                        }
+                    }
+                });
+            });
+            
+            // Re-initialize Bootstrap modal
+            modalInstance = new bootstrap.Modal(newModal);
+            
+            // Update event test result
+            resultElement.innerHTML = `
+                <div class="alert alert-success">
+                    <strong>Ready!</strong> Event listeners attached to modal
+                </div>
+            `;
+            
+            logMessage('Modal event listeners successfully attached', 'success');
+            return true;
+        }
+
+        // Clear functions
+        function clearDebugLog() {
+            document.getElementById('debugLog').innerHTML = '';
+            logMessage('Debug log cleared', 'info');
+        }
+
+        function clearDropdowns() {
+            const entitySelect = document.getElementById('entityId');
+            const fundSelect = document.getElementById('fundId');
+            
+            if (entitySelect) {
+                while (entitySelect.options.length > 1) {
+                    entitySelect.remove(1);
+                }
+                logMessage('Entity dropdown cleared', 'info');
+            }
+            
+            if (fundSelect) {
+                while (fundSelect.options.length > 1) {
+                    fundSelect.remove(1);
+                }
+                logMessage('Fund dropdown cleared', 'info');
+            }
+            
+            updateModalElementStatus();
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            logMessage('DOM fully loaded and parsed', 'success');
+            displayBrowserInfo();
+            
+            // Add event listeners for buttons
+            document.getElementById('clearLogBtn').addEventListener('click', clearDebugLog);
+            document.getElementById('testEntitiesBtn').addEventListener('click', testEntitiesAPI);
+            document.getElementById('testFundsBtn').addEventListener('click', testFundsAPI);
+            document.getElementById('checkElementsBtn').addEventListener('click', checkDOMElements);
+            document.getElementById('testModalEventsBtn').addEventListener('click', testModalEvents);
+            
+            // Modal-specific buttons
+            document.getElementById('modalFetchEntitiesBtn').addEventListener('click', fetchEntities);
+            document.getElementById('modalFetchFundsBtn').addEventListener('click', () => {
+                const entityId = document.getElementById('entityId').value;
+                fetchFunds(entityId || null);
+            });
+            document.getElementById('modalClearDropdownsBtn').addEventListener('click', clearDropdowns);
+            
+            // Entity change event
+            document.getElementById('entityId').addEventListener('change', function() {
+                const selectedEntityId = this.value;
+                logMessage(`Entity selection changed to: ${selectedEntityId}`, 'info');
+                
+                if (selectedEntityId) {
+                    fetchFunds(selectedEntityId);
+                } else {
+                    fetchFunds();
+                }
+            });
+            
+            // Setup modal shown event
+            const testModal = document.getElementById('testModal');
+            testModal.addEventListener('shown.bs.modal', function() {
+                logMessage('Modal shown event fired - fetching fresh data', 'info');
+                fetchEntities().then(() => {
+                    const entityId = document.getElementById('entityId').value;
+                    fetchFunds(entityId || null);
+                });
+            });
+            
+            // Initial API calls
+            fetchEntities().then(() => {
+                fetchFunds();
+            });
+            
+            logMessage('All event listeners initialized', 'success');
+        });
+
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            logMessage(`Global error: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`, 'error');
+        });
+    </script>
+</body>
+</html>

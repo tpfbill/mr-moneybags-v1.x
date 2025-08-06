@@ -1,0 +1,304 @@
+/**
+ * entity-hierarchy.css
+ * Styles for the three-level entity hierarchy visualization
+ * - Level 1: The Principle Foundation (organization)
+ * - Level 2: Entities (TPF, TPF-ES, IFCSN)
+ * - Level 3: Funds under each entity
+ */
+
+/* Hierarchy Container */
+.hierarchy-visualization {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    max-height: 600px;
+    overflow: auto;
+}
+
+/* Hierarchy Tree */
+.hierarchy-tree {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Node Styling */
+.hierarchy-node {
+    margin: 5px 0;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+/* Node Header */
+.node-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+}
+
+.node-title {
+    flex-grow: 1;
+    font-weight: 500;
+}
+
+.node-actions {
+    display: flex;
+    gap: 5px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.node-header:hover .node-actions {
+    opacity: 1;
+}
+
+/* Node Children Container */
+.node-children {
+    margin-left: 25px;
+    padding-left: 15px;
+    border-left: 1px dashed #ccc;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.node-children.collapsed {
+    max-height: 0;
+}
+
+/* Toggle Children Button */
+.toggle-children {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0 5px;
+    margin-right: 5px;
+    line-height: 1;
+}
+
+/* Node Type-Specific Styling */
+/* Organization Level (Level 1) */
+.root-node > .node-header {
+    background-color: #3a506b;
+    color: white;
+    border-left: 5px solid #1c2541;
+}
+
+/* Entity Level (Level 2) */
+.entity-node > .node-header {
+    background-color: #5bc0be;
+    color: #1c2541;
+    border-left: 5px solid #3a506b;
+}
+
+/* Fund Level (Level 3) */
+.fund-node > .node-header {
+    /* Make fund nodes extremely prominent */
+    background-color: #ffeb3b;      /* bright yellow */
+    color: #4e342e;                 /* dark brown text for strong contrast */
+    border-left: 6px solid #ff9800; /* vivid orange accent bar */
+    font-weight: 700;               /* bold text */
+    font-size: 15px;                /* larger font */
+    padding: 10px 12px;             /* slightly larger padding */
+}
+
+/* Subtle hover effect for fund nodes */
+.fund-node > .node-header:hover {
+    background-color: #ffe082; /* slightly darker yellow on hover */
+}
+
+/* Extra spacing so fund nodes don’t feel cramped */
+.fund-node {
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+/* Action Buttons */
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+
+.btn-icon:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn-icon .icon {
+    font-size: 14px;
+}
+
+/* Consolidated Indicator */
+.consolidated-indicator {
+    margin-left: 8px;
+    font-size: 12px;
+    padding: 2px 5px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    color: inherit;
+}
+
+/* Hover Effects */
+.hierarchy-node:hover > .node-header {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Selected Node */
+.hierarchy-node.selected > .node-header {
+    box-shadow: 0 0 0 2px #6c63ff;
+}
+
+/* Entity Hierarchy Preview in Modal */
+.hierarchy-preview {
+    max-height: 200px;
+    overflow: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 10px;
+    background-color: #f9f9f9;
+}
+
+.hierarchy-preview .hierarchy-node {
+    margin: 3px 0;
+}
+
+.hierarchy-preview .node-header {
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+.hierarchy-preview .node-children {
+    margin-left: 15px;
+    padding-left: 10px;
+}
+
+/* Consolidated View Styles */
+body.consolidated-view .entity-selector-container:after {
+    content: "Consolidated";
+    font-size: 11px;
+    background-color: #6c63ff;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 8px;
+    position: absolute;
+    top: -8px;
+    right: 0;
+}
+
+body.consolidated-view .dashboard-panel {
+    border-left: 3px solid #6c63ff;
+}
+
+/* Entity Path Breadcrumb */
+.entity-path {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+    font-size: 13px;
+    color: #666;
+}
+
+.entity-path-item {
+    display: inline-block;
+    padding: 3px 8px;
+    background-color: #f0f0f0;
+    border-radius: 3px;
+    margin-right: 5px;
+}
+
+.entity-path-separator {
+    margin: 0 5px;
+    color: #999;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .hierarchy-visualization {
+        padding: 10px;
+    }
+    
+    .node-header {
+        padding: 6px 8px;
+    }
+    
+    .node-children {
+        margin-left: 15px;
+        padding-left: 10px;
+    }
+}
+
+/* Entity Selector with Hierarchy Display */
+.entity-selector-container {
+    position: relative;
+}
+
+.entity-selector-dropdown {
+    position: relative;
+}
+
+.entity-selector-dropdown select {
+    padding-right: 25px;
+}
+
+.entity-selector-dropdown:after {
+    content: "\25BC";
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 10px;
+    color: #666;
+}
+
+/* Hierarchy Level Indicators */
+.hierarchy-level-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.level-1-indicator {
+    background-color: #1c2541;
+}
+
+.level-2-indicator {
+    background-color: #3a506b;
+}
+
+.level-3-indicator {
+    background-color: #5bc0be;
+}
+
+/* Animation for expanding/collapsing */
+@keyframes expand {
+    from { max-height: 0; }
+    to { max-height: 1000px; }
+}
+
+@keyframes collapse {
+    from { max-height: 1000px; }
+    to { max-height: 0; }
+}
+
+.node-children.expanding {
+    animation: expand 0.3s ease forwards;
+}
+
+.node-children.collapsing {
+    animation: collapse 0.3s ease forwards;
+}

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statement of Financial Position</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .report-subtitle {
+            font-size: 20px;
+            margin: 10px 0;
+        }
+        .report-date {
+            font-size: 16px;
+            color: #666;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .data-table th, .data-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f0f0f0;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .font-weight-bold {
+            font-weight: bold;
+        }
+        .actions {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+        button,
+        .button {
+            padding: 10px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover,
+        .button:hover {
+            background-color: #45a049;
+        }
+
+        /* --- Centered navigation back button (matches other pages) --- */
+        .navigation {
+            margin-top: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .button {
+            background-color: #607D8B;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        .button.secondary { background-color: #607D8B; }
+        .button.secondary:hover { background-color: #455A64; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="report-header">
+            <!-- Organization name will be set dynamically via JS -->
+            <div id="organization-name" class="report-title">Loading...</div>
+            <div class="report-subtitle">Statement of Financial Position</div>
+            <div class="report-date">As of June 30, 2025</div>
+        </div>
+        
+        <table class="data-table">
+            <thead>
+                <tr><th>Assets</th><th class="text-right">Amount</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Cash and Cash Equivalents</td><td class="text-right">$145,250.00</td></tr>
+                <tr><td>Investments</td><td class="text-right">$250,000.00</td></tr>
+                <tr><td>Accounts Receivable</td><td class="text-right">$35,000.00</td></tr>
+                <tr><td>Property and Equipment (net)</td><td class="text-right">$500,000.00</td></tr>
+                <tr><td><strong>Total Assets</strong></td><td class="text-right"><strong>$930,250.00</strong></td></tr>
+                <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+                <tr><td><strong>Liabilities</strong></td><td>&nbsp;</td></tr>
+                <tr><td>Accounts Payable</td><td class="text-right">$25,000.00</td></tr>
+                <tr><td>Accrued Expenses</td><td class="text-right">$18,500.00</td></tr>
+                <tr><td>Notes Payable</td><td class="text-right">$150,000.00</td></tr>
+                <tr><td><strong>Total Liabilities</strong></td><td class="text-right"><strong>$193,500.00</strong></td></tr>
+                <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+                <tr><td><strong>Net Assets</strong></td><td>&nbsp;</td></tr>
+                <tr><td>Without Donor Restrictions</td><td class="text-right">$486,750.00</td></tr>
+                <tr><td>With Donor Restrictions</td><td class="text-right">$250,000.00</td></tr>
+                <tr><td><strong>Total Net Assets</strong></td><td class="text-right"><strong>$736,750.00</strong></td></tr>
+                <tr><td><strong>Total Liabilities and Net Assets</strong></td><td class="text-right"><strong>$930,250.00</strong></td></tr>
+            </tbody>
+        </table>
+        
+        <!-- New centered navigation button -->
+        <div class="navigation">
+            <button id="btn-back-to-main"
+                    class="button secondary"
+                    onclick="window.location.href='/index.html'">
+                &larr; Back to Main Dashboard
+            </button>
+        </div>
+
+        <div class="actions">
+            <div>
+                <button onclick="window.print()">Print Report</button>
+                <button onclick="alert('Export to PDF functionality would be implemented here.')">Export to PDF</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dynamically load the organization name -->
+    <script>
+    (function () {
+        async function loadOrganizationName() {
+            try {
+                const entities = await fetch('/api/entities').then(r => r.json());
+                const topLevel = entities.find(e => e.parent_entity_id === null && e.is_consolidated === true);
+                document.getElementById('organization-name').textContent =
+                    topLevel && topLevel.name ? topLevel.name : 'Nonprofit Organization';
+            } catch (err) {
+                console.error('Failed to fetch organization name:', err);
+                document.getElementById('organization-name').textContent = 'Nonprofit Organization';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', loadOrganizationName);
+    })();
+    </script>
+</body>
+</html>

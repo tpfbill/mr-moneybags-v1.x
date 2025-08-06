@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entity Hierarchy Debug Tool</title>
+    <link rel="stylesheet" href="src/css/styles.css">
+    <link rel="stylesheet" href="src/css/entity-hierarchy.css">
+    <style>
+        #debug-output {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow: auto;
+        }
+        .debug-controls {
+            margin: 20px 0;
+        }
+        .debug-controls button {
+            padding: 8px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .debug-controls button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <h1>Entity Hierarchy Debug Tool</h1>
+        
+        <div class="debug-controls">
+            <button id="load-data-btn">Load Data</button>
+            <button id="inspect-hierarchy-btn">Inspect Hierarchy</button>
+            <button id="count-funds-btn">Count Funds</button>
+        </div>
+        
+        <div id="entity-relationship-viz">
+            <p>Entity hierarchy will be displayed here</p>
+        </div>
+        
+        <div id="debug-output"></div>
+    </div>
+
+    <script>
+        // Debug utility functions
+        function logToConsole(message, data) {
+            console.log(`[DEBUG] ${message}`, data);
+            
+            // Also log to the debug output div
+            const debugOutput = document.getElementById('debug-output');
+            if (debugOutput) {
+                const timestamp = new Date().toISOString().substring(11, 19);
+                const formattedMessage = `[${timestamp}] ${message}`;
+                
+                let content = '';
+                if (typeof data === 'object') {
+                    try {
+                        content = JSON.stringify(data, null, 2);
+                    } catch (e) {
+                        content = 'Cannot stringify: ' + e.message;
+                    }
+                } else if (data !== undefined) {
+                    content = String(data);
+                }
+                
+                debugOutput.innerHTML += `<div>${formattedMessage}</div>`;
+                if (content) {
+                    debugOutput.innerHTML += `<div>${content}</div>`;
+                }
+                debugOutput.scrollTop = debugOutput.scrollHeight;
+            }
+        }
+        
+        // Override the original updateEntityHierarchyVisualization function
+        // to add more detailed logging
+        function enhancedUpdateEntityHierarchyVisualization() {
+            logToConsole('Starting entity hierarchy visualization update');
+            
+            const entityRelationshipViz = document.getElementById('entity-relationship-viz');
+            if (!entityRelationshipViz) {
+                logToConsole('Error: entity-relationship-viz element not found');
+                return;
+            }
+            
+            // Clear existing content
+            entityRelationshipViz.innerHTML = '';
+            
+            // Build hierarchy data
+            const hierarchyData = window.buildEntityHierarchyData();
+            logToConsole('Built hierarchy data', hierarchyData);
+            
+            if (!hierarchyData.root) {
+                entityRelationshipViz.innerHTML = '<p class="text-center">No entity hierarchy found</p>';
+                logToConsole('No root entity found in hierarchy data');
+                return;
+            }
+            
+            // Create visualization container
+            const vizContainer = document.createElement('div');
+            vizContainer.className = 'hierarchy-visualization';
+            
+            // Create root node
+            const rootNode = window.createEntityHierarchyNode(hierarchyData.root);
+            vizContainer.appendChild(rootNode);
+            
+            // Add to container
+            entityRelationshipViz.appendChild(vizContainer);
+            
+            logToConsole('Entity hierarchy visualization updated successfully');
+        }
+        
+        // Function to count and log fund nodes
+        function countFundNodes() {
+            logToConsole('Counting fund nodes in the hierarchy');
+            
+            // Get all fund nodes in the DOM
+            const fundNodes = document.querySelectorAll('.fund-node');
+            logToConsole(`Found ${fundNodes.length} fund nodes in the DOM`);
+            
+            // Get all fund nodes in the data
+            const fundCount = {};
+            window.appState.entities.forEach(entity => {
+                const entityFunds = window.appState.funds.filter(fund => fund.entity_id === entity.id);
+                fundCount[entity.code] = entityFunds.length;
+                
+                if (entityFunds.length > 0) {
+                    logToConsole(`Entity ${entity.name} (${entity.code}) has ${entityFunds.length} funds:`, 
+                        entityFunds.map(f => `${f.name} (${f.code})`));
+                }
+            });
+            
+            logToConsole('Fund counts by entity:', fundCount);
+            
+            // Check for second-level entities specifically
+            const rootEntity = window.appState.entities.find(e => 
+                e.parent_entity_id === null && 
+                (e.name === 'The Principle Foundation' || e.code === 'TPF_PARENT')
+            );
+            
+            if (rootEntity) {
+                const secondLevelEntities = window.appState.entities.filter(e => 
+                    e.parent_entity_id === rootEntity.id
+                );
+                
+                logToConsole(`Found ${secondLevelEntities.length} second-level entities under ${rootEntity.name}:`);
+                
+                secondLevelEntities.forEach(entity => {
+                    const entityFunds = window.appState.funds.filter(fund => fund.entity_id === entity.id);
+                    logToConsole(`  - ${entity.name} (${entity.code}) has ${entityFunds.length} funds:`, 
+                        entityFunds.map(f => `${f.name} (${f.code})`));
+                });
+            }
+        }
+        
+        // Wait for app.js to load and initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Setup event listeners for debug buttons
+            document.getElementById('load-data-btn').addEventListener('click', async () => {
+                logToConsole('Loading data...');
+                try {
+                    await window.checkDatabaseConnection();
+                    await Promise.all([
+                        window.loadEntityData(),
+                        window.loadAccountData(),
+                        window.loadFundData(),
+                        window.loadJournalEntryData()
+                    ]);
+                    logToConsole('Data loaded successfully');
+                    logToConsole('Entities:', window.appState.entities.length);
+                    logToConsole('Funds:', window.appState.funds.length);
+                } catch (error) {
+                    logToConsole('Error loading data:', error.message);
+                }
+            });
+            
+            document.getElementById('inspect-hierarchy-btn').addEventListener('click', () => {
+                logToConsole('Inspecting hierarchy...');
+                enhancedUpdateEntityHierarchyVisualization();
+            });
+            
+            document.getElementById('count-funds-btn').addEventListener('click', () => {
+                countFundNodes();
+            });
+            
+            logToConsole('Debug tool initialized. Click "Load Data" to begin.');
+        });
+    </script>
+    
+    <!-- Load the main application script -->
+    <script src="app.js"></script>
+</body>
+</html>

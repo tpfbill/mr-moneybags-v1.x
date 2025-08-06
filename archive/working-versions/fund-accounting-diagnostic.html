@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Execution Diagnostic Page</title>
+    <style>
+        body { font-family: Consolas, monospace; margin: 0; padding: 0; background-color: #f4f4f4; font-size: 14px; }
+        .container { max-width: 900px; margin: 20px auto; background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        h2 { margin-top: 30px; }
+        button { padding: 8px 12px; margin: 5px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background-color: #0056b3; }
+        #diagResults { margin-top: 20px; padding: 15px; border: 1px solid #ddd; background-color: #f9f9f9; min-height: 200px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; }
+        .log-entry { padding: 3px 0; border-bottom: 1px dotted #eee; }
+        .log-entry:last-child { border-bottom: none; }
+        .log-info { color: #333; }
+        .log-success { color: green; font-weight: bold; }
+        .log-warn { color: orange; }
+        .log-error { color: red; font-weight: bold; }
+        .status-indicator { position: fixed; top: 0; left: 0; width: 100%; padding: 5px; text-align: center; font-weight: bold; z-index: 1001; }
+        .status-initializing { background-color: #fff3cd; color: #856404; }
+        .status-ready { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .test-section { margin-bottom: 20px; padding: 15px; border: 1px solid #e0e0e0; background-color: #fcfcfc; }
+        .test-section h3 { margin-top: 0; }
+    </style>
+
+    <script>
+        // Script in HEAD
+        const headScriptTime = new Date().toISOString();
+        console.log(`DIAG [${headScriptTime}]: Script in <head> executing.`);
+        
+        // Early log function, queues if DOM element not ready
+        let queuedLogMessages = [];
+        function logDiag(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const fullMessage = `[${timestamp}] [${type.toUpperCase()}]: ${message}`;
+            console.log(fullMessage); // Always log to console
+
+            const resultsDiv = document.getElementById('diagResults');
+            if (resultsDiv) {
+                // Flush queue if any messages were logged before resultsDiv was available
+                if (queuedLogMessages.length > 0) {
+                    queuedLogMessages.forEach(qm => {
+                        const p = document.createElement('p');
+                        p.className = `log-entry log-${qm.type}`;
+                        p.textContent = qm.fullMessage;
+                        resultsDiv.appendChild(p);
+                    });
+                    queuedLogMessages = []; // Clear queue
+                }
+                const p = document.createElement('p');
+                p.className = `log-entry log-${type}`;
+                p.textContent = fullMessage;
+                resultsDiv.appendChild(p);
+                resultsDiv.scrollTop = resultsDiv.scrollHeight; // Auto-scroll
+            } else {
+                queuedLogMessages.push({ fullMessage, type }); // Queue if resultsDiv not yet available
+            }
+        }
+        logDiag("Script in <head> finished execution.", "info");
+
+        function headTestFunction(buttonId) {
+            logDiag(`Function 'headTestFunction' (defined in <head>) called by ${buttonId}.`, "success");
+        }
+    </script>
+    <!-- Example of defer and async for EXTERNAL scripts -->
+    <!-- <script src="external_defer.js" defer></script> -->
+    <!-- <script src="external_async.js" async></script> -->
+    <!-- logDiag messages in those external scripts would show their loading behavior -->
+</head>
+<body>
+
+    <div id="statusIndicator" class="status-indicator status-initializing">Page Initializing... JS in body start.</div>
+
+    <script>
+        // Script at START of BODY
+        logDiag("Script at START of <body> executing.", "info");
+        document.getElementById('statusIndicator').textContent = 'Page Initializing... JS in body start executed.';
+    </script>
+
+    <div class="container">
+        <h1>JavaScript Execution Diagnostic</h1>
+        <p>This page tests various JavaScript execution methods. Check the browser console (F12) and the "Diagnostic Results" box below.</p>
+
+        <div class="test-section">
+            <h3>1. Inline Script Execution & Basic DOM Access</h3>
+            <p>Messages from scripts in &lt;head&gt; and start of &lt;body&gt; should appear below if basic JS and DOM access (for logDiag) work early.</p>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Event Handler Attachment Tests</h3>
+            <button id="button1" onclick="logDiag('Button 1 (inline onclick attribute) clicked!', 'success'); headTestFunction('Button 1');">Button 1 (Inline onclick)</button>
+            <button id="button2">Button 2 (element.onclick)</button>
+            <button id="button3">Button 3 (addEventListener)</button>
+            <button id="button4">Button 4 (jQuery style - simulated)</button>
+            <p><em>Note: "jQuery style" is simulated; jQuery library is not loaded.</em></p>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Writing to Document/UI</h3>
+            <button id="writeToDivButton">Write to Test Div</button>
+            <div id="testWriteDiv" style="padding:10px; border:1px solid blue; margin-top:10px;">Test Write Div</div>
+            <script>
+                // document.write Test (will execute during parsing)
+                // Note: Using document.write after page load can overwrite the page.
+                logDiag("Attempting document.write() now (during body parsing).", "info");
+                try {
+                    document.write("<p style='color: purple;'><em>DIAG: Message from document.write() during body parsing.</em></p>");
+                    logDiag("document.write() executed.", "success");
+                } catch (e) {
+                    logDiag(`Error during document.write(): ${e.message}`, "error");
+                }
+            </script>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Script Loading Attributes (Conceptual for Inline)</h3>
+            <p><code>defer</code> and <code>async</code> attributes primarily affect external scripts. Their behavior on inline scripts can be inconsistent or non-standard. We are logging their execution relative to other scripts.</p>
+            <script defer>
+                logDiag("Inline script with DEFER attribute executed.", "info");
+                // For external scripts, 'defer' means execute after HTML parsing, before DOMContentLoaded, in order.
+            </script>
+            <script async>
+                logDiag("Inline script with ASYNC attribute executed.", "info");
+                // For external scripts, 'async' means execute as soon as downloaded, potentially out of order, possibly before or after DOMContentLoaded.
+            </script>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Browser Feature Detection</h3>
+            <div id="featureDetectionResults"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>6. DOMContentLoaded and window.onload Events</h3>
+            <p>Check logs for when these events fire.</p>
+        </div>
+
+        <h2>Diagnostic Results:</h2>
+        <div id="diagResults"></div>
+    </div>
+
+    <script>
+        // Script at END of BODY
+        logDiag("Script at END of <body> executing.", "info");
+
+        // Attach event handlers for Button 2, 3, 4 and writeToDivButton
+        try {
+            const button2 = document.getElementById('button2');
+            if (button2) {
+                button2.onclick = function() {
+                    logDiag("Button 2 (element.onclick) clicked!", "success");
+                    headTestFunction('Button 2');
+                };
+                logDiag("Event handler for Button 2 attached via element.onclick.", "success");
+            } else {
+                logDiag("Button 2 not found for .onclick attachment.", "error");
+            }
+
+            const button3 = document.getElementById('button3');
+            if (button3) {
+                button3.addEventListener('click', function() {
+                    logDiag("Button 3 (addEventListener) clicked!", "success");
+                    headTestFunction('Button 3');
+                });
+                logDiag("Event handler for Button 3 attached via addEventListener.", "success");
+            } else {
+                logDiag("Button 3 not found for addEventListener attachment.", "error");
+            }
+
+            // Simulated jQuery-style event (conceptual)
+            const button4 = document.getElementById('button4');
+            if (button4) {
+                // If jQuery were here: $('#button4').on('click', function() { ... });
+                button4.addEventListener('click', function() { // Simulating with addEventListener
+                    logDiag("Button 4 (simulated jQuery .on('click')) clicked!", "success");
+                });
+                logDiag("Event handler for Button 4 (simulated jQuery) attached.", "info");
+            } else {
+                logDiag("Button 4 not found.", "error");
+            }
+
+            const writeButton = document.getElementById('writeToDivButton');
+            const testWriteDiv = document.getElementById('testWriteDiv');
+            if (writeButton && testWriteDiv) {
+                writeButton.addEventListener('click', function() {
+                    logDiag("Write to Test Div button clicked.", "info");
+                    testWriteDiv.innerHTML = `<strong>Updated by innerHTML:</strong> ${new Date().toISOString()}`;
+                    logDiag("testWriteDiv updated using innerHTML.", "success");
+                    setTimeout(() => {
+                        testWriteDiv.textContent = `Updated by textContent: ${new Date().toISOString()}`;
+                        logDiag("testWriteDiv updated using textContent.", "success");
+                    }, 1000);
+                });
+                logDiag("Event handler for 'Write to Test Div' button attached.", "success");
+            } else {
+                logDiag("'Write to Test Div' button or div not found.", "error");
+            }
+
+        } catch (e) {
+            logDiag(`Error attaching event handlers in end-of-body script: ${e.message}`, "error");
+        }
+
+        // Browser Feature Detection
+        logDiag("Starting Browser Feature Detection...", "info");
+        const featureResultsDiv = document.getElementById('featureDetectionResults');
+        function logFeature(feature, supported) {
+            const msg = `${feature}: ${supported ? 'Supported' : 'NOT Supported'}`;
+            logDiag(msg, supported ? "success" : "warn");
+            if (featureResultsDiv) {
+                const p = document.createElement('p');
+                p.textContent = msg;
+                p.style.color = supported ? 'green' : 'orange';
+                featureResultsDiv.appendChild(p);
+            }
+        }
+        try {
+            logFeature('window.addEventListener', !!window.addEventListener);
+            logFeature('document.getElementById', !!document.getElementById);
+            logFeature('localStorage', typeof(Storage) !== "undefined" && !!window.localStorage);
+            logFeature('JSON.parse & JSON.stringify', !!(JSON && JSON.parse && JSON.stringify));
+            logFeature('Promises', typeof Promise !== "undefined" && Promise.toString().indexOf("[native code]") !== -1);
+            logFeature('Arrow Functions (ES6)', (() => { try { eval("() => {}"); return true; } catch (e) { return false; } })());
+            logFeature('console.log', typeof console !== "undefined" && !!console.log);
+        } catch (e) {
+            logDiag(`Error during feature detection: ${e.message}`, "error");
+        }
+
+        // DOMContentLoaded and window.onload listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            logDiag("EVENT: DOMContentLoaded fired.", "success");
+            document.getElementById('statusIndicator').textContent = 'Page Ready (DOMContentLoaded)';
+            document.getElementById('statusIndicator').className = 'status-indicator status-ready';
+            
+            // Flush any remaining queued messages (though logDiag should handle this now)
+            if (queuedLogMessages.length > 0) {
+                logDiag(`Flushing ${queuedLogMessages.length} queued messages from DOMContentLoaded.`, "info");
+                const resultsDiv = document.getElementById('diagResults');
+                 if (resultsDiv) {
+                    queuedLogMessages.forEach(qm => {
+                        const p = document.createElement('p');
+                        p.className = `log-entry log-${qm.type}`;
+                        p.textContent = qm.fullMessage;
+                        resultsDiv.appendChild(p);
+                    });
+                    queuedLogMessages = [];
+                }
+            }
+        });
+
+        window.onload = function() {
+            logDiag("EVENT: window.onload fired.", "success");
+            // Status indicator might have already been set by DOMContentLoaded
+            if (!document.getElementById('statusIndicator').classList.contains('status-ready')) {
+                 document.getElementById('statusIndicator').textContent = 'Page Fully Loaded (window.onload)';
+                 document.getElementById('statusIndicator').className = 'status-indicator status-ready';
+            }
+        };
+        
+        logDiag("Script at END of <body> finished execution.", "info");
+
+        // Final check for status indicator
+        const finalStatusIndicator = document.getElementById('statusIndicator');
+        if (finalStatusIndicator && finalStatusIndicator.classList.contains('status-initializing')) {
+            // If DOMContentLoaded hasn't fired yet to update it.
+            finalStatusIndicator.textContent = 'Page Initializing... End of body script reached.';
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Profit Fund Accounting</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background-color: #1976d2;
+            color: white;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 64px;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 64px;
+            left: 0;
+            width: 250px;
+            height: calc(100vh - 64px);
+            background-color: white;
+            z-index: 1000;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        
+        .menu-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        
+        .menu-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .menu-item.active {
+            background-color: #e3f2fd;
+            border-left: 4px solid #1976d2;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            margin-top: 64px;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 24px;
+        }
+        
+        h2 {
+            margin-bottom: 20px;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Non-Profit Fund Accounting</h1>
+        <div>John Doe (Admin)</div>
+    </header>
+    
+    <nav class="sidebar">
+        <div class="menu-item active">Dashboard</div>
+        <div class="menu-item">Chart of Accounts</div>
+        <div class="menu-item">Funds</div>
+        <div class="menu-item">Journal Entries</div>
+        <div class="menu-item">Reports</div>
+        <div class="menu-item">Settings</div>
+    </nav>
+    
+    <main class="main-content">
+        <section class="section active">
+            <h2>Dashboard</h2>
+            <p>This is the dashboard content. The header should now be fully visible without any overlap issues.</p>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuItems = document.querySelectorAll('.menu-item');
+            const sections = document.querySelectorAll('.section');
+            
+            menuItems.forEach((item, index) => {
+                item.addEventListener('click', function() {
+                    // Remove active class from all menu items
+                    menuItems.forEach(mi => mi.classList.remove('active'));
+                    // Add active class to clicked item
+                    this.classList.add('active');
+                    
+                    // Hide all sections
+                    sections.forEach(section => section.classList.remove('active'));
+                    // Show the corresponding section
+                    if (sections[index]) {
+                        sections[index].classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

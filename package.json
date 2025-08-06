@@ -1,0 +1,23 @@
+{
+  "name": "nonprofit-fund-accounting-web-demo",
+  "version": "9.0.0",
+  "description": "Full-stack Non-Profit Fund Accounting platform (frontend :8080, API backend :3000) with multi-entity fund accounting, vendor ACH payments, NACHA generation, reporting, and admin tools — now with a professionally organized v9.0 directory structure.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "client": "http-server . -p 8080 -c-1",
+    "dev": "concurrently \"npm run start\" \"npm run client\"",
+    "test-data": "node database/load-test-data.js",
+    "setup": "node database/setup-complete.js"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "http-server": "^14.1.1",
+    "multer": "^2.0.1",
+    "pg": "^8.16.2"
+  }
+}

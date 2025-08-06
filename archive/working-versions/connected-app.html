@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Profit Fund Accounting</title>
+    <link rel="stylesheet" href="src/css/styles.css">
+</head>
+<body>
+    <!-- Header - Static positioning (not fixed) -->
+    <div class="header">
+        <div class="header-container">
+            <h1>Non-Profit Fund Accounting System</h1>
+            <div class="user-info">
+                <span>John Doe</span>
+                <button class="logout-button">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Navigation -->
+    <div class="main-nav">
+        <div class="nav-container">
+            <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+            <div class="nav-item" data-page="funds">Funds</div>
+            <div class="nav-item" data-page="journal-entries">Journal Entries</div>
+            <div class="nav-item" data-page="reports">Reports</div>
+            <div class="nav-item" data-page="settings">Settings</div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h3>Quick Actions</h3>
+            <ul class="sidebar-menu mt-20">
+                <li><a href="#" class="sidebar-item active" data-panel="financial-overview">Financial Overview</a></li>
+                <li><a href="#" class="sidebar-item" data-panel="recent-transactions">Recent Transactions</a></li>
+                <li><a href="#" class="sidebar-item" data-panel="unposted-entries">Unposted Entries</a></li>
+                <li><a href="#" class="sidebar-item" data-panel="budget-analysis">Budget Analysis</a></li>
+                <li><a href="#" class="sidebar-item" data-panel="fund-balances">Fund Balances</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content" id="main-content">
+            <!-- Content will be loaded dynamically using JavaScript -->
+        </div>
+    </div>
+
+    <!-- Load page content and scripts -->
+    <script src="app.js"></script>
+</body>
+</html>

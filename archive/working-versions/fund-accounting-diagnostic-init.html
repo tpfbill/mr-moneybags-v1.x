@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fund Accounting - Initialization Diagnostic</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; margin: 0; padding: 0; background-color: #f0f0f0; font-size: 14px; }
+        .container { max-width: 900px; margin: 20px auto; background-color: #fff; padding: 20px; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 60px; /* Space for status indicator */ }
+        h1 { color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-top: 0; }
+        #status-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            z-index: 1001;
+            border-bottom: 1px solid;
+        }
+        #status-indicator.initializing { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+        #status-indicator.success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        #status-indicator.error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        #log-output {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            min-height: 300px;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap; /* Preserve line breaks and spaces */
+        }
+        .log-entry { padding: 2px 0; border-bottom: 1px dotted #eee; }
+        .log-entry:last-child { border-bottom: none; }
+        .log-info { color: #333; }
+        .log-step { color: #007bff; font-weight: bold; }
+        .log-success { color: green; }
+        .log-error { color: red; font-weight: bold; }
+        .dummy-nav { padding: 10px; background-color: #eee; margin-bottom: 10px; }
+        .dummy-button { padding: 8px; margin: 5px; background-color: #ddd; cursor: pointer; border: 1px solid #bbb; border-radius: 3px;}
+        .dummy-button:hover { background-color: #ccc; }
+    </style>
+</head>
+<body>
+    <div id="status-indicator" class="initializing">Status: Page Loading... Script in body not yet run.</div>
+
+    <div class="container">
+        <h1>Initialization Process Diagnostic</h1>
+        <p>This page logs each step of a simulated application initialization. Check the browser console (F12) and the log output below. The status bar at the top should turn green if all steps complete.</p>
+        
+        <div class="dummy-nav">
+            Dummy Nav Bar:
+            <span class="dummy-button" id="testNavDashboard">Dashboard Button</span>
+            <span class="dummy-button" id="testNavSettings">Settings Button</span>
+        </div>
+        
+        <button id="testActionButton" class="dummy-button">Test Action Button (Click after init)</button>
+
+        <h2>Log Output:</h2>
+        <div id="log-output"></div>
+    </div>
+
+    <script>
+        // Ensure elements are globally accessible for functions
+        const statusIndicatorDiv = document.getElementById('status-indicator');
+        const logOutputDiv = document.getElementById('log-output');
+        let initSuccess = true; // Flag to track overall success
+
+        function logMsg(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const fullMessage = `[${timestamp}] [DIAG_INIT] [${type.toUpperCase()}]: ${message}`;
+            
+            console.log(fullMessage); 
+
+            if (logOutputDiv) {
+                const p = document.createElement('p');
+                p.className = `log-entry log-${type}`;
+                p.textContent = fullMessage;
+                logOutputDiv.appendChild(p);
+                logOutputDiv.scrollTop = logOutputDiv.scrollHeight; 
+            } else {
+                // This fallback should ideally not be needed if script is at end of body
+                // or DOMContentLoaded is used correctly.
+                console.warn("DIAG_WARN: logOutputDiv not found when trying to log:", fullMessage);
+            }
+        }
+
+        function updateAppStatus(message, statusType) { // 'initializing', 'success', 'error'
+            if (statusIndicatorDiv) {
+                statusIndicatorDiv.textContent = `Status: ${message}`;
+                statusIndicatorDiv.className = `status-indicator ${statusType}`;
+            }
+            logMsg(`Status Update: ${message}`, statusType === 'error' ? 'error' : (statusType === 'success' ? 'success' : 'info'));
+        }
+
+        // --- Simulated Initialization Steps ---
+        function step0_VerifyBaseDOM() {
+            logMsg("Step 0: Verifying base DOM elements...", "step");
+            if (!document.body) { initSuccess = false; throw new Error("document.body not found!"); }
+            if (!statusIndicatorDiv) { initSuccess = false; throw new Error("statusIndicatorDiv not found!"); }
+            if (!logOutputDiv) { initSuccess = false; throw new Error("logOutputDiv not found!"); }
+            if (!document.querySelector('.main-nav')) { initSuccess = false; throw new Error("Main navigation container (.main-nav) not found!");}
+            logMsg("Step 0: Base DOM elements verified.", "success");
+            updateAppStatus("Base DOM Verified", "initializing");
+        }
+
+        function step1_SimulateDataInit() {
+            logMsg("Step 1: Simulating data structure initialization...", "step");
+            let testArray = [];
+            let testObject = {};
+            testArray.push("item1");
+            testObject.prop1 = "value1";
+            if (testArray.length === 1 && testObject.prop1 === "value1") {
+                logMsg("Step 1: Dummy data structures initialized.", "success");
+            } else {
+                initSuccess = false;
+                throw new Error("Dummy data structure initialization failed.");
+            }
+            updateAppStatus("Data Structures Initialized", "initializing");
+        }
+
+        function step2_SimulateComponentAccess() {
+            logMsg("Step 2: Simulating access to UI components...", "step");
+            const navDashboard = document.getElementById('testNavDashboard');
+            const navSettings = document.getElementById('testNavSettings');
+            const actionButton = document.getElementById('testActionButton');
+
+            if (!navDashboard) { initSuccess = false; throw new Error("testNavDashboard component not found!");}
+            if (!navSettings) { initSuccess = false; throw new Error("testNavSettings component not found!");}
+            if (!actionButton) { initSuccess = false; throw new Error("testActionButton component not found!");}
+            
+            logMsg("Step 2: UI components accessed successfully.", "success");
+            updateAppStatus("UI Components Accessed", "initializing");
+        }
+        
+        function step3_SimulateEventHandlerAttachment() {
+            logMsg("Step 3: Simulating event handler attachment...", "step");
+            const actionButton = document.getElementById('testActionButton');
+            if (!actionButton) { initSuccess = false; throw new Error("testActionButton not found for event attachment!");}
+
+            actionButton.addEventListener('click', function() {
+                logMsg("Test Action Button Clicked!", "success");
+                alert("Test Action Button was clicked successfully!");
+                updateAppStatus("Test Action Button Clicked!", "success");
+            });
+            logMsg("Step 3: Event handler for Test Action Button attached.", "success");
+            updateAppStatus("Event Handlers Attached", "initializing");
+        }
+        
+        function step4_SimulateFinalSetup() {
+            logMsg("Step 4: Simulating final setup tasks (e.g., setting initial page)...", "step");
+            const navDashboard = document.getElementById('testNavDashboard');
+            if (navDashboard) {
+                navDashboard.style.fontWeight = 'bold'; 
+                navDashboard.style.backgroundColor = '#cce5ff';
+                logMsg("Visual cue for dashboard button applied.", "info");
+            } else {
+                logMsg("Dashboard nav button not found for final setup visual cue.", "warn");
+            }
+            logMsg("Step 4: Final setup tasks simulated.", "success");
+            updateAppStatus("Final Setup Complete", "initializing"); // Still initializing until the very end
+        }
+
+
+        // --- Main Initialization Function ---
+        function diagnosticInitApp() {
+            logMsg(`diagnosticInitApp() called. Document readyState: ${document.readyState}`, "info");
+            updateAppStatus("Initialization Started...", "initializing");
+
+            try {
+                step0_VerifyBaseDOM();
+                step1_SimulateDataInit();
+                step2_SimulateComponentAccess();
+                step3_SimulateEventHandlerAttachment();
+                step4_SimulateFinalSetup();
+                
+                if (initSuccess) {
+                    updateAppStatus("All Initialization Steps Succeeded!", "success");
+                    logMsg("DIAGNOSTIC COMPLETE: SUCCESS", "success");
+                } else {
+                    // This case should ideally be caught by an error in one of the steps
+                    updateAppStatus("Initialization completed but with internal flags indicating failure. Check logs.", "error");
+                    logMsg("DIAGNOSTIC COMPLETE: FAILED (internal flag)", "error");
+                }
+
+            } catch (error) {
+                initSuccess = false; // Ensure flag is set on error
+                logMsg(`CRITICAL ERROR during initialization: ${error.message}\nStack: ${error.stack}`, "error");
+                updateAppStatus(`Initialization FAILED: ${error.message}. Check console.`, "error");
+            }
+        }
+
+        // --- Script Execution Start ---
+        logMsg("Initial script block at end of body executing.", "info");
+        updateAppStatus("Script at end of body reached.", "initializing");
+
+        if (document.readyState === 'loading') {
+            logMsg("Document is loading. Adding DOMContentLoaded listener for diagnosticInitApp().", "info");
+            document.addEventListener('DOMContentLoaded', diagnosticInitApp);
+        } else {
+            logMsg("Document already loaded. Calling diagnosticInitApp() directly.", "info");
+            diagnosticInitApp();
+        }
+        
+        logMsg("End of initial script block. Waiting for DOMContentLoaded or direct init call.", "info");
+    </script>
+</body>
+</html>

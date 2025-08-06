@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2196F3;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .panel {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #0b7dda;
+        }
+        pre {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fund Accounting API Tester</h1>
+        <p>This page directly tests the API endpoints and displays the raw results. Use this to diagnose data display issues.</p>
+        
+        <div class="panel">
+            <h2>Entities</h2>
+            <button id="fetchEntitiesBtn">Fetch Entities</button>
+            <button id="checkTPFHierarchyBtn">Check TPF Hierarchy</button>
+            <div id="entitiesResult"></div>
+        </div>
+        
+        <div class="panel">
+            <h2>Funds</h2>
+            <button id="fetchFundsBtn">Fetch Funds</button>
+            <button id="checkTPFFundsBtn">Check TPF Funds</button>
+            <div id="fundsResult"></div>
+        </div>
+        
+        <div class="panel">
+            <h2>Journal Entries</h2>
+            <button id="fetchJournalEntriesBtn">Fetch Journal Entries</button>
+            <button id="checkRecentJEsBtn">Check Recent JEs</button>
+            <div id="journalEntriesResult"></div>
+        </div>
+        
+        <div class="panel">
+            <h2>Direct Entity Repair</h2>
+            <button id="fixTPFParentBtn">Fix TPF_PARENT Self-Reference</button>
+            <button id="fixChildRelationshipsBtn">Fix Child Relationships</button>
+            <button id="resetUIStateBtn">Reset UI State</button>
+            <div id="repairResult"></div>
+        </div>
+        
+        <div class="panel">
+            <h2>Browser Debug</h2>
+            <button id="checkWindowObjectsBtn">Check Window Objects</button>
+            <button id="checkLocalStorageBtn">Check Local Storage</button>
+            <button id="clearLocalStorageBtn">Clear Local Storage</button>
+            <div id="debugResult"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Results containers
+        const entitiesResult = document.getElementById('entitiesResult');
+        const fundsResult = document.getElementById('fundsResult');
+        const journalEntriesResult = document.getElementById('journalEntriesResult');
+        const repairResult = document.getElementById('repairResult');
+        const debugResult = document.getElementById('debugResult');
+        
+        // Utility functions
+        function formatJson(data) {
+            return JSON.stringify(data, null, 2);
+        }
+        
+        function showResult(container, data, isSuccess = true) {
+            container.innerHTML = `
+                <div class="${isSuccess ? 'success' : 'error'}">
+                    ${isSuccess ? 'Success' : 'Error'}
+                </div>
+                <pre>${formatJson(data)}</pre>
+            `;
+        }
+        
+        function showError(container, error) {
+            container.innerHTML = `
+                <div class="error">Error: ${error.message}</div>
+                <pre>${error.stack || 'No stack trace available'}</pre>
+            `;
+        }
+        
+        // API functions
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        async function putData(endpoint, data) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error updating ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        // Button handlers
+        document.getElementById('fetchEntitiesBtn').addEventListener('click', async () => {
+            try {
+                const data = await fetchData('/api/entities');
+                showResult(entitiesResult, data);
+            } catch (error) {
+                showError(entitiesResult, error);
+            }
+        });
+        
+        document.getElementById('checkTPFHierarchyBtn').addEventListener('click', async () => {
+            try {
+                const entities = await fetchData('/api/entities');
+                const tpfParent = entities.find(e => e.code === 'TPF_PARENT');
+                const tpf = entities.find(e => e.code === 'TPF');
+                const tpfEs = entities.find(e => e.code === 'TPF-ES');
+                const ifcsn = entities.find(e => e.code === 'IFCSN');
+                
+                const hierarchy = {
+                    tpfParent: tpfParent || 'Not found',
+                    tpf: tpf || 'Not found',
+                    tpfEs: tpfEs || 'Not found',
+                    ifcsn: ifcsn || 'Not found',
+                    analysis: {
+                        tpfParentHasSelfReference: tpfParent && tpfParent.parent_entity_id === tpfParent.id,
+                        tpfHasCorrectParent: tpf && tpf.parent_entity_id === tpfParent?.id,
+                        tpfEsHasCorrectParent: tpfEs && tpfEs.parent_entity_id === tpfParent?.id,
+                        ifcsnHasCorrectParent: ifcsn && ifcsn.parent_entity_id === tpfParent?.id
+                    }
+                };
+                
+                showResult(entitiesResult, hierarchy);
+            } catch (error) {
+                showError(entitiesResult, error);
+            }
+        });
+        
+        document.getElementById('fetchFundsBtn').addEventListener('click', async () => {
+            try {
+                const data = await fetchData('/api/funds');
+                showResult(fundsResult, data);
+            } catch (error) {
+                showError(fundsResult, error);
+            }
+        });
+        
+        document.getElementById('checkTPFFundsBtn').addEventListener('click', async () => {
+            try {
+                const entities = await fetchData('/api/entities');
+                const funds = await fetchData('/api/funds');
+                
+                const tpfParent = entities.find(e => e.code === 'TPF_PARENT');
+                const tpf = entities.find(e => e.code === 'TPF');
+                const tpfEs = entities.find(e => e.code === 'TPF-ES');
+                const ifcsn = entities.find(e => e.code === 'IFCSN');
+                
+                const tpfFunds = funds.filter(f => f.entity_id === tpf?.id);
+                const tpfEsFunds = funds.filter(f => f.entity_id === tpfEs?.id);
+                const ifcsnFunds = funds.filter(f => f.entity_id === ifcsn?.id);
+                
+                const fundsByEntity = {
+                    tpfFunds,
+                    tpfEsFunds,
+                    ifcsnFunds,
+                    analysis: {
+                        tpfFundsCount: tpfFunds.length,
+                        tpfEsFundsCount: tpfEsFunds.length,
+                        ifcsnFundsCount: ifcsnFunds.length,
+                        tpfGenFund: tpfFunds.find(f => f.code === 'TPF-GEN'),
+                        tpfSchFund: tpfFunds.find(f => f.code === 'TPF-SCH'),
+                        esGrntFund: tpfEsFunds.find(f => f.code === 'ES-GRNT'),
+                        esAdvFund: tpfEsFunds.find(f => f.code === 'ES-ADV'),
+                        ifcsnComFund: ifcsnFunds.find(f => f.code === 'IFCSN-COM'),
+                        ifcsnSpFund: ifcsnFunds.find(f => f.code === 'IFCSN-SP')
+                    }
+                };
+                
+                showResult(fundsResult, fundsByEntity);
+            } catch (error) {
+                showError(fundsResult, error);
+            }
+        });
+        
+        document.getElementById('fetchJournalEntriesBtn').addEventListener('click', async () => {
+            try {
+                const data = await fetchData('/api/journal-entries');
+                showResult(journalEntriesResult, data);
+            } catch (error) {
+                showError(journalEntriesResult, error);
+            }
+        });
+        
+        document.getElementById('checkRecentJEsBtn').addEventListener('click', async () => {
+            try {
+                const journalEntries = await fetchData('/api/journal-entries');
+                const entities = await fetchData('/api/entities');
+                
+                const tpf = entities.find(e => e.code === 'TPF');
+                const tpfEs = entities.find(e => e.code === 'TPF-ES');
+                const ifcsn = entities.find(e => e.code === 'IFCSN');
+                
+                const tpfJEs = journalEntries.filter(je => je.entity_id === tpf?.id)
+                    .sort((a, b) => new Date(b.entry_date) - new Date(a.entry_date))
+                    .slice(0, 5);
+                    
+                const tpfEsJEs = journalEntries.filter(je => je.entity_id === tpfEs?.id)
+                    .sort((a, b) => new Date(b.entry_date) - new Date(a.entry_date))
+                    .slice(0, 5);
+                    
+                const ifcsnJEs = journalEntries.filter(je => je.entity_id === ifcsn?.id)
+                    .sort((a, b) => new Date(b.entry_date) - new Date(a.entry_date))
+                    .slice(0, 5);
+                
+                const recentJEs = {
+                    tpfJEs,
+                    tpfEsJEs,
+                    ifcsnJEs,
+                    analysis: {
+                        tpfJEsCount: tpfJEs.length,
+                        tpfEsJEsCount: tpfEsJEs.length,
+                        ifcsnJEsCount: ifcsnJEs.length,
+                        hasInterEntityTransactions: journalEntries.some(je => je.is_inter_entity)
+                    }
+                };
+                
+                showResult(journalEntriesResult, recentJEs);
+            } catch (error) {
+                showError(journalEntriesResult, error);
+            }
+        });
+        
+        document.getElementById('fixTPFParentBtn').addEventListener('click', async () => {
+            try {
+                const entities = await fetchData('/api/entities');
+                const tpfParent = entities.find(e => e.code === 'TPF_PARENT');
+                
+                if (!tpfParent) {
+                    throw new Error('TPF_PARENT entity not found');
+                }
+                
+                // Fix self-reference if needed
+                if (tpfParent.parent_entity_id === tpfParent.id) {
+                    const updatedEntity = {
+                        ...tpfParent,
+                        parent_entity_id: null
+                    };
+                    
+                    const result = await putData(`/api/entities/${tpfParent.id}`, updatedEntity);
+                    showResult(repairResult, {
+                        action: 'Fixed TPF_PARENT self-reference',
+                        result
+                    });
+                } else {
+                    showResult(repairResult, {
+                        action: 'No fix needed',
+                        message: 'TPF_PARENT does not have a self-reference',
+                        tpfParent
+                    });
+                }
+            } catch (error) {
+                showError(repairResult, error);
+            }
+        });
+        
+        document.getElementById('fixChildRelationshipsBtn').addEventListener('click', async () => {
+            try {
+                const entities = await fetchData('/api/entities');
+                const tpfParent = entities.find(e => e.code === 'TPF_PARENT');
+                const tpf = entities.find(e => e.code === 'TPF');
+                const tpfEs = entities.find(e => e.code === 'TPF-ES');
+                const ifcsn = entities.find(e => e.code === 'IFCSN');
+                
+                if (!tpfParent) {
+                    throw new Error('TPF_PARENT entity not found');
+                }
+                
+                const results = {
+                    actions: [],
+                    fixedEntities: []
+                };
+                
+                // Fix TPF if needed
+                if (tpf && tpf.parent_entity_id !== tpfParent.id) {
+                    const updatedEntity = {
+                        ...tpf,
+                        parent_entity_id: tpfParent.id
+                    };
+                    
+                    const result = await putData(`/api/entities/${tpf.id}`, updatedEntity);
+                    results.actions.push('Fixed TPF parent relationship');
+                    results.fixedEntities.push(result);
+                }
+                
+                // Fix TPF-ES if needed
+                if (tpfEs && tpfEs.parent_entity_id !== tpfParent.id) {
+                    const updatedEntity = {
+                        ...tpfEs,
+                        parent_entity_id: tpfParent.id
+                    };
+                    
+                    const result = await putData(`/api/entities/${tpfEs.id}`, updatedEntity);
+                    results.actions.push('Fixed TPF-ES parent relationship');
+                    results.fixedEntities.push(result);
+                }
+                
+                // Fix IFCSN if needed
+                if (ifcsn && ifcsn.parent_entity_id !== tpfParent.id) {
+                    const updatedEntity = {
+                        ...ifcsn,
+                        parent_entity_id: tpfParent.id
+                    };
+                    
+                    const result = await putData(`/api/entities/${ifcsn.id}`, updatedEntity);
+                    results.actions.push('Fixed IFCSN parent relationship');
+                    results.fixedEntities.push(result);
+                }
+                
+                if (results.actions.length === 0) {
+                    results.message = 'All child entities already have correct parent relationships';
+                }
+                
+                showResult(repairResult, results);
+            } catch (error) {
+                showError(repairResult, error);
+            }
+        });
+        
+        document.getElementById('resetUIStateBtn').addEventListener('click', () => {
+            try {
+                // Clear any UI-specific localStorage items
+                localStorage.removeItem('fund_accounting_ui_state');
+                localStorage.removeItem('fund_accounting_selected_entity');
+                localStorage.removeItem('fund_accounting_settings');
+                
+                // Clear any session storage items
+                sessionStorage.clear();
+                
+                // Force reload the page
+                window.location.reload(true);
+                
+                showResult(repairResult, {
+                    action: 'UI state reset',
+                    message: 'Browser storage cleared and page reloaded'
+                });
+            } catch (error) {
+                showError(repairResult, error);
+            }
+        });
+        
+        document.getElementById('checkWindowObjectsBtn').addEventListener('click', () => {
+            try {
+                const windowObjects = {
+                    hasDb: typeof window.db !== 'undefined',
+                    hasApp: typeof window.app !== 'undefined',
+                    hasEntityHierarchy: typeof window.entityHierarchy !== 'undefined',
+                    hasUi: typeof window.ui !== 'undefined',
+                    dbDetails: window.db ? {
+                        hasConnect: typeof window.db.connect === 'function',
+                        hasIsConnected: typeof window.db.isConnected === 'function',
+                        isConnected: typeof window.db.isConnected === 'function' ? window.db.isConnected() : 'Not callable',
+                        hasFetchEntities: typeof window.db.fetchEntities === 'function'
+                    } : 'Not available',
+                    appDetails: window.app ? {
+                        hasLoadEntityData: typeof window.app.loadEntityData === 'function',
+                        hasLoadDashboardData: typeof window.app.loadDashboardData === 'function'
+                    } : 'Not available',
+                    entityHierarchyDetails: window.entityHierarchy ? {
+                        hasInit: typeof window.entityHierarchy.init === 'function',
+                        hasLoadHierarchyData: typeof window.entityHierarchy.loadHierarchyData === 'function',
+                        hasInitializeHierarchyVisualization: typeof window.entityHierarchy.initializeHierarchyVisualization === 'function'
+                    } : 'Not available'
+                };
+                
+                showResult(debugResult, windowObjects);
+            } catch (error) {
+                showError(debugResult, error);
+            }
+        });
+        
+        document.getElementById('checkLocalStorageBtn').addEventListener('click', () => {
+            try {
+                const storageItems = {};
+                
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    try {
+                        const value = localStorage.getItem(key);
+                        storageItems[key] = value;
+                    } catch (e) {
+                        storageItems[key] = `[Error reading value: ${e.message}]`;
+                    }
+                }
+                
+                const sessionItems = {};
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    try {
+                        const value = sessionStorage.getItem(key);
+                        sessionItems[key] = value;
+                    } catch (e) {
+                        sessionItems[key] = `[Error reading value: ${e.message}]`;
+                    }
+                }
+                
+                showResult(debugResult, {
+                    localStorage: storageItems,
+                    sessionStorage: sessionItems
+                });
+            } catch (error) {
+                showError(debugResult, error);
+            }
+        });
+        
+        document.getElementById('clearLocalStorageBtn').addEventListener('click', () => {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                showResult(debugResult, {
+                    action: 'Storage cleared',
+                    message: 'Both localStorage and sessionStorage have been cleared'
+                });
+            } catch (error) {
+                showError(debugResult, error);
+            }
+        });
+    </script>
+</body>
+</html>

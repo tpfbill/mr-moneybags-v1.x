@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fund Accounting System - Working Minimal</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding-bottom: 150px; }
+        .header { background-color: #1976d2; color: white; padding: 15px 20px; border-bottom: 3px solid #0d47a1; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .header h1 { font-size: 20px; }
+        .entity-selector-container { display: flex; align-items: center; gap: 8px; }
+        #entity-selector { padding: 6px 10px; border-radius: 4px; border: 1px solid #0d47a1; background-color: white; color: #333; min-width: 180px; }
+        .main-nav { background-color: #f0f0f0; padding: 10px 0; border-bottom: 1px solid #ddd; }
+        .nav-container { display: flex; justify-content: center; gap: 20px; max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .nav-item { padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 500; }
+        .nav-item:hover { background-color: #e0e0e0; }
+        .nav-item.active { background-color: #2196f3; color: white; }
+        .main-content { max-width: 1200px; margin: 20px auto; padding: 20px; background-color: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .page { display: none; }
+        .page.active { display: block; }
+        .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .content-header h2 { margin: 0; font-size: 1.5em; }
+        #init-status-indicator { position: fixed; bottom: 0; left: 0; width: 100%; padding: 8px; text-align: center; font-weight: bold; z-index: 2000; }
+        #init-status-indicator.initializing { background-color: #fff8e1; color: #ff8f00; border-top: 1px solid #ffecb3; }
+        #init-status-indicator.success { background-color: #e8f5e9; color: #2e7d32; border-top: 1px solid #c8e6c9; }
+        #init-status-indicator.error { background-color: #ffebee; color: #c62828; border-top: 1px solid #ffcdd2; }
+        #log-output-container { margin: 20px auto; max-width: 1200px; padding: 0 20px; }
+        #log-output { padding: 10px; border: 1px solid #ddd; background-color: #f9f9f9; min-height: 80px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; font-family: 'Courier New', Courier, monospace; font-size: 11px; }
+        .log-entry { padding: 1px 0; border-bottom: 1px dotted #eee; }
+        .log-step { color: #007bff; font-weight: bold; }
+        .log-success { color: green; }
+        .log-error { color: red; font-weight: bold; }
+        .tab-container { margin-top: 15px; }
+        .tab-menu { display: flex; border-bottom: 1px solid #ddd; }
+        .tab-item { padding: 8px 15px; cursor: pointer; border: 1px solid transparent; margin-bottom: -1px; }
+        .tab-item.active { border-color: #ddd #ddd white #ddd; border-radius: 4px 4px 0 0; background-color: white; }
+        .tab-content { padding: 15px; border: 1px solid #ddd; border-top: none; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Fund Accounting (Working Minimal)</h1>
+            <div class="entity-selector-container">
+                <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                <select id="entity-selector">
+                    <option value="">Loading Entities...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-nav" id="mainNavContainer"> <!-- Ensured .main-nav class is present -->
+        <div class="nav-container">
+            <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="reports">Reports</div>
+            <div class="nav-item" data-page="settings">Settings</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="dashboard-page" class="page active">
+            <div class="content-header"><h2>Dashboard</h2></div>
+            <p>Welcome to the Dashboard. Entity-specific content would appear here.</p>
+            <p>Current Entity ID: <span id="dashboard-current-entity">-</span></p>
+        </div>
+        <div id="reports-page" class="page">
+            <div class="content-header"><h2>Reports</h2></div>
+            <p>This is the reports page. Reports list and generation tools would be here.</p>
+        </div>
+        <div id="settings-page" class="page">
+            <div class="content-header"><h2>Settings</h2></div>
+            <div class="tab-container">
+                <div class="tab-menu">
+                    <div class="tab-item active" data-tab="settings-general">General</div>
+                    <div class="tab-item" data-tab="settings-entities">Entities</div>
+                </div>
+                <div class="tab-content">
+                    <div id="settings-general" class="tab-panel active">
+                        <h3>General Settings</h3>
+                        <p>General application settings would go here.</p>
+                    </div>
+                    <div id="settings-entities" class="tab-panel">
+                        <h3>Entity Management</h3>
+                        <p>Entity list and management tools would go here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="init-status-indicator" class="initializing">Status: Initializing Script...</div>
+    <div id="log-output-container"><div id="log-output"></div></div>
+
+    <script>
+        const APP_VERSION = "v6.0-working";
+        const statusIndicatorDiv = document.getElementById('init-status-indicator');
+        const logOutputDiv = document.getElementById('log-output');
+
+        function logMsg(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const fullMessage = `[${timestamp}] [${APP_VERSION}] [${type.toUpperCase()}]: ${message}`;
+            console.log(fullMessage);
+            if (logOutputDiv) {
+                const p = document.createElement('p');
+                p.className = `log-entry log-${type}`;
+                p.textContent = fullMessage;
+                logOutputDiv.appendChild(p);
+                logOutputDiv.scrollTop = logOutputDiv.scrollHeight;
+            }
+        }
+
+        function updateAppStatus(message, statusType) {
+            if (statusIndicatorDiv) {
+                statusIndicatorDiv.textContent = `Status: ${message}`;
+                statusIndicatorDiv.className = `status-indicator ${statusType}`;
+            }
+            logMsg(`Status Update: ${message}`, statusType === 'error' ? 'error' : 'info');
+        }
+
+        let currentEntityId = null; // Will be set from the first entity
+        const entities = [ // Minimal hardcoded entities
+            { id: 'ent1', name: 'Main Organization HQ' },
+            { id: 'ent2', name: 'Branch Office Alpha' }
+        ];
+
+        function populateEntitySelector() {
+            logMsg("Populating entity selector...", "step");
+            const selector = document.getElementById('entity-selector');
+            if (!selector) {
+                logMsg("Entity selector dropdown (#entity-selector) not found!", "error");
+                throw new Error("Entity selector dropdown not found!");
+            }
+            selector.innerHTML = '<option value="">-- Select Entity --</option>'; // Default option
+            entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = entity.name;
+                selector.appendChild(option);
+            });
+
+            if (entities.length > 0) {
+                currentEntityId = entities[0].id;
+                selector.value = currentEntityId;
+                logMsg(`Default entity set to: ${currentEntityId} (${entities[0].name})`, "info");
+            } else {
+                logMsg("No entities available to populate selector.", "warn");
+            }
+            updateDashboardEntityDisplay();
+            logMsg("Entity selector populated.", "success");
+        }
+
+        function handleEntityChange(event) {
+            currentEntityId = event.target.value;
+            logMsg(`Entity changed to: ${currentEntityId} (${getEntityName(currentEntityId)})`, "info");
+            updateDashboardEntityDisplay();
+            // In a full app, this would trigger refreshAllDataViews() or similar
+        }
+        
+        function getEntityName(id) {
+            const entity = entities.find(e => e.id === id);
+            return entity ? entity.name : "Unknown";
+        }
+
+        function updateDashboardEntityDisplay() {
+            const displayEl = document.getElementById('dashboard-current-entity');
+            if (displayEl) {
+                displayEl.textContent = currentEntityId ? `${getEntityName(currentEntityId)} (ID: ${currentEntityId})` : 'None Selected';
+            }
+        }
+
+        function navigateToPage(pageId) {
+            logMsg(`Navigating to page: ${pageId}`, "info");
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const targetPage = document.getElementById(pageId + '-page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+                logMsg(`Page ${pageId} activated.`, "success");
+            } else {
+                logMsg(`Page element not found: ${pageId}-page`, "error");
+                return; 
+            }
+
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            const activeNavItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+            if (activeNavItem) activeNavItem.classList.add('active');
+            else logMsg(`Nav item for page ${pageId} not found.`, "warn");
+        }
+
+        function initApp() {
+            logMsg(`initApp() called. Document readyState: ${document.readyState}`, "info");
+            updateAppStatus("Initialization Started...", "initializing");
+
+            try {
+                logMsg("Step 0: Verifying base DOM elements...", "step");
+                if (!document.body || !statusIndicatorDiv || !logOutputDiv || !document.querySelector('.main-nav')) {
+                    throw new Error("Essential base DOM elements (body, status, log, .main-nav) not found!");
+                }
+                logMsg("Step 0: Base DOM elements verified.", "success");
+                updateAppStatus("Base DOM Verified", "initializing");
+
+                logMsg("Step 1: Populating Entity Selector...", "step");
+                populateEntitySelector();
+                updateAppStatus("Entity Selector Populated", "initializing");
+
+                logMsg("Step 2: Attaching Event Handlers...", "step");
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.addEventListener('click', function() { navigateToPage(this.dataset.page); });
+                });
+                logMsg("Main navigation listeners attached.", "info");
+
+                const entitySelectorEl = document.getElementById('entity-selector');
+                if (entitySelectorEl) entitySelectorEl.addEventListener('change', handleEntityChange);
+                else logMsg("Entity selector element for event listener not found!", "error");
+
+                // Settings Page Tab Listeners
+                const settingsPage = document.getElementById('settings-page');
+                if (settingsPage) {
+                    settingsPage.querySelectorAll('.tab-item').forEach(tab => {
+                        tab.addEventListener('click', function() {
+                            const tabContainer = this.closest('.tab-container');
+                            if (!tabContainer) return;
+                            tabContainer.querySelectorAll('.tab-item').forEach(item => item.classList.remove('active'));
+                            this.classList.add('active');
+                            tabContainer.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+                            const panelId = this.dataset.tab;
+                            const targetPanel = document.getElementById(panelId);
+                            if(targetPanel) targetPanel.classList.add('active');
+                            else logMsg(`Tab panel not found: ${panelId}`, "error");
+                        });
+                    });
+                    logMsg("Settings tab listeners attached.", "info");
+                } else {
+                    logMsg("Settings page container not found for tab listeners.", "warn");
+                }
+
+
+                logMsg("Step 2: Core event handlers attached.", "success");
+                updateAppStatus("Event Handlers Attached", "initializing");
+
+                logMsg("Step 3: Setting Initial Page...", "step");
+                navigateToPage('dashboard');
+                logMsg("Step 3: Initial page set.", "success");
+                updateAppStatus("Initial Page Rendered", "initializing");
+                
+                updateAppStatus("All Initialization Steps Succeeded!", "success");
+                logMsg("APP INITIALIZATION COMPLETE: SUCCESS", "success");
+
+            } catch (error) {
+                logMsg(`CRITICAL ERROR during initialization: ${error.message}\nStack: ${error.stack}`, "error");
+                updateAppStatus(`Initialization FAILED: ${error.message}. Check console.`, "error");
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            logMsg("Document is loading. Adding DOMContentLoaded listener for initApp().", "info");
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            logMsg("Document already loaded. Calling initApp() directly.", "info");
+            initApp(); 
+        }
+        
+        logMsg("End of initial script block.", "info");
+    </script>
+</body>
+</html>

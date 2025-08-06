@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Database Connection Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .status-live { background-color: #d4edda; color: #155724; }
+        .status-fallback { background-color: #f8d7da; color: #721c24; }
+        .log { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; 
+               height: 200px; overflow-y: auto; margin-top: 10px; }
+        button { margin: 5px; padding: 8px 12px; }
+    </style>
+</head>
+<body>
+    <h1>Database Connection Test</h1>
+    <div id="status-panel" class="status">
+        <span class="status-icon">?</span>
+        <span id="status-text">Connection status unknown</span>
+    </div>
+    
+    <div>
+        <button id="check-connection">Check Connection</button>
+        <button id="test-entities">Load Entities</button>
+        <button id="test-accounts">Load Accounts</button>
+        <button id="test-funds">Load Funds</button>
+    </div>
+    
+    <h2>Log</h2>
+    <div id="log" class="log"></div>
+    
+    <h2>Data Preview</h2>
+    <pre id="data-display"></pre>
+    
+    <script src="src/js/db.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const log = (msg, type = 'info') => {
+                const logEl = document.getElementById('log');
+                const entry = document.createElement('div');
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                entry.style.color = type === 'error' ? 'red' : 
+                                   type === 'success' ? 'green' : 'black';
+                logEl.appendChild(entry);
+                logEl.scrollTop = logEl.scrollHeight;
+                console.log(`[${type}] ${msg}`);
+            };
+            
+            const updateStatus = (isConnected) => {
+                const panel = document.getElementById('status-panel');
+                const text = document.getElementById('status-text');
+                panel.className = isConnected ? 'status status-live' : 'status status-fallback';
+                text.textContent = isConnected ? 
+                    'CONNECTED TO LIVE DATABASE' : 
+                    'USING LOCAL FALLBACK DATA';
+            };
+            
+            document.getElementById('check-connection').addEventListener('click', async () => {
+                log('Testing connection...');
+                try {
+                    if (typeof db === 'undefined') {
+                        log('Error: db object not found. Make sure src/js/db.js is loaded correctly', 'error');
+                        return;
+                    }
+                    
+                    const isConnected = await db.connect();
+                    updateStatus(isConnected);
+                    log(`Connection ${isConnected ? 'successful' : 'failed, using fallback'}`, 
+                        isConnected ? 'success' : 'error');
+                } catch (err) {
+                    log(`Error: ${err.message}`, 'error');
+                    updateStatus(false);
+                }
+            });
+            
+            document.getElementById('test-entities').addEventListener('click', async () => {
+                log('Loading entities...');
+                try {
+                    if (typeof db === 'undefined') {
+                        log('Error: db object not found', 'error');
+                        return;
+                    }
+                    
+                    const entities = await db.fetchEntities();
+                    log(`Loaded ${entities.length} entities`, 'success');
+                    document.getElementById('data-display').textContent = 
+                        JSON.stringify(entities, null, 2);
+                } catch (err) {
+                    log(`Error: ${err.message}`, 'error');
+                }
+            });
+            
+            document.getElementById('test-accounts').addEventListener('click', async () => {
+                log('Loading accounts...');
+                try {
+                    if (typeof db === 'undefined') {
+                        log('Error: db object not found', 'error');
+                        return;
+                    }
+                    
+                    const accounts = await db.fetchAccounts();
+                    log(`Loaded ${accounts.length} accounts`, 'success');
+                    document.getElementById('data-display').textContent = 
+                        JSON.stringify(accounts, null, 2);
+                } catch (err) {
+                    log(`Error: ${err.message}`, 'error');
+                }
+            });
+            
+            document.getElementById('test-funds').addEventListener('click', async () => {
+                log('Loading funds...');
+                try {
+                    if (typeof db === 'undefined') {
+                        log('Error: db object not found', 'error');
+                        return;
+                    }
+                    
+                    const funds = await db.fetchFunds();
+                    log(`Loaded ${funds.length} funds`, 'success');
+                    document.getElementById('data-display').textContent = 
+                        JSON.stringify(funds, null, 2);
+                } catch (err) {
+                    log(`Error: ${err.message}`, 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

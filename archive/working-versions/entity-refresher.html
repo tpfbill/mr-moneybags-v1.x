@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entity Hierarchy Refresher</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #2196F3;
+        }
+        
+        .panel {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .success {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .error {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #0b7dda;
+        }
+        
+        /* Hierarchy visualization styles */
+        .hierarchy-visualization {
+            min-height: 300px;
+            max-height: 600px;
+            overflow: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            background-color: #f9f9f9;
+        }
+        
+        .hierarchy-node {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #ccc;
+        }
+        
+        .entity-node {
+            border-left-color: #2196F3;
+            background-color: #e3f2fd;
+        }
+        
+        .fund-node {
+            border-left-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+        
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            background-color: rgba(255,255,255,0.5);
+            border-radius: 3px;
+        }
+        
+        .node-children {
+            margin-left: 20px;
+            padding-left: 10px;
+            border-left: 1px dashed #ccc;
+        }
+        
+        .collapsed {
+            display: none;
+        }
+        
+        .toggle-children {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0 5px;
+            margin-right: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 3px;
+            margin: 0 2px;
+            color: #2196F3;
+        }
+        
+        .consolidated-indicator {
+            margin-left: 5px;
+            font-size: 12px;
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Entity Hierarchy Refresher</h1>
+        <p>This tool rebuilds the entity hierarchy display component and injects it into the main application.</p>
+        
+        <div class="panel">
+            <h2>Actions</h2>
+            <button id="fetchDataBtn">Fetch Data</button>
+            <button id="buildHierarchyBtn">Build Hierarchy</button>
+            <button id="injectIntoAppBtn">Inject Into Main App</button>
+            <button id="openMainAppBtn">Open Main App</button>
+        </div>
+        
+        <div id="statusContainer"></div>
+        
+        <div class="panel">
+            <h2>Entity Hierarchy Preview</h2>
+            <div id="hierarchyPreview" class="hierarchy-visualization"></div>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const fetchDataBtn = document.getElementById('fetchDataBtn');
+        const buildHierarchyBtn = document.getElementById('buildHierarchyBtn');
+        const injectIntoAppBtn = document.getElementById('injectIntoAppBtn');
+        const openMainAppBtn = document.getElementById('openMainAppBtn');
+        const statusContainer = document.getElementById('statusContainer');
+        const hierarchyPreview = document.getElementById('hierarchyPreview');
+        
+        // State
+        const state = {
+            entities: [],
+            funds: [],
+            hierarchyData: null,
+            entityTypes: {
+                ROOT: 'root',
+                ENTITY: 'entity',
+                FUND: 'fund'
+            }
+        };
+        
+        // Show status message
+        function showStatus(message, isError = false) {
+            const statusElement = document.createElement('div');
+            statusElement.className = `status ${isError ? 'error' : 'success'}`;
+            statusElement.textContent = message;
+            
+            statusContainer.prepend(statusElement);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                statusElement.remove();
+            }, 5000);
+        }
+        
+        // Fetch entities and funds from API
+        async function fetchData() {
+            try {
+                // Fetch entities
+                const entitiesResponse = await fetch('/api/entities');
+                if (!entitiesResponse.ok) {
+                    throw new Error(`Failed to fetch entities: ${entitiesResponse.status}`);
+                }
+                state.entities = await entitiesResponse.json();
+                
+                // Fetch funds
+                const fundsResponse = await fetch('/api/funds');
+                if (!fundsResponse.ok) {
+                    throw new Error(`Failed to fetch funds: ${fundsResponse.status}`);
+                }
+                state.funds = await fundsResponse.json();
+                
+                showStatus(`Successfully fetched ${state.entities.length} entities and ${state.funds.length} funds`);
+                return true;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showStatus(`Error fetching data: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        // Build hierarchy data structure
+        function buildHierarchyData() {
+            try {
+                const { entities, funds } = state;
+                
+                if (!entities || entities.length === 0) {
+                    throw new Error('No entities available');
+                }
+                
+                // Create entity map for quick lookup
+                const entityMap = {};
+                entities.forEach(entity => {
+                    entityMap[entity.id] = {
+                        ...entity,
+                        type: state.entityTypes.ENTITY,
+                        children: []
+                    };
+                });
+                
+                // Find root entity (TPF_PARENT)
+                let rootEntity = entities.find(entity => 
+                    entity.parent_entity_id === null && 
+                    (entity.name === 'The Principle Foundation' || entity.code === 'TPF_PARENT')
+                );
+                
+                // If no specific root, use any entity without a parent
+                if (!rootEntity) {
+                    rootEntity = entities.find(entity => entity.parent_entity_id === null);
+                }
+                
+                if (!rootEntity) {
+                    throw new Error('No root entity found');
+                }
+                
+                // Build the hierarchy
+                const hierarchy = {
+                    root: entityMap[rootEntity.id],
+                    entities: entityMap,
+                    flatList: entities
+                };
+                
+                // Add child entities to their parents
+                entities.forEach(entity => {
+                    if (entity.parent_entity_id && entityMap[entity.parent_entity_id]) {
+                        entityMap[entity.parent_entity_id].children.push(entityMap[entity.id]);
+                    }
+                });
+                
+                // Add funds to their entities
+                funds.forEach(fund => {
+                    const fundObj = {
+                        ...fund,
+                        type: state.entityTypes.FUND,
+                        children: []
+                    };
+                    
+                    if (entityMap[fund.entity_id]) {
+                        entityMap[fund.entity_id].children.push(fundObj);
+                    }
+                });
+                
+                state.hierarchyData = hierarchy;
+                
+                // Render preview
+                renderHierarchyPreview();
+                
+                showStatus('Hierarchy built successfully');
+                return true;
+            } catch (error) {
+                console.error('Error building hierarchy:', error);
+                showStatus(`Error building hierarchy: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        // Render hierarchy preview
+        function renderHierarchyPreview() {
+            try {
+                hierarchyPreview.innerHTML = '';
+                
+                if (!state.hierarchyData || !state.hierarchyData.root) {
+                    throw new Error('No hierarchy data available');
+                }
+                
+                const rootNode = createHierarchyNode(state.hierarchyData.root);
+                hierarchyPreview.appendChild(rootNode);
+                
+                return true;
+            } catch (error) {
+                console.error('Error rendering hierarchy preview:', error);
+                showStatus(`Error rendering hierarchy preview: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        // Create a hierarchy node element
+        function createHierarchyNode(node) {
+            if (!node) return null;
+            
+            const nodeContainer = document.createElement('div');
+            nodeContainer.className = `hierarchy-node ${node.type === state.entityTypes.FUND ? 'fund-node' : 'entity-node'}`;
+            nodeContainer.dataset.id = node.id;
+            nodeContainer.dataset.type = node.type;
+            
+            // Create node header
+            const nodeHeader = document.createElement('div');
+            nodeHeader.className = 'node-header';
+            
+            // Create node title
+            const nodeTitle = document.createElement('div');
+            nodeTitle.className = 'node-title';
+            nodeTitle.textContent = `${node.name} (${node.code})`;
+            
+            // Create consolidated indicator if applicable
+            if (node.type !== state.entityTypes.FUND && node.is_consolidated) {
+                const consolidatedIndicator = document.createElement('span');
+                consolidatedIndicator.className = 'consolidated-indicator';
+                consolidatedIndicator.title = 'This entity consolidates its children';
+                consolidatedIndicator.textContent = ' [Consolidated]';
+                nodeTitle.appendChild(consolidatedIndicator);
+            }
+            
+            // Create node actions
+            const nodeActions = document.createElement('div');
+            nodeActions.className = 'node-actions';
+            
+            // Add edit button for entities
+            if (node.type === state.entityTypes.ENTITY) {
+                const editButton = document.createElement('button');
+                editButton.className = 'btn-icon edit-entity';
+                editButton.innerHTML = '✏️';
+                editButton.title = 'Edit Entity';
+                nodeActions.appendChild(editButton);
+            }
+            
+            // Add children if any
+            if (node.children && node.children.length > 0) {
+                // Create toggle button for expanding/collapsing
+                const toggleButton = document.createElement('button');
+                toggleButton.className = 'toggle-children';
+                toggleButton.textContent = '▼';
+                toggleButton.addEventListener('click', () => {
+                    childrenContainer.classList.toggle('collapsed');
+                    toggleButton.textContent = childrenContainer.classList.contains('collapsed') ? '►' : '▼';
+                });
+                /* append toggle button before title to maintain visual order
+                   (insertBefore caused errors when nodeTitle wasn't yet in nodeHeader) */
+                nodeHeader.appendChild(toggleButton);
+                
+                // Create children container
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'node-children';
+                
+                // Sort children: entities first, then funds
+                const entityChildren = node.children.filter(child => child.type === state.entityTypes.ENTITY);
+                const fundChildren = node.children.filter(child => child.type === state.entityTypes.FUND);
+                
+                // Add entity children
+                entityChildren.forEach(child => {
+                    const childNode = createHierarchyNode(child);
+                    if (childNode) {
+                        childrenContainer.appendChild(childNode);
+                    }
+                });
+                
+                // Add fund children
+                fundChildren.forEach(child => {
+                    const childNode = createHierarchyNode(child);
+                    if (childNode) {
+                        childrenContainer.appendChild(childNode);
+                    }
+                });
+                
+                nodeContainer.appendChild(childrenContainer);
+            }
+            
+            // Assemble the node
+            nodeHeader.appendChild(nodeTitle);
+            nodeHeader.appendChild(nodeActions);
+            nodeContainer.insertBefore(nodeHeader, nodeContainer.firstChild);
+            
+            return nodeContainer;
+        }
+        
+        // Inject into main application
+        async function injectIntoApp() {
+            try {
+                // Open the main app in a new window
+                const appWindow = window.open('index.html', 'mainApp');
+                
+                if (!appWindow) {
+                    throw new Error('Unable to open main application window. Please check popup blocker settings.');
+                }
+                
+                // Wait for the app to load
+                showStatus('Waiting for main application to load...');
+                
+                // Give the app time to load
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Check if we can access the window
+                if (!appWindow.document) {
+                    throw new Error('Cannot access main application document');
+                }
+                
+                // Log the current state of the app for debugging
+                console.log('Main app window:', appWindow);
+                console.log('Main app document:', appWindow.document);
+                console.log('Main app object:', appWindow.app);
+                
+                // 1. DIRECTLY UPDATE THE APPLICATION'S INTERNAL STATE
+                if (appWindow.app && appWindow.app._state) {
+                    console.log('Updating main app internal state directly');
+                    
+                    // Make a backup of the original state for debugging
+                    const originalState = JSON.parse(JSON.stringify(appWindow.app._state));
+                    console.log('Original app state:', originalState);
+                    
+                    // Update entities and funds in the app state
+                    appWindow.app._state.entities = state.entities;
+                    appWindow.app._state.funds = state.funds;
+                    
+                    // If there's a selectedEntity in the state, update it to the root entity
+                    if (appWindow.app._state.selectedEntity && state.hierarchyData.root) {
+                        appWindow.app._state.selectedEntity = state.hierarchyData.root.id;
+                    }
+                    
+                    // Log the updated state
+                    console.log('Updated app state:', appWindow.app._state);
+                } else {
+                    console.warn('Could not access app._state to update internal state');
+                }
+                
+                // 2. FORCE RE-RENDER OF THE DASHBOARD
+                // Try various methods that might exist to refresh the dashboard
+                if (appWindow.app) {
+                    // Method 1: Try to call loadEntityData if it exists
+                    if (typeof appWindow.app.loadEntityData === 'function') {
+                        console.log('Calling app.loadEntityData()');
+                        await appWindow.app.loadEntityData();
+                    }
+                    
+                    // Method 2: Try to call loadDashboardData if it exists
+                    if (typeof appWindow.app.loadDashboardData === 'function') {
+                        console.log('Calling app.loadDashboardData()');
+                        await appWindow.app.loadDashboardData(true); // Pass true for isConsolidated
+                    }
+                    
+                    // Method 3: Try to call refreshDashboard if it exists
+                    if (typeof appWindow.app.refreshDashboard === 'function') {
+                        console.log('Calling app.refreshDashboard()');
+                        appWindow.app.refreshDashboard(true); // Pass true for force refresh
+                    }
+                    
+                    // Method 4: Try to call render if it exists
+                    if (typeof appWindow.app.render === 'function') {
+                        console.log('Calling app.render()');
+                        appWindow.app.render();
+                    }
+                }
+                
+                // 3. UPDATE ENTITY HIERARCHY MODULE
+                if (appWindow.entityHierarchy) {
+                    console.log('Updating entity hierarchy module');
+                    
+                    // Method 1: Try to reload hierarchy data
+                    if (typeof appWindow.entityHierarchy.loadHierarchyData === 'function') {
+                        console.log('Calling entityHierarchy.loadHierarchyData(true)');
+                        await appWindow.entityHierarchy.loadHierarchyData(true);
+                    }
+                    
+                    // Method 2: Try to reinitialize visualization
+                    if (typeof appWindow.entityHierarchy.initializeHierarchyVisualization === 'function') {
+                        console.log('Calling entityHierarchy.initializeHierarchyVisualization(true)');
+                        appWindow.entityHierarchy.initializeHierarchyVisualization(true);
+                    }
+                }
+                
+                // 4. UPDATE ENTITY SELECTOR AND TRIGGER CHANGE EVENT
+                const entitySelector = appWindow.document.getElementById('entity-selector');
+                if (entitySelector) {
+                    console.log('Updating entity selector dropdown');
+                    
+                    // Clear existing options
+                    entitySelector.innerHTML = '';
+                    
+                    // Add root entity option
+                    if (state.hierarchyData.root) {
+                        const rootOption = appWindow.document.createElement('option');
+                        rootOption.value = state.hierarchyData.root.id;
+                        rootOption.textContent = `${state.hierarchyData.root.name} (Consolidated)`;
+                        rootOption.selected = true; // Make this the selected option
+                        entitySelector.appendChild(rootOption);
+                        
+                        console.log(`Added root entity to selector: ${state.hierarchyData.root.name}`);
+                    }
+                    
+                    // Add child entity options
+                    if (state.hierarchyData.root && state.hierarchyData.root.children) {
+                        state.hierarchyData.root.children
+                            .filter(child => child.type === state.entityTypes.ENTITY)
+                            .forEach(entity => {
+                                const option = appWindow.document.createElement('option');
+                                option.value = entity.id;
+                                option.textContent = entity.name;
+                                entitySelector.appendChild(option);
+                                console.log(`Added entity to selector: ${entity.name}`);
+                            });
+                    }
+                    
+                    // Trigger change event in multiple ways to ensure it takes effect
+                    console.log('Triggering change event on entity selector');
+                    
+                    // Method 1: Standard event dispatch
+                    const changeEvent = new Event('change', { bubbles: true });
+                    entitySelector.dispatchEvent(changeEvent);
+                    
+                    // Method 2: Try using jQuery if available
+                    if (appWindow.jQuery) {
+                        console.log('Using jQuery to trigger change');
+                        appWindow.jQuery(entitySelector).change();
+                    }
+                    
+                    // Method 3: Direct call to onchange if it exists
+                    if (typeof entitySelector.onchange === 'function') {
+                        console.log('Calling onchange directly');
+                        entitySelector.onchange();
+                    }
+                } else {
+                    console.warn('Entity selector not found in the document');
+                }
+                
+                // 5. DIRECTLY UPDATE DASHBOARD ELEMENTS THAT SHOW "N/A"
+                console.log('Directly updating dashboard elements');
+                
+                // Find the dashboard title and update it
+                const dashboardTitle = appWindow.document.querySelector('.dashboard-title, .dashboard-header h2, #dashboard-title');
+                if (dashboardTitle && state.hierarchyData.root) {
+                    console.log('Updating dashboard title');
+                    dashboardTitle.textContent = state.hierarchyData.root.name;
+                }
+                
+                // Find the current entity display and update it
+                const currentEntityDisplay = appWindow.document.querySelector('.current-entity, .entity-display, #current-entity-display');
+                if (currentEntityDisplay && state.hierarchyData.root) {
+                    console.log('Updating current entity display');
+                    currentEntityDisplay.textContent = state.hierarchyData.root.name;
+                }
+                
+                // Find any elements with "N/A" text and update them
+                const naElements = Array.from(appWindow.document.querySelectorAll('*')).filter(el => 
+                    el.textContent && el.textContent.includes('N/A (ID:')
+                );
+                
+                if (naElements.length > 0) {
+                    console.log(`Found ${naElements.length} elements with "N/A" text`);
+                    naElements.forEach(el => {
+                        if (state.hierarchyData.root) {
+                            el.textContent = state.hierarchyData.root.name;
+                            console.log(`Updated element from "N/A" to "${state.hierarchyData.root.name}"`);
+                        }
+                    });
+                }
+                
+                // 6. INJECT VISUALIZATION INTO SETTINGS TAB
+                // Try to find the entity hierarchy container
+                let targetContainer = appWindow.document.querySelector('#entity-relationship-viz') || 
+                                     appWindow.document.querySelector('.entity-relationship-viz') ||
+                                     appWindow.document.querySelector('[data-component="entity-hierarchy"]');
+                
+                if (!targetContainer) {
+                    // Create a container if none exists
+                    console.log('Creating entity hierarchy container');
+                    const settingsEntitiesTab = appWindow.document.querySelector('#settings-entities');
+                    
+                    if (settingsEntitiesTab) {
+                        const newContainer = appWindow.document.createElement('div');
+                        newContainer.id = 'entity-relationship-viz';
+                        newContainer.className = 'entity-relationship-viz';
+                        
+                        // Find a good insertion point
+                        const insertTarget = settingsEntitiesTab.querySelector('h4.mt-20') || 
+                                           settingsEntitiesTab.querySelector('table') ||
+                                           settingsEntitiesTab.firstElementChild;
+                        
+                        if (insertTarget) {
+                            settingsEntitiesTab.insertBefore(newContainer, insertTarget.nextSibling);
+                        } else {
+                            settingsEntitiesTab.appendChild(newContainer);
+                        }
+                        
+                        targetContainer = newContainer;
+                    } else {
+                        console.warn('Settings > Entities tab not found');
+                    }
+                }
+                
+                if (targetContainer) {
+                    console.log('Injecting hierarchy visualization into container');
+                    
+                    // Clear the target container
+                    targetContainer.innerHTML = '';
+                    
+                    // Create a visualization container
+                    const vizContainer = appWindow.document.createElement('div');
+                    vizContainer.className = 'hierarchy-visualization';
+                    
+                    // Clone our hierarchy preview
+                    const clonedHierarchy = hierarchyPreview.cloneNode(true);
+                    
+                    // Append to the target
+                    vizContainer.appendChild(clonedHierarchy);
+                    targetContainer.appendChild(vizContainer);
+                }
+                
+                // 7. INJECT STYLES
+                const styleId = 'entity-hierarchy-refresher-styles';
+                if (!appWindow.document.getElementById(styleId)) {
+                    console.log('Injecting hierarchy visualization styles');
+                    
+                    const styleElement = appWindow.document.createElement('style');
+                    styleElement.id = styleId;
+                    styleElement.textContent = `
+                        .hierarchy-visualization {
+                            min-height: 300px;
+                            max-height: 600px;
+                            overflow: auto;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 15px;
+                            margin: 15px 0;
+                            background-color: #f9f9f9;
+                        }
+                        
+                        .hierarchy-node {
+                            margin: 5px 0;
+                            padding: 5px;
+                            border-left: 3px solid #ccc;
+                        }
+                        
+                        .entity-node {
+                            border-left-color: #2196F3;
+                            background-color: #e3f2fd;
+                        }
+                        
+                        .fund-node {
+                            border-left-color: #4CAF50;
+                            background-color: #e8f5e9;
+                        }
+                        
+                        .node-header {
+                            display: flex;
+                            justify-content: space-between;
+                            padding: 8px;
+                            background-color: rgba(255,255,255,0.5);
+                            border-radius: 3px;
+                        }
+                        
+                        .node-children {
+                            margin-left: 20px;
+                            padding-left: 10px;
+                            border-left: 1px dashed #ccc;
+                        }
+                        
+                        .collapsed {
+                            display: none;
+                        }
+                        
+                        .toggle-children {
+                            background: none;
+                            border: none;
+                            cursor: pointer;
+                            padding: 0 5px;
+                            margin-right: 5px;
+                            font-size: 12px;
+                            color: #666;
+                        }
+                        
+                        .btn-icon {
+                            background: none;
+                            border: none;
+                            cursor: pointer;
+                            padding: 3px;
+                            margin: 0 2px;
+                            color: #2196F3;
+                        }
+                        
+                        .consolidated-indicator {
+                            margin-left: 5px;
+                            font-size: 12px;
+                            color: #2196F3;
+                        }
+                    `;
+                    
+                    appWindow.document.head.appendChild(styleElement);
+                }
+                
+                // 8. ACTIVATE UI COMPONENTS
+                // Try to activate Settings > Entities tab
+                const settingsEntitiesTab = appWindow.document.querySelector('.tab-item[data-tab="settings-entities"]');
+                if (settingsEntitiesTab) {
+                    console.log('Activating Settings > Entities tab');
+                    settingsEntitiesTab.click();
+                }
+                
+                // Final success message
+                showStatus('Successfully injected hierarchy into main application');
+                console.log('Entity display refresh completed successfully');
+                
+                return true;
+            } catch (error) {
+                console.error('Error injecting into app:', error);
+                showStatus(`Error injecting into app: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        // Event Listeners
+        fetchDataBtn.addEventListener('click', fetchData);
+        buildHierarchyBtn.addEventListener('click', buildHierarchyData);
+        injectIntoAppBtn.addEventListener('click', injectIntoApp);
+        openMainAppBtn.addEventListener('click', () => window.open('index.html', '_blank'));
+        
+        // Initialize
+        async function init() {
+            try {
+                // Auto-fetch data on page load
+                await fetchData();
+                
+                // Auto-build hierarchy if data was fetched
+                if (state.entities.length > 0) {
+                    buildHierarchyData();
+                }
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showStatus(`Initialization error: ${error.message}`, true);
+            }
+        }
+        
+        // Run initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

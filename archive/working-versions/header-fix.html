@@ -1,0 +1,98 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Header Test</title>
+    <style>
+        /* Complete CSS reset to eliminate any browser defaults */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        /* Header with distinct visual markers */
+        #header {
+            /* Fixed position with explicit z-index */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            
+            /* Explicit height to ensure consistent spacing */
+            height: 60px;
+            
+            /* Very high z-index to ensure it's on top */
+            z-index: 9999;
+            
+            /* Visually distinct with gradient background */
+            background: linear-gradient(to bottom, #1976d2, #1565c0);
+            
+            /* Extra visual indicator with border */
+            border-bottom: 4px solid #ff0000;
+            
+            /* Center content vertically */
+            display: flex;
+            align-items: center;
+            
+            /* Text styling */
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            padding-left: 20px;
+        }
+
+        /* Content area starts below header */
+        #content {
+            /* Explicit top padding to push below header */
+            padding-top: 80px; /* 20px more than header height */
+            
+            /* Make background distinct from header */
+            background-color: #f5f5f5;
+            
+            /* Take up full viewport height */
+            min-height: 100vh;
+            
+            /* Force lower z-index than header */
+            position: relative;
+            z-index: 1;
+            
+            /* Clear visual separation */
+            padding: 80px 20px 20px 20px;
+        }
+
+        /* Visual section to verify content area */
+        .section {
+            padding: 20px;
+            margin-bottom: 10px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header with ID not class to avoid conflicts -->
+    <div id="header">
+        This is the header with red border - should be fully visible
+    </div>
+    
+    <!-- Content area -->
+    <div id="content">
+        <h2>Content starts here - should be below red border</h2>
+        
+        <div class="section">
+            <h3>Section 1</h3>
+            <p>This is a test section that should appear below the header.</p>
+        </div>
+        
+        <div class="section">
+            <h3>Section 2</h3>
+            <p>This is another test section that should appear below the header.</p>
+        </div>
+    </div>
+</body>
+</html>
