@@ -2048,6 +2048,10 @@ async function generateFundStatementReport() {
 // Navigation Functions
 function showPage(pageId) {
     console.log(`[Navigation] Switching to page: ${pageId}`);
+    /* --------------------------------------------------------------
+     * 1.  Switch visible page content
+     * 2.  Update navigation highlight so the blue bar follows
+     * -------------------------------------------------------------- */
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const pageEl = document.getElementById(`${pageId}-page`);
     if (pageEl) {
@@ -2055,6 +2059,26 @@ function showPage(pageId) {
         appState.currentPage = pageId;
     } else {
         console.error(`[Navigation] Page element not found: ${pageId}-page`);
+    }
+
+    /* --------------------------------------------------------------
+     * Navigation highlighting
+     * -------------------------------------------------------------- */
+    // Remove existing highlight
+    document.querySelectorAll('.nav-item').forEach(nav =>
+        nav.classList.remove('active')
+    );
+
+    // Add highlight to the nav item that matches the pageId
+    const activeNav = document.querySelector(
+        `.nav-item[data-page="${pageId}"]`
+    );
+    if (activeNav) {
+        activeNav.classList.add('active');
+    } else {
+        console.warn(
+            `[Navigation] Nav item not found for pageId: ${pageId}`
+        );
     }
 }
 
