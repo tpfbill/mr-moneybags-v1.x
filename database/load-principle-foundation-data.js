@@ -637,12 +637,11 @@ async function createJournalEntry(client, entityId, description, entryDate, refe
   
   await client.query(
     `INSERT INTO journal_entries 
-     (id, entity_id, date, description, entry_date, reference_number, total_amount, status, is_inter_entity, target_entity_id, matching_transaction_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+     (id, entity_id, description, entry_date, reference_number, total_amount, status, is_inter_entity, target_entity_id, matching_transaction_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [
       journalEntryId,
       entityId,
-      entryDate,          // date (NOT NULL)
       description,
       entryDate,          // entry_date
       referenceNumber,
