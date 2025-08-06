@@ -130,11 +130,9 @@ router.post('/', asyncHandler(async (req, res) => {
             batch_number,
             batch_date,
             effective_date,
-            description,
             status,
-            total_amount,
-            total_items
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            total_amount
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
     `, [
         entity_id,
@@ -143,10 +141,8 @@ router.post('/', asyncHandler(async (req, res) => {
         batch_number,
         batch_date || new Date(),
         effective_date,
-        description,
         status || 'Draft',
-        0, // Initial total_amount
-        0  // Initial total_items
+        0  // Initial total_amount
     ]);
     
     res.status(201).json(rows[0]);
@@ -167,8 +163,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
         effective_date,
         description,
         status,
-        total_amount,
-        total_items
+        total_amount
     } = req.body;
     
     // Validate batch exists
@@ -183,27 +178,23 @@ router.put('/:id', asyncHandler(async (req, res) => {
         SET entity_id = $1,
             fund_id = $2,
             nacha_settings_id = $3,
-            batch_name = $4,
+            batch_number = $4,
             batch_date = $5,
             effective_date = $6,
-            description = $7,
-            status = $8,
-            total_amount = $9,
-            total_items = $10,
+            status = $7,
+            total_amount = $8,
             updated_at = NOW()
-        WHERE id = $11
+        WHERE id = $9
         RETURNING *
     `, [
         entity_id,
         fund_id,
         nacha_settings_id,
-        batch_name,
+        batch_name, // still taken from body but mapped to batch_number
         batch_date,
         effective_date,
-        description,
         status,
         total_amount,
-        total_items,
         id
     ]);
     
@@ -332,11 +323,6 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
                 FROM payment_items
                 WHERE payment_batch_id = $1
             ),
-            total_items = (
-                SELECT COUNT(*)
-                FROM payment_items
-                WHERE payment_batch_id = $1
-            ),
             updated_at = NOW()
             WHERE id = $1
         `, [id]);
@@ -396,11 +382,6 @@ router.delete('/:batchId/items/:itemId', asyncHandler(async (req, res) => {
             UPDATE payment_batches
             SET total_amount = (
                 SELECT COALESCE(SUM(amount), 0)
-                FROM payment_items
-                WHERE payment_batch_id = $1
-            ),
-            total_items = (
-                SELECT COUNT(*)
                 FROM payment_items
                 WHERE payment_batch_id = $1
             ),
