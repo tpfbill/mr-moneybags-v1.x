@@ -172,7 +172,6 @@ For an interactive view of the data model and service architecture:
 | Administrator Guide | [`docs/manuals/Administrator_Guide_v1.x.md`](docs/manuals/Administrator_Guide_v1.x.md) |
 | User Guide | [`docs/manuals/User_Guide_v1.x.md`](docs/manuals/User_Guide_v1.x.md) |
 | Developer Guide | [`docs/development/HIERARCHY_GUIDE.md`](docs/development/HIERARCHY_GUIDE.md) |
-| Ubuntu Deployment | [`docs/guides/Ubuntu_Deployment_Guide_v1.x.md`](docs/guides/Ubuntu_Deployment_Guide_v1.x.md) |
 | Ubuntu Quick Reference | [`docs/guides/Ubuntu_Deployment_Quick_Reference_v1.x.md`](docs/guides/Ubuntu_Deployment_Quick_Reference_v1.x.md) |
 | Database Schema | [`database/db-init.sql`](database/db-init.sql) |
 | API Reference | _Coming soon_ |
@@ -187,7 +186,7 @@ For developers who want to contribute or customize the application:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-organization/mr-moneybags-v1.x.git
+git clone https://github.com/tpfbill/mr-moneybags-v1.x.git
 cd mr-moneybags-v1.x
 
 # Install dependencies
@@ -212,7 +211,7 @@ npm run dev
 
 ```bash
 # Run the test suite
-npm test
+git clone https://github.com/tpfbill/mr-moneybags-v1.x.git
 
 # Run tests with coverage report
 npm run test:coverage
@@ -307,7 +306,7 @@ Before going live, ensure you've addressed these security considerations:
 - [ ] Set up monitoring and alerting
 - [ ] Performed security audit and penetration testing
 
-For detailed deployment instructions, see [`docs/guides/Ubuntu_Deployment_Guide_v1.x.md`](docs/guides/Ubuntu_Deployment_Guide_v1.x.md).
+
 
 ---
 

@@ -440,7 +440,7 @@
                 <li>Split the data into two files:
                     <ul>
                         <li><code>journal_entries.csv</code> - Header information for each journal entry</li>
-                        <li><code>journal_entry_lines.csv</code> - Line items for each journal entry</li>
+                        <li><code>journal_entry_items.csv</code> - Line items for each journal entry</li>
                     </ul>
                 </li>
             </ol>
@@ -462,7 +462,7 @@
                 
                 # Save transformed data<br>
                 journal_entries.to_csv('journal_entries.csv', index=False)<br>
-                journal_entry_lines.to_csv('journal_entry_lines.csv', index=False)
+                journal_entry_items.to_csv('journal_entry_items.csv', index=False)
             </div>
         </div>
     </div>
@@ -664,11 +664,11 @@
                 &nbsp;&nbsp;a.id,<br>
                 &nbsp;&nbsp;a.code,<br>
                 &nbsp;&nbsp;a.name,<br>
-                &nbsp;&nbsp;COALESCE(SUM(jel.debit_amount), 0) AS total_debits,<br>
-                &nbsp;&nbsp;COALESCE(SUM(jel.credit_amount), 0) AS total_credits,<br>
-                &nbsp;&nbsp;COALESCE(SUM(jel.debit_amount - jel.credit_amount), 0) AS balance<br>
+                &nbsp;&nbsp;COALESCE(SUM(jel.debit), 0) AS total_debits,<br>
+                &nbsp;&nbsp;COALESCE(SUM(jel.credit), 0) AS total_credits,<br>
+                &nbsp;&nbsp;COALESCE(SUM(jel.debit - jel.credit), 0) AS balance<br>
                 FROM accounts a<br>
-                LEFT JOIN journal_entry_lines jel ON jel.account_id = a.id<br>
+                LEFT JOIN journal_entry_items jel ON jel.account_id = a.id<br>
                 GROUP BY a.id, a.code, a.name<br>
                 ORDER BY a.code;
             </div>
@@ -782,12 +782,12 @@
                 </div>
                 <li>Import the journal entry lines:</li>
                 <div class="command">
-                    psql -U postgres -d fund_accounting_db -c "\COPY journal_entry_lines FROM 'journal_entry_lines.csv' WITH CSV HEADER"
+                    psql -U postgres -d fund_accounting_db -c "\COPY journal_entry_items FROM 'journal_entry_items.csv' WITH CSV HEADER"
                 </div>
                 <li>Verify the journal entries were imported correctly:</li>
                 <div class="command">
                     psql -U postgres -d fund_accounting_db -c "SELECT COUNT(*) FROM journal_entries"<br>
-                    psql -U postgres -d fund_accounting_db -c "SELECT COUNT(*) FROM journal_entry_lines"
+                    psql -U postgres -d fund_accounting_db -c "SELECT COUNT(*) FROM journal_entry_items"
                 </div>
             </ol>
             <div class="warning">
@@ -874,17 +874,17 @@
             <div class="tip">
                 <strong>Tip:</strong> Run the following query to verify that inter-entity transfers are balanced:
                 <div class="code-block">
-                    SELECT<br>
-                    &nbsp;&nbsp;e1.name AS source_entity,<br>
-                    &nbsp;&nbsp;e2.name AS target_entity,<br>
-                    &nbsp;&nbsp;je1.matching_transaction_id,<br>
-                    &nbsp;&nbsp;je1.total_amount AS source_amount,<br>
-                    &nbsp;&nbsp;je2.total_amount AS target_amount<br>
-                    FROM journal_entries je1<br>
-                    JOIN journal_entries je2 ON je1.matching_transaction_id = je2.matching_transaction_id AND je1.id != je2.id<br>
-                    JOIN entities e1 ON je1.entity_id = e1.id<br>
-                    JOIN entities e2 ON je2.entity_id = e2.id<br>
-                    WHERE je1.is_inter_entity = true<br>
+                SELECT<br>
+                &nbsp;&nbsp;a.id,<br>
+                &nbsp;&nbsp;a.code,<br>
+                &nbsp;&nbsp;a.name,<br>
+                &nbsp;&nbsp;COALESCE(SUM(jel.debit), 0) AS total_debits,<br>
+                &nbsp;&nbsp;COALESCE(SUM(jel.credit), 0) AS total_credits,<br>
+                &nbsp;&nbsp;COALESCE(SUM(jel.debit - jel.credit), 0) AS balance<br>
+                FROM accounts a<br>
+                LEFT JOIN journal_entry_items jel ON jel.account_id = a.id<br>
+                GROUP BY a.id, a.code, a.name<br>
+                ORDER BY a.code;
                     ORDER BY je1.entry_date;
                 </div>
             </div>
@@ -914,7 +914,7 @@
             <ol>
                 <li>Identify the unbalanced entries:</li>
                 <div class="command">
-                    psql -U postgres -d fund_accounting_db -c "SELECT je.id, je.reference_number, je.entry_date, SUM(jel.debit_amount) as total_debits, SUM(jel.credit_amount) as total_credits, SUM(jel.debit_amount) - SUM(jel.credit_amount) as difference FROM journal_entries je JOIN journal_entry_lines jel ON je.id = jel.journal_entry_id GROUP BY je.id, je.reference_number, je.entry_date HAVING ABS(SUM(jel.debit_amount) - SUM(jel.credit_amount)) > 0.01 ORDER BY je.entry_date"
+                    psql -U postgres -d fund_accounting_db -c "SELECT je.id, je.reference_number, je.entry_date, SUM(jel.debit) as total_debits, SUM(jel.credit) as total_credits, SUM(jel.debit) - SUM(jel.credit) as difference FROM journal_entries je JOIN journal_entry_items jel ON je.id = jel.journal_entry_id GROUP BY je.id, je.reference_number, je.entry_date HAVING ABS(SUM(jel.debit) - SUM(jel.credit)) > 0.01 ORDER BY je.entry_date"
                 </div>
                 <li>Check the original AccuFund data for these entries</li>
                 <li>Fix the imbalances by adding missing lines or correcting amounts</li>

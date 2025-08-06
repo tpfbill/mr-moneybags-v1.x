@@ -1,7 +1,7 @@
-# Documentation Overview (v9.0)
+# Documentation Overview (v1.x)
 
-Welcome to the **Non-Profit Fund Accounting** documentation set.  
-All materials in this `docs/` folder have been updated for **version 9.0** and reorganised to make it easier for both users and developers to find what they need quickly.
+Welcome to the **Mr. MoneyBags – Non-Profit Fund Accounting** documentation set.  
+All materials in this `docs/` folder target the **v1.x release** and are organised so both users and developers can locate content quickly.
 
 ---
 
@@ -21,11 +21,11 @@ All materials in this `docs/` folder have been updated for **version 9.0** and r
 ### `guides/`
 | File | Purpose |
 |------|---------|
-| `AccuFund_Migration_Guide_v9.0.pdf` | Detailed instructions for migrating legacy AccuFund data into v9.0. |
-| `AccuFund_Migration_Steps_v9.0.pdf` | High-level migration checklist for project leads. |
-| `AccuFund_Verification_Procedure_v9.0.pdf` | Post-migration validation steps to confirm data integrity. |
-| `INSTALLATION_GUIDE_VirtualBox_Ubuntu24.md` | Local install guide using VirtualBox + Ubuntu 24.04 LTS. |
-| `Ubuntu_Deployment_Guide_v9.0.md` | Production deployment on bare-metal or VM running Ubuntu 24.04. |
+| `AccuFund_Migration_Guide_v9.0.pdf` | *(legacy)* Steps for migrating AccuFund data into the new system. |
+| `AccuFund_Migration_Steps_v9.0.pdf` | *(legacy)* High-level migration checklist. |
+| `AccuFund_Verification_Procedure_v9.0.pdf` | *(legacy)* Post-migration validation steps. |
+| `INSTALLATION_GUIDE_VirtualBox_Ubuntu24_v1.x.md` | Local install guide using VirtualBox + Ubuntu 24.04 LTS. |
+| `Ubuntu_Deployment_Guide_v1.x.md` | Production deployment on bare-metal or VM running Ubuntu 24.04. |
 | `Ubuntu_Deployment_Quick_Reference.md` | One-page cheat-sheet for seasoned admins. |
 | `DOCKER_SETUP_WINDOWS.md` | Running the full stack with Docker Desktop on Windows 11. |
 | `Zoho_Books_Comparison_v9.0.pdf` | Feature matrix comparing NFA with Zoho Books (v9.0 snapshot). |
@@ -64,24 +64,18 @@ These HTML pages can be opened directly in a browser (they load the live app con
 ## 3. How to Use This Documentation
 
 1. **New installations** – start in `guides/` with the appropriate installation or deployment guide, then review the Administrator Guide in `manuals/`.
-2. **Migrating from AccuFund** – follow the three-part migration series in `guides/` (guide → steps checklist → verification).
+2. **Migrating from AccuFund** – follow the (legacy) three-part migration series in `guides/` (guide → steps checklist → verification).
 3. **Every-day users** – download or view `User_Guide_v9.0.pdf` in `manuals/`.
 4. **Advanced troubleshooting or demos** – open tools in `utilities/` directly from your browser.
 5. **Developers** – read `development/` docs first, then explore the source code.
 
 Navigation tips:
 • In GitHub, click into any subdirectory to see its files.  
-• From within the application container, run `open docs/direct-docs.html` (macOS) or browse to it to get a single page linking everything.  
-• Search by filename or keyword in the repository if you are unsure where a topic lives.
+All documents here target **Mr. MoneyBags version 1.x**.  
+When a new major version ships, the current `docs/` folder will be snap-shotted to `archive/` and a fresh vNext set will replace it, so links remain stable.  
+The v1.x series introduces a **single consolidated database schema (`database/db-init.sql`)** and eliminates the previous migration-first workflow.
 
----
 
-## 4. Versioning
+*Last updated: 06 August 2025*  
 
-All documents here target **Non-Profit Fund Accounting version 9.0**.  
-When a new major version ships, the current `docs/` folder will be snap-shotted to `archive/` and a fresh vNext set will replace it, so links remain stable.
-
----
-
-*Last updated: 22 July 2025*  
 For questions or contributions, open an issue or pull request on GitHub.

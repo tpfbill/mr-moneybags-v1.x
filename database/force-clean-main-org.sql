@@ -129,7 +129,7 @@ DO $$
 DECLARE
     deleted_count INT;
 BEGIN
-    DELETE FROM journal_entry_lines
+    DELETE FROM journal_entry_items
     WHERE journal_entry_id IN (
         SELECT je.id
         FROM journal_entries je
@@ -138,7 +138,7 @@ BEGIN
     );
     
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    RAISE NOTICE 'Deleted % journal entry lines', deleted_count;
+    RAISE NOTICE 'Deleted % journal entry items', deleted_count;
 END $$;
 
 -- Step 2: Delete journal entries

@@ -181,7 +181,7 @@ async function displayJournalEntries() {
   console.log(`Total journal entries: ${jeResult.rows.length}`);
   
   // Display lines for each journal entry
-  console.log('\n===== JOURNAL ENTRY LINES =====');
+  console.log('\n===== JOURNAL ENTRY ITEMS =====');
   
   for (const je of jeResult.rows) {
     console.log(`\nLines for Journal Entry: ${je.reference_number} - ${je.description}`);
@@ -189,14 +189,14 @@ async function displayJournalEntries() {
     const linesResult = await client.query(`
       SELECT 
         jel.id,
-        jel.debit_amount,
-        jel.credit_amount,
+        jel.debit,
+        jel.credit,
         jel.description,
         a.code as account_code,
         a.name as account_name,
         f.code as fund_code,
         f.name as fund_name
-      FROM journal_entry_lines jel
+      FROM journal_entry_items jel
       JOIN accounts a ON jel.account_id = a.id
       LEFT JOIN funds f ON jel.fund_id = f.id
       WHERE jel.journal_entry_id = $1
@@ -212,16 +212,16 @@ async function displayJournalEntries() {
     const formattedLines = linesResult.rows.map(line => ({
       'Account': `${line.account_code} - ${line.account_name}`,
       'Fund': line.fund_code ? `${line.fund_code} - ${line.fund_name}` : 'N/A',
-      'Debit': formatCurrency(line.debit_amount),
-      'Credit': formatCurrency(line.credit_amount),
+      'Debit': formatCurrency(line.debit),
+      'Credit': formatCurrency(line.credit),
       'Description': line.description
     }));
     
     console.table(formattedLines);
     
     // Calculate and display totals
-    const totalDebits = linesResult.rows.reduce((sum, line) => sum + parseFloat(line.debit_amount), 0);
-    const totalCredits = linesResult.rows.reduce((sum, line) => sum + parseFloat(line.credit_amount), 0);
+    const totalDebits = linesResult.rows.reduce((sum, line) => sum + parseFloat(line.debit), 0);
+    const totalCredits = linesResult.rows.reduce((sum, line) => sum + parseFloat(line.credit), 0);
     
     console.log(`  Total Debits: ${formatCurrency(totalDebits)}`);
     console.log(`  Total Credits: ${formatCurrency(totalCredits)}`);

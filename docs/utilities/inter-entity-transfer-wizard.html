@@ -816,15 +816,15 @@
                     {
                         account_id: fromDueFromAccountId,
                         fund_id: fromFundId,
-                        debit_amount: amount,
-                        credit_amount: 0,
+                        debit: amount,
+                        credit: 0,
                         description: `Due from ${getEntityCode(toEntityId)}`
                     },
                     {
                         account_id: await getCashAccountId(fromEntityId),
                         fund_id: fromFundId,
-                        debit_amount: 0,
-                        credit_amount: amount,
+                        debit: 0,
+                        credit: amount,
                         description: `Transfer to ${getEntityCode(toEntityId)}`
                     }
                 ]);
@@ -849,15 +849,15 @@
                     {
                         account_id: await getCashAccountId(toEntityId),
                         fund_id: toFundId,
-                        debit_amount: amount,
-                        credit_amount: 0,
+                        debit: amount,
+                        credit: 0,
                         description: `Transfer from ${getEntityCode(fromEntityId)}`
                     },
                     {
                         account_id: toDueToAccountId,
                         fund_id: toFundId,
-                        debit_amount: 0,
-                        credit_amount: amount,
+                        debit: 0,
+                        credit: amount,
                         description: `Due to ${getEntityCode(fromEntityId)}`
                     }
                 ]);

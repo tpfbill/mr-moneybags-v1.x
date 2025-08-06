@@ -119,7 +119,7 @@ WHERE entity_id IN ('c37c2e7c-…')            -- selected entity + children
   AND fund_id   =  (SELECT id FROM funds
                     WHERE code = 'EDU-FND'
                       AND entity_id = 'c37c2e7c-…')
-  AND debit_amount > 1000
+  AND debit > 1000
   AND entry_date BETWEEN '2025-04-01' AND '2025-06-30';
 ```
 

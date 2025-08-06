@@ -361,7 +361,7 @@
                     if (reportDefinition.dataSource === 'funds') {
                         rawData = await apiRequest('/api/funds');
                         console.log('Fetched funds:', rawData.length);
-                    } else if (reportDefinition.dataSource === 'journal_entry_lines') {
+                    } else if (reportDefinition.dataSource === 'journal_entry_items') {
                         /* ------------------------------------------------------------------
                          * Enhanced mapping: Get real fund information by cross-referencing
                          * journal entries with available funds data
@@ -389,8 +389,8 @@
                                 entry_date      : je.entry_date,
                                 reference_number: je.reference_number,
                                 description     : je.description,
-                                debit_amount    : parseFloat(je.total_amount) || 0,
-                                credit_amount   : 0,
+                                debit           : parseFloat(je.total_amount) || 0,
+                                credit          : 0,
                                 account_name    : 'General',
                                 fund_name       : primaryFund,  // Now has real fund name!
                                 entity_id       : je.entity_id,
@@ -618,8 +618,8 @@
                         /(?:what|show).*?(?:journal\s+)?(?:entries?|transactions?)/i,
                         /(?:transaction|journal|activit).*?(?:for|in|during)/i
                     ], 
-                    dataSource: 'journal_entry_lines', 
-                    fields: ['entry_date', 'reference_number', 'description', 'debit_amount', 'credit_amount', 'account_name', 'fund_name'] 
+                    dataSource: 'journal_entry_items', 
+                    fields: ['entry_date', 'reference_number', 'description', 'debit', 'credit', 'account_name', 'fund_name'] 
                 },
                 
                 // Expense-specific queries
@@ -629,8 +629,8 @@
                         /(?:how\s+much|what).*?(?:did\s+we\s+)?(?:spend|expens)/i,
                         /(?:expense|spending|costs?).*?(?:for|in|during)/i
                     ], 
-                    dataSource: 'journal_entry_lines', 
-                    fields: ['entry_date', 'account_name', 'fund_name', 'debit_amount', 'description']
+                    dataSource: 'journal_entry_items', 
+                    fields: ['entry_date', 'account_name', 'fund_name', 'debit', 'description']
                 },
                 
                 // Revenue/Income queries
@@ -640,8 +640,8 @@
                         /(?:how\s+much|what).*?(?:did\s+we\s+)?(?:earn|receive|raise)/i,
                         /(?:donation|revenue|income).*?(?:for|in|during)/i
                     ], 
-                    dataSource: 'journal_entry_lines', 
-                    fields: ['entry_date', 'account_name', 'fund_name', 'credit_amount', 'description']
+                    dataSource: 'journal_entry_items', 
+                    fields: ['entry_date', 'account_name', 'fund_name', 'credit', 'description']
                 },
 
                 // Fund-specific activity queries
@@ -651,8 +651,8 @@
                         /(.+?)\\s+(?:fund\\s+)?(?:activity|transactions?|entries?)/i,
                         /(?:activity|transactions?).*?(?:for|in)\\s+(.+)/i
                     ],
-                    dataSource: 'journal_entry_lines',
-                    fields: ['entry_date', 'reference_number', 'description', 'debit_amount', 'credit_amount', 'account_name'],
+                    dataSource: 'journal_entry_items',
+                    fields: ['entry_date', 'reference_number', 'description', 'debit', 'credit', 'account_name'],
                     requiresFundFilter: true
                 }
             };
@@ -776,10 +776,11 @@
                 const filters = [];
 
                 /* -------------------------------------------------------------
-                 * All journal-entry headers store total_amount in debit_amount
-                 * (credit_amount is always 0 in our mapping).  To avoid the
-                 * AND-logic conflict that dropped rows, we now create a single
-                 * filter on debit_amount only.
+                 * All journal-entry headers store total_amount in the “debit”
+                 * All journal-entry headers store total_amount in the new
+                 * “debit” column (the companion “credit” column is 0 in this
+                 * mapping).  To avoid the AND-logic conflict that dropped
+                 * rows, we now create a single filter on the “debit” column.
                  * ----------------------------------------------------------- */
                 const amountPatterns = [
                     { // Over / above
@@ -825,11 +826,11 @@
 
                     if (p.operator === 'between' && Array.isArray(value)) {
                         // Range filter: amount >= min AND amount <= max
-                        filters.push({ field: 'debit_amount', operator: '>=', value: value[0] });
-                        filters.push({ field: 'debit_amount', operator: '<=', value: value[1] });
+                        filters.push({ field: 'debit', operator: '>=', value: value[0] });
+                        filters.push({ field: 'debit', operator: '<=', value: value[1] });
                     } else {
                         // Single comparison
-                        filters.push({ field: 'debit_amount', operator: p.operator, value });
+                        filters.push({ field: 'debit', operator: p.operator, value });
                     }
                     break; // only apply first matching amount pattern
                 }

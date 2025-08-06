@@ -126,6 +126,9 @@
             padding-bottom: 10px;
             border-bottom: 1px dashed #ddd;
         }
+        .step:last-child {
+            border-bottom: none;
+        }
         .step-number {
             display: inline-block;
             width: 24px;
@@ -490,8 +493,8 @@
                 WHERE EntryDate BETWEEN '2025-01-01' AND '2025-06-30';<br><br>
                 
                 -- Nonprofit Fund Accounting System Query<br>
-                SELECT SUM(jel.debit_amount) AS total_debits, SUM(jel.credit_amount) AS total_credits <br>
-                FROM journal_entry_lines jel <br>
+                SELECT SUM(jel.debit) AS total_debits, SUM(jel.credit) AS total_credits <br>
+                FROM journal_entry_items jel <br>
                 JOIN journal_entries je ON jel.journal_entry_id = je.id <br>
                 WHERE je.entry_date BETWEEN '2025-01-01' AND '2025-06-30';
             </div>
@@ -590,11 +593,11 @@
                 
                 -- Nonprofit Fund Accounting System Query<br>
                 SELECT a.code AS account_code, a.name AS account_name,<br>
-                SUM(CASE WHEN jel.debit_amount > 0 THEN jel.debit_amount ELSE 0 END) AS debits,<br>
-                SUM(CASE WHEN jel.credit_amount > 0 THEN jel.credit_amount ELSE 0 END) AS credits,<br>
-                SUM(jel.debit_amount - jel.credit_amount) AS balance<br>
+                SUM(CASE WHEN jel.debit > 0 THEN jel.debit ELSE 0 END) AS debits,<br>
+                SUM(CASE WHEN jel.credit > 0 THEN jel.credit ELSE 0 END) AS credits,<br>
+                SUM(jel.debit - jel.credit) AS balance<br>
                 FROM accounts a<br>
-                LEFT JOIN journal_entry_lines jel ON a.id = jel.account_id<br>
+                LEFT JOIN journal_entry_items jel ON a.id = jel.account_id<br>
                 LEFT JOIN journal_entries je ON jel.journal_entry_id = je.id<br>
                 WHERE je.entry_date <= '2025-06-30'<br>
                 GROUP BY a.code, a.name<br>
@@ -824,9 +827,9 @@
                 
                 -- Nonprofit Fund Accounting System Query<br>
                 SELECT f.code AS fund_code, f.name AS fund_name,<br>
-                SUM(jel.debit_amount - jel.credit_amount) AS fund_balance<br>
+                SUM(jel.debit - jel.credit) AS fund_balance<br>
                 FROM funds f<br>
-                LEFT JOIN journal_entry_lines jel ON f.id = jel.fund_id<br>
+                LEFT JOIN journal_entry_items jel ON f.id = jel.fund_id<br>
                 LEFT JOIN journal_entries je ON jel.journal_entry_id = je.id<br>
                 WHERE je.entry_date <= '2025-06-30'<br>
                 GROUP BY f.code, f.name<br>
@@ -890,11 +893,11 @@
                 -- Nonprofit Fund Accounting System Query<br>
                 SELECT je.id, je.entry_date, je.reference_number, je.is_inter_entity,<br>
                 je.matching_transaction_id, je.target_entity_id,<br>
-                jel.debit_amount, jel.credit_amount,<br>
+                jel.debit, jel.credit,<br>
                 a.code AS account_code, a.name AS account_name,<br>
                 e.code AS entity_code, e.name AS entity_name<br>
                 FROM journal_entries je<br>
-                JOIN journal_entry_lines jel ON je.id = jel.journal_entry_id<br>
+                JOIN journal_entry_items jel ON je.id = jel.journal_entry_id<br>
                 JOIN accounts a ON jel.account_id = a.id<br>
                 JOIN entities e ON je.entity_id = e.id<br>
                 WHERE je.is_inter_entity = true<br>
@@ -943,14 +946,14 @@
                 -- Nonprofit Fund Accounting System Query<br>
                 SELECT e1.code AS entity1_code, e1.name AS entity1_name,<br>
                 e2.code AS entity2_code, e2.name AS entity2_name,<br>
-                a_due_from.code AS due_from_account, SUM(jel_from.debit_amount - jel_from.credit_amount) AS due_from_balance,<br>
-                a_due_to.code AS due_to_account, SUM(jel_to.credit_amount - jel_to.debit_amount) AS due_to_balance<br>
+                a_due_from.code AS due_from_account, SUM(jel_from.debit - jel_from.credit) AS due_from_balance,<br>
+                a_due_to.code AS due_to_account, SUM(jel_to.credit - jel_to.debit) AS due_to_balance<br>
                 FROM entities e1<br>
                 JOIN entities e2 ON e1.id != e2.id<br>
                 JOIN accounts a_due_from ON a_due_from.entity_id = e1.id AND a_due_from.name LIKE 'Due From ' || e2.name<br>
                 JOIN accounts a_due_to ON a_due_to.entity_id = e2.id AND a_due_to.name LIKE 'Due To ' || e1.name<br>
-                LEFT JOIN journal_entry_lines jel_from ON jel_from.account_id = a_due_from.id<br>
-                LEFT JOIN journal_entry_lines jel_to ON jel_to.account_id = a_due_to.id<br>
+                LEFT JOIN journal_entry_items jel_from ON jel_from.account_id = a_due_from.id<br>
+                LEFT JOIN journal_entry_items jel_to ON jel_to.account_id = a_due_to.id<br>
                 LEFT JOIN journal_entries je_from ON jel_from.journal_entry_id = je_from.id<br>
                 LEFT JOIN journal_entries je_to ON jel_to.journal_entry_id = je_to.id<br>
                 WHERE je_from.entry_date <= '2025-06-30' AND je_to.entry_date <= '2025-06-30'<br>
@@ -1060,11 +1063,11 @@
             <div class="code">
                 -- Nonprofit Fund Accounting System Query<br>
                 SELECT ba.bank_name, ba.account_name, ba.balance AS bank_balance,<br>
-                SUM(jel.debit_amount - jel.credit_amount) AS gl_balance,<br>
-                ba.balance - SUM(jel.debit_amount - jel.credit_amount) AS difference<br>
+                SUM(jel.debit - jel.credit) AS gl_balance,<br>
+                ba.balance - SUM(jel.debit - jel.credit) AS difference<br>
                 FROM bank_accounts ba<br>
                 JOIN accounts a ON ba.gl_account_id = a.id<br>
-                LEFT JOIN journal_entry_lines jel ON jel.account_id = a.id<br>
+                LEFT JOIN journal_entry_items jel ON jel.account_id = a.id<br>
                 LEFT JOIN journal_entries je ON jel.journal_entry_id = je.id<br>
                 WHERE je.entry_date <= '2025-06-30'<br>
                 GROUP BY ba.bank_name, ba.account_name, ba.balance<br>
@@ -1189,8 +1192,8 @@
                   WHEN f.restriction_type = 'unrestricted' THEN 'Without Donor Restrictions'<br>
                   ELSE 'With Donor Restrictions'<br>
                 END AS restriction_type,<br>
-                SUM(jel.debit_amount - jel.credit_amount) AS total_balance<br>
-                FROM journal_entry_lines jel<br>
+                SUM(jel.debit - jel.credit) AS total_balance<br>
+                FROM journal_entry_items jel<br>
                 JOIN funds f ON jel.fund_id = f.id<br>
                 JOIN journal_entries je ON jel.journal_entry_id = je.id<br>
                 WHERE je.entry_date <= '2025-06-30'<br>
@@ -1261,8 +1264,8 @@
                   WHEN f.restriction_type = 'temporarily_restricted' THEN 'With Donor Restrictions - Time/Purpose'<br>
                   WHEN f.restriction_type = 'permanently_restricted' THEN 'With Donor Restrictions - Perpetual'<br>
                 END AS net_asset_class,<br>
-                SUM(jel.debit_amount - jel.credit_amount) AS balance<br>
-                FROM journal_entry_lines jel<br>
+                SUM(jel.debit - jel.credit) AS balance<br>
+                FROM journal_entry_items jel<br>
                 JOIN funds f ON jel.fund_id = f.id<br>
                 JOIN accounts a ON jel.account_id = a.id<br>
                 JOIN journal_entries je ON jel.journal_entry_id = je.id<br>
@@ -1296,12 +1299,12 @@
                 
                 -- Nonprofit Fund Accounting System Query<br>
                 SELECT f.code AS fund_code, f.name AS fund_name,<br>
-                SUM(CASE WHEN je.entry_date < '2025-01-01' THEN jel.debit_amount - jel.credit_amount ELSE 0 END) AS beginning_balance,<br>
-                SUM(CASE WHEN je.entry_date BETWEEN '2025-01-01' AND '2025-06-30' AND a.type IN ('revenue', 'other_revenue') THEN jel.debit_amount - jel.credit_amount ELSE 0 END) AS revenue,<br>
-                SUM(CASE WHEN je.entry_date BETWEEN '2025-01-01' AND '2025-06-30' AND a.type IN ('expense', 'other_expense') THEN jel.debit_amount - jel.credit_amount ELSE 0 END) AS expenses,<br>
-                SUM(CASE WHEN je.entry_date <= '2025-06-30' THEN jel.debit_amount - jel.credit_amount ELSE 0 END) AS ending_balance<br>
+                SUM(CASE WHEN je.entry_date < '2025-01-01' THEN jel.debit - jel.credit ELSE 0 END) AS beginning_balance,<br>
+                SUM(CASE WHEN je.entry_date BETWEEN '2025-01-01' AND '2025-06-30' AND a.type IN ('revenue', 'other_revenue') THEN jel.debit - jel.credit ELSE 0 END) AS revenue,<br>
+                SUM(CASE WHEN je.entry_date BETWEEN '2025-01-01' AND '2025-06-30' AND a.type IN ('expense', 'other_expense') THEN jel.debit - jel.credit ELSE 0 END) AS expenses,<br>
+                SUM(CASE WHEN je.entry_date <= '2025-06-30' THEN jel.debit - jel.credit ELSE 0 END) AS ending_balance<br>
                 FROM funds f<br>
-                LEFT JOIN journal_entry_lines jel ON f.id = jel.fund_id<br>
+                LEFT JOIN journal_entry_items jel ON f.id = jel.fund_id<br>
                 LEFT JOIN journal_entries je ON jel.journal_entry_id = je.id<br>
                 LEFT JOIN accounts a ON jel.account_id = a.id<br>
                 GROUP BY f.code, f.name<br>
@@ -1331,10 +1334,10 @@
                 ORDER BY je.EntryDate;<br><br>
                 
                 -- Nonprofit Fund Accounting System Query<br>
-                SELECT je.entry_date, je.reference_number, jel.debit_amount, jel.credit_amount,<br>
+                SELECT je.entry_date, je.reference_number, jel.debit, jel.credit,<br>
                 f_from.code AS from_fund, f_to.code AS to_fund<br>
                 FROM journal_entries je<br>
-                JOIN journal_entry_lines jel ON je.id = jel.journal_entry_id<br>
+                JOIN journal_entry_items jel ON je.id = jel.journal_entry_id<br>
                 JOIN funds f_from ON jel.fund_id = f_from.id<br>
                 JOIN funds f_to ON jel.transfer_fund_id = f_to.id<br>
                 WHERE je.entry_type = 'net_asset_release'<br>
@@ -1429,4 +1432,6 @@
                 <li>Document the specific variance (account, amount, etc.)</li>
                 <li>Trace back to source transactions in both systems</li>
                 <li>Identify the root cause of the variance</li>
-                <li>Determine if the variance is due to a migration issue
+                <li>Determine if the variance is due to a migration issue</li>
+            </ol>
+        

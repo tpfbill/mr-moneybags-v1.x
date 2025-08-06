@@ -58,8 +58,8 @@ Run once in psql to confirm:
 -- target_entity_id UUID
 -- matching_transaction_id UUID
 
--- journal_entry_lines
-\d journal_entry_lines
+-- journal_entry_items
+\d journal_entry_items
 -- expect column entity_id UUID
 
 -- If any column missing, apply migration:

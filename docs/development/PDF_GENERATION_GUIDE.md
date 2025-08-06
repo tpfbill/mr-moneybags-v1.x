@@ -1,5 +1,5 @@
 # PDF Generation Guide  
-*Project: Non-Profit Fund Accounting System v9.0*  
+*Project: Mr. MoneyBags v1.x*  
 *Location: `docs/development/PDF_GENERATION_GUIDE.md`*  
 
 This guide records the **ONLY method that works reliably on the project Mac** for converting our HTML/Markdown docs to PDF, plus a log of what **doesn’t** work.  
@@ -11,7 +11,7 @@ Keep it handy so we don’t repeat the same experiments.
 • macOS (Monterey/Ventura/Sonoma tested)  
 • Google Chrome installed in the default path:  
 `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`  
-• Repository root: `~/factory/nonprofit-fund-accounting-v9`
+• Repository root: `~/factory/mr-moneybags`
 
 ---
 
@@ -49,10 +49,10 @@ Chrome’s rendering engine fully supports our modern CSS (print styles, `@page`
 
 2. **Generate the PDF**  
    ```bash
-   cd ~/factory/nonprofit-fund-accounting-v9
+   cd ~/factory/mr-moneybags
 
-   HTML="docs/guides/Zoho_Books_Comparison_v9.0_PDF_Ready.html"
-   PDF="docs/guides/Zoho_Books_Comparison_v9.0.pdf"
+   HTML="docs/guides/Zoho_Books_Comparison_v1.x_PDF_Ready.html"
+   PDF="docs/guides/Zoho_Books_Comparison_v1.x.pdf"
 
    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
      --headless --disable-gpu \
@@ -78,7 +78,7 @@ Chrome’s rendering engine fully supports our modern CSS (print styles, `@page`
 
 | Use-Case | Command |
 |----------|---------|
-| Installation Guide | `HTML=docs/guides/INSTALLATION_GUIDE_VirtualBox_Ubuntu24_v9.0_PDF_Ready.html`<br>`PDF=docs/guides/INSTALLATION_GUIDE_VirtualBox_Ubuntu24_v9.0.pdf`<br>`chrome --headless …` |
+| Installation Guide | `HTML=docs/guides/INSTALLATION_GUIDE_VirtualBox_Ubuntu24_v1.x_PDF_Ready.html`<br>`PDF=docs/guides/INSTALLATION_GUIDE_VirtualBox_Ubuntu24_v1.x.pdf`<br>`chrome --headless …` |
 | Any HTML in /tmp | `chrome --headless --print-to-pdf=/tmp/out.pdf file:///tmp/in.html` |
 
 *(`chrome` = full path to Chrome executable)*
@@ -101,9 +101,9 @@ Chrome’s rendering engine fully supports our modern CSS (print styles, `@page`
 
 | Artifact | Pattern | Notes |
 |----------|---------|-------|
-| **Markdown source** | `..._v9.0.md` | Usually in `docs/guides/` or `docs/development/`. |
+| **Markdown source** | `..._v1.x.md` | Usually in `docs/guides/` or `docs/development/`. |
 | **HTML (human-readable)** | `..._PDF_Ready.html` | Print CSS, no external assets. |
-| **Final PDF** | `..._v9.0.pdf` | Same basename as HTML, version suffix matches product version. |
+| **Final PDF** | `..._v1.x.pdf` | Same basename as HTML, version suffix matches product version. |
 | **Backups / Old** | `..._OLD.pdf` or `..._BACKUP.pdf` | Never linked from UI—only for reference. |
 
 ---

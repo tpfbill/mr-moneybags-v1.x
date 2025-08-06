@@ -1,6 +1,6 @@
-# Ubuntu Deployment – Quick Reference (v8.8+)
+# Ubuntu Deployment – Quick Reference (v1.x)
 
-**Server user:** `fundapp`  **App dir:** `/opt/nonprofit-fund-accounting`
+**Server user:** `fundapp`  **App dir:** `/opt/mr-moneybags-v1.x`
 
 ---
 
@@ -8,11 +8,11 @@
 
 | Scenario | Command |
 |----------|---------|
-| **Standard update (main)** | `cd /opt/nonprofit-fund-accounting && git pull && npm ci && ./deploy-ubuntu.sh` |
-| **Deploy release tag** | `./deploy-ubuntu.sh --tag v8.9.0` |
+| **Standard update (main)** | `cd /opt/mr-moneybags-v1.x && git pull --ff-only && npm ci && ./deploy-ubuntu.sh` |
+| **Deploy release tag** | `./deploy-ubuntu.sh --tag v1.0.1` |
 | **Deploy feature branch** | `./deploy-ubuntu.sh --branch feature/x` |
 | **Skip dependency install** | `./deploy-ubuntu.sh --skip-dependencies` |
-| **Skip DB migrations** | `./deploy-ubuntu.sh --skip-migrations` |
+| **Skip DB schema refresh** | `./deploy-ubuntu.sh --skip-schema` |
 | **Force deploy (ignore failed checks)** | `./deploy-ubuntu.sh --force` |
 
 ---
@@ -56,7 +56,7 @@ psql -U npfadmin -d fund_accounting_db -c "SELECT 1;"
 |--------|---------|
 | Previous version | `./deploy-ubuntu.sh --rollback` |
 | Specific tag     | `./deploy-ubuntu.sh --rollback v8.8.4` |
-| Revert last migration | `node-pg-migrate down -1` |
+| Refresh schema      | `psql -U npfadmin -d fund_accounting_db -f database/db-init.sql` |
 | DB restore dump | `pg_restore -U npfadmin -d fund_accounting_db /backups/FILE.dump` |
 
 ---
@@ -83,11 +83,10 @@ sudo ufw deny 443/tcp
 
 | Path | Purpose |
 |------|---------|
-| `/opt/nonprofit-fund-accounting/.env` | Runtime environment variables |
-| `/opt/nonprofit-fund-accounting/migrations/` | Versioned SQL migrations |
-| `/var/log/nonprofit-fund-accounting/` | Deployment & script logs |
+| `/opt/mr-moneybags-v1.x/.env` | Runtime environment variables |
+| `/var/log/mr-moneybags-v1.x/` | Deployment & script logs |
 | `~/.pm2/logs/` | PM2 service logs |
-| `/opt/backups/nonprofit-fund-accounting/` | Code & DB backups (auto by script) |
+| `/opt/backups/mr-moneybags-v1.x/` | Code & DB backups (auto by script) |
 
 ---
 
@@ -107,4 +106,4 @@ sudo systemctl enable postgresql
 ---
 
 **Tip:** keep this card handy during maintenance windows for rapid reference.  
-For full details see `Ubuntu Deployment Guide – v8.8`. 🚀
+For full details see `Ubuntu Deployment Guide – v1.x`. 🚀
