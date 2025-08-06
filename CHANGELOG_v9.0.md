@@ -1,4 +1,4 @@
-# Change Log – Version 9.0  
+# Change Log – Version 1.x  
 *Release date: 21 July 2025*
 
 ---
@@ -9,7 +9,7 @@
 | 1 | **Massive Directory Re-organisation** | 182 cluttered root-level items reduced to 110 core files; everything else moved into purpose-built sub-folders. |
 | 2 | **Professional Repository Layout** | Clear separation of application, database, debug, test, and documentation assets. |
 | 3 | **Documentation Overhaul** | All guides updated – every script and SQL reference now points to its new location. |
-| 4 | **Clean Git History for v9.0** | Fresh repository initialised, version set to **9.0.0**. |
+| 4 | **Clean Git History for v1.x** | Fresh repository initialised, version set to **1.0.0**. |
 | 5 | **Feature Parity** | All v8.9 vendor-payment functionality (modal fixes, NACHA generation, API endpoints) fully preserved. |
 | 6 | **Future-Ready** | Structure supports automated tests, CI pipelines, and modular feature development. |
 
@@ -41,7 +41,7 @@
 ### 2. Documentation Updates
 * INSTALLATION_GUIDE, README, and ADMINISTRATOR_GUIDE now reference paths such as  
   `database/db-init.sql` and `database/setup-database-cross-platform.sql`.
-* All version badges switched to **9.0**.
+* All version badges switched to **1.x** (e.g., *v1.0*).
 * Added section on new directory layout to each guide.
 
 ### 3. Core Functionality Retained
@@ -49,19 +49,19 @@
 * All automated tests pass against reorganised tree.
 
 ### 4. Version & Metadata
-* `package.json` bumped to `"version": "9.0.0"`.
-* New file **CHANGELOG_v9.0.md** freezes the milestone.
+* `package.json` bumped to `"version": "1.0.0"`.
+* New file **CHANGELOG_v1.x.md** freezes the milestone.
 
 ---
 
-## ⚙️ Migration Notes (8.9 ➜ 9.0)
+## ⚙️ Migration Notes (legacy ➜ 1.x)
 
 1. **Clone** or **pull** the new `v9.0` repository ‑ existing databases remain valid.
 2. Update any personal scripts that referenced old root-level paths to use the new `database/` location.
 3. Re-install node modules (`npm ci`) – no dependency changes.
 4. Start servers as usual:  
    ```bash
-   node server.js          # backend (port 3000)
+   node server.js            # backend (port 3000)
    npx http-server . -p 8080 --no-cache   # frontend
    ```
 

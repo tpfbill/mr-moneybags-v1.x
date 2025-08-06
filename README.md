@@ -1,6 +1,6 @@
-# Mr. Moneybags – Non-Profit Fund Accounting System
+# Mr-Moneybags-v1.x – Non-Profit Fund Accounting System
 
-Mr. Moneybags is a **production-ready, end-to-end fund-accounting platform** built for charities, foundations, and other non-profit organizations that require strict fund segregation, transparent reporting, and automated payment workflows.
+Mr-Moneybags-v1.x is a **production-ready, end-to-end fund-accounting platform** built for charities, foundations, and other non-profit organizations that require strict fund segregation, transparent reporting, and automated payment workflows.
 
 Designed from the ground up with a **fully-modular Node.js backend and a proven, battle-tested frontend**, the system delivers enterprise-grade features such as NACHA payment batch generation, multi-entity consolidation, and audit-ready double-entry bookkeeping—without the price tag of commercial products.
 
@@ -33,8 +33,8 @@ Designed from the ground up with a **fully-modular Node.js backend and a proven,
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/mr-moneybags.git
-cd mr-moneybags
+git clone https://github.com/your-org/mr-moneybags-v1.x.git
+cd mr-moneybags-v1.x
 
 # 2. Install server dependencies
 npm install
@@ -142,7 +142,7 @@ This project is licensed under the **MIT License** – see the [LICENSE](./LICEN
 ## Contact
 
 * **Project Lead:** William Developer – `william@example.org`  
-* **Issues & Support:** [GitHub Issues](https://github.com/your-org/mr-moneybags/issues)  
+* **Issues & Support:** [GitHub Issues](https://github.com/your-org/mr-moneybags-v1.x/issues)  
 * **Organization:** The Principle Foundation, Kansas City, MO  
 
 Need a feature or have a question? Open an issue or reach out—let’s build better tools for the non-profit world!
