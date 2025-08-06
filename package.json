@@ -2,9 +2,9 @@
   "name": "mr-moneybags-v1.x",
   "version": "1.0.0",
   "description": "Mr-Moneybags-v1.x – full-stack fund-accounting platform (frontend :8080, API backend :3000) with multi-entity fund accounting, vendor ACH payments, NACHA generation, reporting, and admin tools — shipping with the new v1.x directory structure.",
-  "main": "server.js",
+  "main": "server-modular.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server-modular.js",
     "client": "http-server . -p 8080 -c-1",
     "dev": "concurrently \"npm run start\" \"npm run client\"",
     "test-data": "node database/load-test-data.js",

@@ -22,7 +22,7 @@ _Deploying & Updating **Mr-Moneybags-v1.x** on Ubuntu 22.04 LTS_
 | Item | Recommended Version | Install Command |
 |------|--------------------|-----------------|
 | Ubuntu Server | 22.04 LTS (64-bit) | N/A |
-| PostgreSQL | 15 + | `sudo apt install -y postgresql` |
+| PostgreSQL | 16 + | `sudo apt install -y postgresql` |
 | Node.js | ≥ 18 LTS | `curl -fsSL https://deb.nodesource.com/setup_18.x \| sudo -E bash -`<br>`sudo apt install -y nodejs` |
 | Git | latest in repo | `sudo apt install -y git` |
 | PM2 | 5.x (global) | `sudo npm i -g pm2` |
@@ -147,7 +147,8 @@ Completed migration 20250801_1200_add_connection_status
 
 ### 4.1 First-time Startup
 ```bash
-pm2 start server.js --name fund-api
+# API  (uses the `start` script from package.json → `node server-modular.js`)
+pm2 start "npm start" --name fund-api
 pm2 start "npx http-server . -p 8080 --no-cache" --name fund-ui
 pm2 save
 pm2 startup systemd -u fundapp --hp /home/fundapp
@@ -302,15 +303,15 @@ pm2 update
 
 ```bash
 # Quick start (first server install)
-git clone https://github.com/<org>/mr-moneybags-v1.x.git /opt/mr-moneybags-v1.x
+git clone https://github.com/tpfbill/mr-moneybags.git /opt/mr-moneybags-v1.x
 cd /opt/mr-moneybags-v1.x
 cp .env.example .env
 npm ci
 psql -U postgres -f setup-database-cross-platform.sql
-pm2 start server.js --name fund-api
+pm2 start "npm start" --name fund-api
 pm2 start "npx http-server . -p 8080 --no-cache" --name fund-ui
 pm2 save
 ```
 
-You are now ready to **develop, deploy, and evolve** the Non-Profit Fund Accounting System on Ubuntu with confidence.  
+You are now ready to **develop, deploy, and evolve** **Mr-Moneybags-v1.x** on Ubuntu with confidence.  
 Happy deploying! 🚀
