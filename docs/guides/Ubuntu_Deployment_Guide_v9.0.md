@@ -1,5 +1,5 @@
-# Ubuntu Deployment Guide – v9.0  
-_Deploying & Updating the Non-Profit Fund Accounting System on Ubuntu 22.04 LTS_
+# Ubuntu Deployment Guide – v1.x  
+_Deploying & Updating **Mr-Moneybags-v1.x** on Ubuntu 22.04 LTS_
 
 ---
 
@@ -32,8 +32,8 @@ _Deploying & Updating the Non-Profit Fund Accounting System on Ubuntu 22.04 LTS_
 ### 1.1 System User & Directory Layout
 ```bash
 sudo adduser --system --group fundapp
-sudo mkdir -p /opt/nonprofit-fund-accounting
-sudo chown -R fundapp:fundapp /opt/nonprofit-fund-accounting
+sudo mkdir -p /opt/mr-moneybags-v1.x
+sudo chown -R fundapp:fundapp /opt/mr-moneybags-v1.x
 ```
 
 ### 1.2 Database Bootstrap  (one-time)
@@ -76,13 +76,13 @@ sudo ./fix-ubuntu-permissions.sh
 
 ```bash
 sudo -iu fundapp
-cd /opt/nonprofit-fund-accounting
+cd /opt/mr-moneybags-v1.x
 
 # 1. Fetch changes
 git fetch --all --tags
 
 # 2. Checkout release tag or main
-git checkout v8.9.0        # example
+git checkout v1.0.0        # example
 git pull --ff-only
 
 # 3. Install exact dependencies
@@ -97,8 +97,8 @@ pm2 restart fund-api fund-ui
 
 Expected output:
 ```
-> git checkout v8.9.0
-HEAD is now at 1ab23cd Release 8.9.0 – reconciliation feature
+> git checkout v1.0.0
+HEAD is now at 1ab23cd Release 1.0.0 – initial Mr-Moneybags release
 > npm ci
 added 321, removed 4, audited 325 packages in 7s
 ```
@@ -196,7 +196,7 @@ psql -U npfadmin -d fund_accounting_db -c "SELECT COUNT(*) FROM entities;"
 
 ### 6.1 Git Rollback
 ```bash
-git checkout v8.8.4        # known good tag
+git checkout v1.0.0        # known good tag
 npm ci
 pm2 restart fund-api fund-ui
 ```
@@ -246,7 +246,7 @@ journalctl -u postgresql
 
 ### 8.2 Deploy Specific Hotfix
 ```bash
-./deploy-ubuntu.sh --tag v8.8.5-hotfix
+./deploy-ubuntu.sh --tag v1.0.1-hotfix
 ```
 
 ### 8.3 Skip Dependency Install (small CSS tweak)
@@ -263,7 +263,7 @@ journalctl -u postgresql
 
 ## 9  Best Practices & Safety Considerations
 
-* **Use Tags** – tag each release (`git tag v8.9.0`) for reproducibility.  
+* **Use Tags** – tag each release (`git tag v1.0.0`) for reproducibility.  
 * **Nightly Backups** – `pg_dump -Fc` to `/backups`.  
 * **Environment Isolation** – never edit `.env` directly on server; use `scp` and reload.  
 * **Least Privilege** – application uses `npfadmin`, management uses `postgres`.  
@@ -302,8 +302,8 @@ pm2 update
 
 ```bash
 # Quick start (first server install)
-git clone https://github.com/<org>/nonprofit-fund-accounting.git /opt/nonprofit-fund-accounting
-cd /opt/nonprofit-fund-accounting
+git clone https://github.com/<org>/mr-moneybags-v1.x.git /opt/mr-moneybags-v1.x
+cd /opt/mr-moneybags-v1.x
 cp .env.example .env
 npm ci
 psql -U postgres -f setup-database-cross-platform.sql

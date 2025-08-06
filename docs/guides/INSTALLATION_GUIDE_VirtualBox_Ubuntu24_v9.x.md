@@ -1,13 +1,13 @@
-# Non-Profit Fund Accounting System v9.x  
+# Mr-Moneybags-v1.x  
 ## Installation Guide – Ubuntu 24.04 LTS Guest in VirtualBox (Windows / macOS Host)
 
-*Document version 9.x – July 2025*
+*Document version 1.x – July 2025*
 
 ---
 
 ## 1 Overview
 
-This guide walks through a **clean installation** of the Non-Profit Fund Accounting System v9.x inside an Ubuntu 24.04 LTS virtual machine (VM) running under Oracle VM VirtualBox.  
+This guide walks through a **clean installation** of **Mr-Moneybags-v1.x** inside an Ubuntu 24.04 LTS virtual machine (VM) running under Oracle VM VirtualBox.  
 The procedure matches the **working macOS reference environment** (Node.js 18, PostgreSQL 16, Express 5) and leverages the project’s cross-platform automation scripts.
 
 ---
@@ -33,7 +33,7 @@ The procedure matches the **working macOS reference environment** (Node.js 18, P
    • Ubuntu 24.04 ISO: <https://ubuntu.com/download/desktop>
 
 2. **New VM**  
-   • Name `Ubuntu24-FundAcct-v9x`  
+   • Name `Ubuntu24-MrMoneybags-v1x`  
    • Type *Linux* → Version *Ubuntu (64-bit)*  
    • Memory **6144 MB** • Processors **4 vCPU**  
    • Disk **VDI**, dynamically allocated, **60 GB**
@@ -85,9 +85,9 @@ psql -V   # 16.x
 
 ```bash
 sudo mkdir -p /opt && cd /opt
-sudo git clone https://github.com/tpfbill/nonprofit-fund-accounting-v9.x.git
-sudo chown -R $USER:$USER nonprofit-fund-accounting-v9.x
-cd nonprofit-fund-accounting-v9.x
+sudo git clone https://github.com/your-org/mr-moneybags-v1.x.git
+sudo chown -R $USER:$USER mr-moneybags-v1.x
+cd mr-moneybags-v1.x
 ```
 
 ### 5.2 Create `.env`
@@ -253,6 +253,6 @@ sudo -u postgres pg_restore -d fund_accounting_db -c fundacct_2025-07-22.dump
 
 ---
 
-**Enjoy your fully-functional Non-Profit Fund Accounting System v9.x on Ubuntu 24.04!**
+**Enjoy your fully-functional Mr-Moneybags-v1.x on Ubuntu 24.04!**
 
 For details on API endpoints and data model, see the in-app **Documentation** tab or `README.md`.

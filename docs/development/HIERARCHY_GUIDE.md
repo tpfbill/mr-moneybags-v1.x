@@ -1,6 +1,6 @@
 # Three-Level Hierarchy Guide
 
-Welcome to the **Entity & Fund Hierarchy** for the Non-Profit Fund Accounting System.  
+Welcome to the **Entity & Fund Hierarchy** for **Mr-Moneybags-v1.x**.  
 The platform supports a full **three-tier** structure:
 
 1. **Organization** – the top-level umbrella (e.g. *The Principle Foundation*).  
@@ -76,9 +76,9 @@ The **Consolidated View** toggle (header-right) lets a user switch between:
 
 ---
 
-## 5. Advanced Features Integration (v8.5)
+## 5. Advanced Features Integration (v1.x)
 
-Version 8.5 introduced several enterprise-grade capabilities that *build on* the entity & fund hierarchy.  
+Version 1.x introduced several enterprise-grade capabilities that *build on* the entity & fund hierarchy.  
 The diagram below shows how each new feature consumes hierarchy metadata.
 
 ```
@@ -205,7 +205,7 @@ Green = consolidated, Grey = entity-only.
 * **docs/REPORTS.md** – financial statement configuration  
 * **src/js/entity-hierarchy.js** – client-side implementation
 * **DOCKER_SETUP_WINDOWS.md** – container deployment guide  
-* **nonprofit-accounting-user-guide.html** – full end-user manual  
+* **mr-moneybags-user-guide.html** – full end-user manual  
 * **scripts/update-linux.sh** / **scripts/update-docker-windows.ps1** – automated update workflows
 
 Happy accounting!  

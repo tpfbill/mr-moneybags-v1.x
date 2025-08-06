@@ -1,10 +1,10 @@
-# Nonprofit Fund Accounting System - Administrator's Guide (v9.0)
+# Mr-Moneybags-v1.x - Administrator's Guide (v1.x)
 
 ## 1. Introduction and Scope
 
-Welcome to the Administrator's Guide for the Nonprofit Fund Accounting System. This document provides comprehensive instructions for system administrators responsible for deploying, managing, and maintaining the application.
+Welcome to the Administrator's Guide for the Mr-Moneybags-v1.x. This document provides comprehensive instructions for system administrators responsible for deploying, managing, and maintaining the application.
 
-This guide is intended for technical users with command-line access to the server environment. It covers installation, configuration, security, maintenance, and troubleshooting for both traditional Linux and Docker-based deployments. For end-user functionality, please refer to the `nonprofit-accounting-user-guide.html`.
+This guide is intended for technical users with command-line access to the server environment. It covers installation, configuration, security, maintenance, and troubleshooting for both traditional Linux and Docker-based deployments. For end-user functionality, please refer to the `mr-moneybags-user-guide.html`.
 
 ---
 
@@ -38,8 +38,8 @@ This is a summary of the full deployment process.
     *   **Node.js**: Use `nodesource` to install v18.
     *   **PostgreSQL**: `sudo apt install postgresql postgresql-contrib`.
     *   **Nginx**: `sudo apt install nginx`.
-4.  **Clone Repository**: `git clone -b v9.0 https://github.com/tpfbill/nonprofit-fund-accounting.git` into `/home/npfa/`.
-5.  **Install App Dependencies**: `cd nonprofit-fund-accounting && npm install`.
+4.  **Clone Repository**: `git clone -b v1.x https://github.com/your-org/mr-moneybags-v1.x.git` into `/home/npfa/`.
+5.  **Install App Dependencies**: `cd mr-moneybags-v1.x && npm install`.
 6.  **Configure Environment**: Create a `.env` file with your database credentials and `NODE_ENV=production`.
 7.  **Set up Database**: Create the user and database in PostgreSQL.
 8.  **Initialize Database**: Run the SQL scripts from within the app directory:
@@ -55,7 +55,7 @@ This is a summary of the full deployment process.
 ### 3.2. Docker Deployment (Windows/Linux)
 For detailed instructions, refer to **`DOCKER_SETUP_WINDOWS.md`**. The process is:
 
-1.  **Clone Repository**: `git clone -b v9.0 https://github.com/tpfbill/nonprofit-fund-accounting.git`.
+1.  **Clone Repository**: `git clone -b v1.x https://github.com/your-org/mr-moneybags-v1.x.git`.
 2.  **Configure Environment**: Rename `.env.docker` to `.env`.
 3.  **Build & Run**: `docker-compose up -d --build`.
 4.  **Initialize Database**:
@@ -123,7 +123,7 @@ The organizational structure is critical for proper reporting.
 
 ### 7.4 Inter-Entity Transfer Configuration
 
-The **Inter-Entity Transfer** feature (introduced in v8.6, enhanced in v9.0) allows you to move cash between sibling entities while automatically creating a balanced pair of journal entries and maintaining accurate **Due To / Due From** balances.
+The **Inter-Entity Transfer** feature (introduced in v1.x) allows you to move cash between sibling entities while automatically creating a balanced pair of journal entries and maintaining accurate **Due To / Due From** balances.
 
 #### 1. Purpose
 *  Eliminate manual dual-entry work when one legal entity advances or reimburses funds to another.  
@@ -134,29 +134,29 @@ Each entity that will participate in transfers must have:
 
 | Account Type | Typical Code Range | Example Name            |
 |--------------|-------------------|-------------------------|
-| **Asset**    | 19-xxxx           | “Due From \<Other Entity\>” |
-| **Liability**| 29-xxxx           | “Due To \<Other Entity\>”   |
+| **Asset**    | 19-xxxx           | "Due From \<Other Entity\>" |
+| **Liability**| 29-xxxx           | "Due To \<Other Entity\>"   |
 
 These accounts should be **Active** and mapped to the correct entity.
 
 #### 3. Setup Checklist
 1. Navigate to **Chart of Accounts → Add Account**.  
 2. Select the **Entity** field so the account belongs to the right legal entity.  
-3. Choose **Type = Asset** (for “Due From”) or **Liability** (for “Due To”).  
+3. Choose **Type = Asset** (for "Due From") or **Liability** (for "Due To").  
 4. Use consistent codes (e.g., `1901`, `2901`) so the dropdown filters in the wizard recognise them.  
 5. Repeat for every pair of entities that may transact.
 
 #### 4. Best Practices
 * Create one dedicated Due To / Due From account **per counter-party** instead of a single pooled account.  
-* Agree on a naming convention (e.g., “Due From – TPF” / “Due To – TPF-ES”) to make reconciliation easier.  
+* Agree on a naming convention (e.g., "Due From – TPF" / "Due To – TPF-ES") to make reconciliation easier.  
 * Post transfers **as-of the actual cash movement date** to keep books aligned with bank activity.  
 * Review the **Inter-Entity Transfers** list (Reports → Inter-Entity) monthly to ensure all pairs are present and balanced.
 
 #### 5. Troubleshooting
 | Issue | Likely Cause | Resolution |
 |-------|--------------|------------|
-| “No Due From accounts found” in wizard | Asset account not matching filter (name lacks “Due From” or code not `19…`) | Edit or create the correct account and retry. |
-| Transfer posts but entity balances don’t match | One of the journal entries was edited or deleted | Use the **matching_transaction_id** to locate both entries, correct or repost. |
+| "No Due From accounts found" in wizard | Asset account not matching filter (name lacks "Due From" or code not `19…`) | Edit or create the correct account and retry. |
+| Transfer posts but entity balances don't match | One of the journal entries was edited or deleted | Use the **matching_transaction_id** to locate both entries, correct or repost. |
 | Wizard hangs on submission | Database constraint failure (missing fund/account ID) | Check server logs; ensure all selected IDs exist and are active. |
 
 ---
@@ -164,7 +164,7 @@ These accounts should be **Active** and mapped to the correct entity.
 ## 8. NACHA Vendor Payment System Administration
 
 ### 8.1 Overview
-Version 9.0 provides a fully-integrated NACHA (ACH) **Vendor Payment System** that lets your organization pay suppliers electronically and generate bank-ready ACH files.  The feature set includes:
+Version 1.x provides a fully-integrated NACHA (ACH) **Vendor Payment System** that lets your organization pay suppliers electronically and generate bank-ready ACH files.  The feature set includes:
 * Vendor master records with multiple bank accounts  
 * Company-wide NACHA settings (Originating DFI, Company ID, SEC code)  
 * Payment batch workflow (draft → approved → processed)  
@@ -221,7 +221,7 @@ All tables include audit columns (`created_at`, `updated_at`, `created_by`, etc.
 | Symptom | Likely Cause | Resolution |
 |---------|--------------|------------|
 | Batch stuck in *approved* | Trace-number generation error | Check server logs; ensure `company_nacha_settings` exists |
-| “Routing number invalid” | Fails ABA checksum | Verify 9-digit routing with vendor |
+| "Routing number invalid" | Fails ABA checksum | Verify 9-digit routing with vendor |
 | File control total mismatch | Manual edit of file | Regenerate file; do **not** edit ACH files manually |
 | Download 404 | File deleted or wrong ID | Verify `nacha_files.path`; regenerate if needed |
 
@@ -299,7 +299,7 @@ In case of failure, use the backups to restore the system.
 | **502 Bad Gateway** | The Node.js application (`npfa.service` or `app` container) is not running or has crashed. | 1. Check the application logs for errors (`journalctl` or `docker-compose logs`). <br> 2. Ensure the database is running. <br> 3. Restart the application service. |
 | **"DB Offline"** | The Node.js application cannot connect to the PostgreSQL database. | 1. Verify PostgreSQL is running. <br> 2. Check the `.env` file for correct database credentials (host, user, password, dbname). <br> 3. Ensure network connectivity between the app and DB servers (or containers). |
 | **404 Not Found on API routes** | Nginx is not proxying requests correctly, or the Node.js routes are not registered. | 1. Ensure the API routes are defined *before* the `app.use(express.static(...))` line in `server.js`. <br> 2. Check the Nginx configuration for a correct `proxy_pass` directive. |
-| **Permission Denied errors** | File system permissions are incorrect. | Ensure the `npfa` user owns the application directory: `sudo chown -R npfa:npfa /home/npfa/nonprofit-fund-accounting`. |
+| **Permission Denied errors** | File system permissions are incorrect. | Ensure the `npfa` user owns the application directory: `sudo chown -R npfa:npfa /home/npfa/mr-moneybags-v1.x`. |
 
 ---
 
@@ -326,8 +326,8 @@ These scripts automatically handle backups, code pulling, dependency updates, se
 
 1.  **Automate Backups**: Ensure the backup script is running daily via `cron` or Windows Task Scheduler.
 2.  **Separate Environments**: Maintain separate development, staging, and production environments. Test all updates in staging before deploying to production.
-3.  **Use Version Control**: All changes, including configuration, should be committed to Git. Use feature branches for development and merge to the main production branch (`v9.0` in our case) for deployment.
+3.  **Use Version Control**: All changes, including configuration, should be committed to Git. Use feature branches for development and merge to the main production branch (`v1.x` in our case) for deployment.
 4.  **Monitor Actively**: Use tools like `htop` for real-time monitoring and set up alerts for service failures or high resource usage.
 5.  **Secure Credentials**: Never commit secrets (like passwords or API keys) directly to Git. Use environment files (`.env`) and add them to `.gitignore`.
 
-This guide provides the foundation for successfully administering the Non-Profit Fund Accounting System. For further technical details, refer to the other documentation files in the repository.
+This guide provides the foundation for successfully administering the Mr-Moneybags-v1.x. For further technical details, refer to the other documentation files in the repository.
