@@ -15,7 +15,7 @@ router.get('/', asyncHandler(async (req, res) => {
         SELECT je.*, 
                e.name as entity_name,
                te.name as target_entity_name,
-               (SELECT COUNT(*) FROM journal_entry_lines WHERE journal_entry_id = je.id) as line_count
+               (SELECT COUNT(*) FROM journal_entry_items WHERE journal_entry_id = je.id) as line_count
         FROM journal_entries je
         LEFT JOIN entities e ON je.entity_id = e.id
         LEFT JOIN entities te ON je.target_entity_id = te.id
@@ -85,7 +85,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
                a.code as account_code,
                f.name as fund_name,
                f.code as fund_code
-        FROM journal_entry_lines jel
+        FROM journal_entry_items jel
         LEFT JOIN accounts a ON jel.account_id = a.id
         LEFT JOIN funds f ON jel.fund_id = f.id
         WHERE jel.journal_entry_id = $1
@@ -112,7 +112,7 @@ router.get('/:id/lines', asyncHandler(async (req, res) => {
                a.code as account_code,
                f.name as fund_name,
                f.code as fund_code
-        FROM journal_entry_lines jel
+        FROM journal_entry_items jel
         LEFT JOIN accounts a ON jel.account_id = a.id
         LEFT JOIN funds f ON jel.fund_id = f.id
         WHERE jel.journal_entry_id = $1
@@ -156,8 +156,8 @@ router.post('/', asyncHandler(async (req, res) => {
     let totalCredits = 0;
     
     lines.forEach(line => {
-        totalDebits += parseFloat(line.debit_amount || 0);
-        totalCredits += parseFloat(line.credit_amount || 0);
+        totalDebits += parseFloat(line.debit || 0);
+        totalCredits += parseFloat(line.credit || 0);
     });
     
     // Round to 2 decimal places to avoid floating point issues
@@ -214,65 +214,66 @@ router.post('/', asyncHandler(async (req, res) => {
                 return res.status(400).json({ error: 'Fund ID is required for all journal entry lines' });
             }
             
-            if ((line.debit_amount || 0) === 0 && (line.credit_amount || 0) === 0) {
+            // Each line must contain a non-zero debit or credit amount
+            if ((line.debit || 0) === 0 && (line.credit || 0) === 0) {
                 await client.query('ROLLBACK');
                 return res.status(400).json({ error: 'Each line must have either a debit or credit amount' });
             }
             
             await client.query(`
-                INSERT INTO journal_entry_lines (
+                INSERT INTO journal_entry_items (
                     journal_entry_id,
                     account_id,
                     fund_id,
-                    debit_amount,
-                    credit_amount,
+                    debit,
+                    credit,
                     description
                 ) VALUES ($1, $2, $3, $4, $5, $6)
             `, [
                 journalEntryId,
                 line.account_id,
                 line.fund_id,
-                line.debit_amount || 0,
-                line.credit_amount || 0,
+                line.debit || 0,
+                line.credit || 0,
                 line.description || ''
             ]);
             
             // Update account balances
-            if (line.debit_amount && line.debit_amount > 0) {
+            if (line.debit && line.debit > 0) {
                 await client.query(`
                     UPDATE accounts
                     SET balance = balance + $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.debit_amount, line.account_id]);
+                `, [line.debit, line.account_id]);
             }
             
-            if (line.credit_amount && line.credit_amount > 0) {
+            if (line.credit && line.credit > 0) {
                 await client.query(`
                     UPDATE accounts
                     SET balance = balance - $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.credit_amount, line.account_id]);
+                `, [line.credit, line.account_id]);
             }
             
             // Update fund balances
-            if (line.debit_amount && line.debit_amount > 0) {
+            if (line.debit && line.debit > 0) {
                 await client.query(`
                     UPDATE funds
                     SET balance = balance + $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.debit_amount, line.fund_id]);
+                `, [line.debit, line.fund_id]);
             }
             
-            if (line.credit_amount && line.credit_amount > 0) {
+            if (line.credit && line.credit > 0) {
                 await client.query(`
                     UPDATE funds
                     SET balance = balance - $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.credit_amount, line.fund_id]);
+                `, [line.credit, line.fund_id]);
             }
         }
         
@@ -296,7 +297,7 @@ router.post('/', asyncHandler(async (req, res) => {
                    a.code as account_code,
                    f.name as fund_name,
                    f.code as fund_code
-            FROM journal_entry_lines jel
+            FROM journal_entry_items jel
             LEFT JOIN accounts a ON jel.account_id = a.id
             LEFT JOIN funds f ON jel.fund_id = f.id
             WHERE jel.journal_entry_id = $1
@@ -388,7 +389,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
         
         // Get the journal entry lines to reverse account and fund balances
         const linesResult = await client.query(`
-            SELECT * FROM journal_entry_lines WHERE journal_entry_id = $1
+            SELECT * FROM journal_entry_items WHERE journal_entry_id = $1
         `, [id]);
         
         if (linesResult.rows.length === 0) {
@@ -403,46 +404,46 @@ router.delete('/:id', asyncHandler(async (req, res) => {
         // Reverse account and fund balances
         for (const line of linesResult.rows) {
             // Reverse account balances
-            if (line.debit_amount && line.debit_amount > 0) {
+            if (line.debit && line.debit > 0) {
                 await client.query(`
                     UPDATE accounts
                     SET balance = balance - $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.debit_amount, line.account_id]);
+                `, [line.debit, line.account_id]);
             }
             
-            if (line.credit_amount && line.credit_amount > 0) {
+            if (line.credit && line.credit > 0) {
                 await client.query(`
                     UPDATE accounts
                     SET balance = balance + $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.credit_amount, line.account_id]);
+                `, [line.credit, line.account_id]);
             }
             
             // Reverse fund balances
-            if (line.debit_amount && line.debit_amount > 0) {
+            if (line.debit && line.debit > 0) {
                 await client.query(`
                     UPDATE funds
                     SET balance = balance - $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.debit_amount, line.fund_id]);
+                `, [line.debit, line.fund_id]);
             }
             
-            if (line.credit_amount && line.credit_amount > 0) {
+            if (line.credit && line.credit > 0) {
                 await client.query(`
                     UPDATE funds
                     SET balance = balance + $1,
                         updated_at = NOW()
                     WHERE id = $2
-                `, [line.credit_amount, line.fund_id]);
+                `, [line.credit, line.fund_id]);
             }
         }
         
         // Delete the journal entry lines
-        await client.query('DELETE FROM journal_entry_lines WHERE journal_entry_id = $1', [id]);
+        await client.query('DELETE FROM journal_entry_items WHERE journal_entry_id = $1', [id]);
         
         // Delete the journal entry
         const result = await client.query('DELETE FROM journal_entries WHERE id = $1 RETURNING id', [id]);
