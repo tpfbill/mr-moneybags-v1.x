@@ -214,19 +214,6 @@ router.put('/:id', asyncHandler(async (req, res) => {
 router.delete('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    // Check for journal entry lines using this fund
-    const journalLinesCheck = await pool.query(
-        'SELECT id FROM journal_entry_lines WHERE fund_id = $1 LIMIT 1',
-        [id]
-    );
-    
-    if (journalLinesCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Cannot delete fund with journal entry lines',
-            details: 'This fund is referenced in journal entries and cannot be deleted'
-        });
-    }
-    
     // Check for journal entry items using this fund
     const journalItemsCheck = await pool.query(
         'SELECT id FROM journal_entry_items WHERE fund_id = $1 LIMIT 1',

@@ -207,7 +207,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     }
 
                     await client.query(
-                        `INSERT INTO journal_entry_lines (journal_entry_id, account_id, fund_id, debit_amount, credit_amount, description)
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
                          VALUES ($1, $2, $3, $4, $5, $6)`,
                         [
                             journalEntryId,

@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr-Moneybags-v1.x - Backend Architecture</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --primary-dark: #2980b9;
+            --secondary-color: #2ecc71;
+            --secondary-dark: #27ae60;
+            --accent-color: #e74c3c;
+            --light-bg: #f5f7fa;
+            --dark-bg: #2c3e50;
+            --text-color: #333;
+            --light-text: #f5f7fa;
+            --border-color: #ddd;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            
+            --core-color: #e3f2fd;
+            --core-border: #90caf9;
+            --routes-color: #e8f5e9;
+            --routes-border: #a5d6a7;
+            --utils-color: #fff3e0;
+            --utils-border: #ffcc80;
+            --server-color: #f3e5f5;
+            --server-border: #ce93d8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--light-bg);
+            padding: 0;
+            margin: 0;
+        }
+
+        header {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            padding: 2rem;
+            text-align: center;
+        }
+
+        header h1 {
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 2rem;
+        }
+
+        .section-title {
+            color: var(--dark-bg);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .section-content {
+            margin-top: 1.5rem;
+        }
+
+        /* Before/After Comparison */
+        .comparison {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .comparison-item {
+            flex: 1;
+            min-width: 300px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .comparison-title {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: var(--dark-bg);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .comparison-image {
+            width: 100%;
+            height: 250px;
+            background-color: var(--light-bg);
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .comparison-image svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .comparison-details {
+            margin-top: 1rem;
+        }
+
+        .comparison-details ul {
+            list-style-type: none;
+            margin-left: 0;
+        }
+
+        .comparison-details li {
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .comparison-details li::before {
+            content: "•";
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        /* Module Explorer */
+        .module-explorer {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .module-filter {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-button {
+            padding: 0.5rem 1rem;
+            background-color: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-button:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .filter-button.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .module-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            border-top: 4px solid var(--primary-color);
+        }
+
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .module-card.core {
+            border-top-color: var(--core-border);
+        }
+
+        .module-card.routes {
+            border-top-color: var(--routes-border);
+        }
+
+        .module-card.utils {
+            border-top-color: var(--utils-border);
+        }
+
+        .module-card.server {
+            border-top-color: var(--server-border);
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .module-name {
+            font-weight: bold;
+            color: var(--dark-bg);
+        }
+
+        .module-lines {
+            background-color: var(--light-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--dark-bg);
+        }
+
+        .module-description {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .module-path {
+            font-family: monospace;
+            background-color: var(--light-bg);
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+            word-break: break-all;
+        }
+
+        .module-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .module-tag {
+            background-color: var(--light-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Module Details Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            overflow: auto;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 900px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+
+        .module-detail-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .module-detail-title {
+            font-size: 1.5rem;
+            color: var(--dark-bg);
+            margin-bottom: 0.5rem;
+        }
+
+        .module-detail-path {
+            font-family: monospace;
+            color: var(--text-color);
+        }
+
+        .module-detail-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-color);
+        }
+
+        .module-detail-description {
+            margin-bottom: 1.5rem;
+        }
+
+        .module-detail-code {
+            background-color: var(--light-bg);
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            overflow-x: auto;
+            margin-bottom: 1.5rem;
+        }
+
+        .module-detail-dependencies {
+            margin-bottom: 1.5rem;
+        }
+
+        .dependency-list {
+            list-style-type: none;
+        }
+
+        .dependency-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .dependency-item:last-child {
+            border-bottom: none;
+        }
+
+        .dependency-icon {
+            margin-right: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        /* Metrics Section */
+        .metrics-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            flex: 1;
+            min-width: 200px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        .benefits-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .benefit-item {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .benefit-icon {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            align-self: center;
+        }
+
+        .benefit-title {
+            font-weight: bold;
+            color: var(--dark-bg);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .benefit-description {
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        /* Dependency Visualization */
+        .dependency-visualization {
+            width: 100%;
+            height: 600px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            margin-top: 2rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .comparison-item {
+                min-width: 100%;
+            }
+
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 1.5rem;
+            }
+
+            .module-detail-stats {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .footer-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .footer-links {
+            margin-top: 1rem;
+        }
+
+        .footer-links a {
+            color: var(--light-text);
+            margin: 0 0.5rem;
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Mr-Moneybags-v1.x</h1>
+        <div class="subtitle">Node.js/Express Backend Architecture</div>
+    </header>
+
+    <div class="container">
+        <!-- Before/After Comparison Section -->
+        <section class="section">
+            <h2 class="section-title">Monolithic to Modular Backend Transformation</h2>
+            <p>A comprehensive visualization of the backend's transformation from a single monolithic server file to a clean, modular architecture. The frontend consists of separate static HTML, CSS, and JavaScript files that interact with this backend via API calls.</p>
+            
+            <div class="section-content">
+                <div class="comparison">
+                    <div class="comparison-item">
+                        <div class="comparison-title">Before: Monolithic Backend</div>
+                        <div class="comparison-image">
+                            <svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Server.js monolith representation -->
+                                <rect x="100" y="50" width="200" height="150" rx="10" fill="#e74c3c" />
+                                <text x="200" y="125" text-anchor="middle" fill="white" font-weight="bold">server.js</text>
+                                <text x="200" y="145" text-anchor="middle" fill="white" font-size="12">1,694 lines</text>
+                                
+                                <!-- Small icons inside to represent mixed concerns -->
+                                <rect x="120" y="70" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="120" y="100" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="120" y="130" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="120" y="160" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                
+                                <rect x="160" y="70" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="160" y="100" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="160" y="130" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="160" y="160" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                
+                                <rect x="200" y="70" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="200" y="100" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="200" y="130" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="200" y="160" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                
+                                <rect x="240" y="70" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="240" y="100" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="240" y="130" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                                <rect x="240" y="160" width="30" height="20" rx="3" fill="white" opacity="0.3" />
+                            </svg>
+                        </div>
+                        <div class="comparison-details">
+                            <ul>
+                                <li>Single monolithic file (1,694 lines)</li>
+                                <li>Mixed concerns and responsibilities</li>
+                                <li>Difficult to maintain and extend</li>
+                                <li>Challenging for team collaboration</li>
+                                <li>Prone to merge conflicts</li>
+                                <li>Difficult to test individual components</li>
+                                <li>Poor separation of concerns</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="comparison-item">
+                        <div class="comparison-title">After: Modular Backend</div>
+                        <div class="comparison-image">
+                            <svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Server-modular.js -->
+                                <rect x="170" y="30" width="60" height="40" rx="5" fill="#9b59b6" />
+                                <text x="200" y="55" text-anchor="middle" fill="white" font-size="8">server-modular.js</text>
+                                
+                                <!-- Database module -->
+                                <rect x="50" y="100" width="50" height="40" rx="5" fill="#3498db" />
+                                <text x="75" y="125" text-anchor="middle" fill="white" font-size="8">database</text>
+                                
+                                <!-- Utils module -->
+                                <rect x="120" y="100" width="50" height="40" rx="5" fill="#f39c12" />
+                                <text x="145" y="125" text-anchor="middle" fill="white" font-size="8">utils</text>
+                                
+                                <!-- Middleware module -->
+                                <rect x="190" y="100" width="50" height="40" rx="5" fill="#1abc9c" />
+                                <text x="215" y="125" text-anchor="middle" fill="white" font-size="8">middleware</text>
+                                
+                                <!-- Routes modules -->
+                                <rect x="50" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="65" y="190" text-anchor="middle" fill="white" font-size="6">entities</text>
+                                
+                                <rect x="90" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="105" y="190" text-anchor="middle" fill="white" font-size="6">accounts</text>
+                                
+                                <rect x="130" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="145" y="190" text-anchor="middle" fill="white" font-size="6">funds</text>
+                                
+                                <rect x="170" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="185" y="190" text-anchor="middle" fill="white" font-size="6">vendors</text>
+                                
+                                <rect x="210" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="225" y="190" text-anchor="middle" fill="white" font-size="6">payments</text>
+                                
+                                <rect x="250" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="265" y="190" text-anchor="middle" fill="white" font-size="6">journals</text>
+                                
+                                <rect x="290" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="305" y="190" text-anchor="middle" fill="white" font-size="6">users</text>
+                                
+                                <rect x="330" y="170" width="30" height="30" rx="5" fill="#2ecc71" />
+                                <text x="345" y="190" text-anchor="middle" fill="white" font-size="6">reports</text>
+                                
+                                <!-- Connection lines -->
+                                <line x1="200" y1="70" x2="75" y2="100" stroke="#333" stroke-width="1" />
+                                <line x1="200" y1="70" x2="145" y2="100" stroke="#333" stroke-width="1" />
+                                <line x1="200" y1="70" x2="215" y2="100" stroke="#333" stroke-width="1" />
+                                
+                                <line x1="75" y1="140" x2="65" y2="170" stroke="#333" stroke-width="1" />
+                                <line x1="75" y1="140" x2="105" y2="170" stroke="#333" stroke-width="1" />
+                                <line x1="75" y1="140" x2="145" y2="170" stroke="#333" stroke-width="1" />
+                                
+                                <line x1="145" y1="140" x2="185" y2="170" stroke="#333" stroke-width="1" />
+                                <line x1="145" y1="140" x2="225" y2="170" stroke="#333" stroke-width="1" />
+                                <line x1="145" y1="140" x2="265" y2="170" stroke="#333" stroke-width="1" />
+                                
+                                <line x1="215" y1="140" x2="305" y2="170" stroke="#333" stroke-width="1" />
+                                <line x1="215" y1="140" x2="345" y2="170" stroke="#333" stroke-width="1" />
+                            </svg>
+                        </div>
+                        <div class="comparison-details">
+                            <ul>
+                                <li>15 focused modules (2,900+ total lines)</li>
+                                <li>Clean separation of concerns</li>
+                                <li>Modular server orchestration (110 lines)</li>
+                                <li>Domain-specific API route handlers</li>
+                                <li>Shared utilities and middleware</li>
+                                <li>Improved testability and maintainability</li>
+                                <li>Team-friendly architecture</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Module Explorer Section -->
+        <section class="section">
+            <h2 class="section-title">Backend Module Explorer</h2>
+            <p>Explore all modules in the Node.js/Express backend architecture. Each module provides specific API endpoints that the frontend interacts with. Click on any module to see detailed information.</p>
+            
+            <div class="section-content">
+                <div class="module-filter">
+                    <button class="filter-button active" data-filter="all">All Modules</button>
+                    <button class="filter-button" data-filter="core">Core Infrastructure</button>
+                    <button class="filter-button" data-filter="routes">Route Handlers</button>
+                    <button class="filter-button" data-filter="utils">Utilities</button>
+                    <button class="filter-button" data-filter="server">Server</button>
+                </div>
+                
+                <div class="modules-grid">
+                    <!-- Server Module -->
+                    <div class="module-card server" data-category="server">
+                        <div class="module-header">
+                            <span class="module-name">server-modular.js</span>
+                            <span class="module-lines">110 lines</span>
+                        </div>
+                        <div class="module-description">Main Express application orchestration, API route registration, and server startup</div>
+                        <div class="module-path">./server-modular.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Server</span>
+                            <span class="module-tag">Orchestration</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Core Infrastructure Modules -->
+                    <div class="module-card core" data-category="core">
+                        <div class="module-header">
+                            <span class="module-name">connection.js</span>
+                            <span class="module-lines">108 lines</span>
+                        </div>
+                        <div class="module-description">PostgreSQL database connection pool and initialization using consolidated schema</div>
+                        <div class="module-path">./src/database/connection.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Database</span>
+                            <span class="module-tag">Core</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card utils" data-category="utils">
+                        <div class="module-header">
+                            <span class="module-name">helpers.js</span>
+                            <span class="module-lines">95 lines</span>
+                        </div>
+                        <div class="module-description">Common utility functions and helper methods for API endpoints</div>
+                        <div class="module-path">./src/utils/helpers.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Utilities</span>
+                            <span class="module-tag">Helpers</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card utils" data-category="utils">
+                        <div class="module-header">
+                            <span class="module-name">error-handler.js</span>
+                            <span class="module-lines">150 lines</span>
+                        </div>
+                        <div class="module-description">Centralized error handling middleware for API responses</div>
+                        <div class="module-path">./src/middleware/error-handler.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Middleware</span>
+                            <span class="module-tag">Error Handling</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Route Handler Modules -->
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">entities.js</span>
+                            <span class="module-lines">227 lines</span>
+                        </div>
+                        <div class="module-description">Entity hierarchy management API with circular reference detection</div>
+                        <div class="module-path">./src/routes/entities.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Core Data</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">accounts.js</span>
+                            <span class="module-lines">215 lines</span>
+                        </div>
+                        <div class="module-description">Chart of accounts CRUD operations API endpoints</div>
+                        <div class="module-path">./src/routes/accounts.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Core Data</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">funds.js</span>
+                            <span class="module-lines">206 lines</span>
+                        </div>
+                        <div class="module-description">Fund accounting operations and management API</div>
+                        <div class="module-path">./src/routes/funds.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Core Data</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">vendors.js</span>
+                            <span class="module-lines">133 lines</span>
+                        </div>
+                        <div class="module-description">Vendor management and bank account operations API</div>
+                        <div class="module-path">./src/routes/vendors.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Vendors</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">payment-batches.js</span>
+                            <span class="module-lines">409 lines</span>
+                        </div>
+                        <div class="module-description">Payment batch processing and management API endpoints</div>
+                        <div class="module-path">./src/routes/payment-batches.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Payments</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">nacha-settings.js</span>
+                            <span class="module-lines">205 lines</span>
+                        </div>
+                        <div class="module-description">NACHA configuration for ACH payments API</div>
+                        <div class="module-path">./src/routes/nacha-settings.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Payments</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">nacha-files.js</span>
+                            <span class="module-lines">185 lines</span>
+                        </div>
+                        <div class="module-description">NACHA file generation and management API</div>
+                        <div class="module-path">./src/routes/nacha-files.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Payments</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">journal-entries.js</span>
+                            <span class="module-lines">385 lines</span>
+                        </div>
+                        <div class="module-description">Double-entry bookkeeping and transaction management API</div>
+                        <div class="module-path">./src/routes/journal-entries.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Accounting</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">bank-accounts.js</span>
+                            <span class="module-lines">201 lines</span>
+                        </div>
+                        <div class="module-description">Banking operations and account management API</div>
+                        <div class="module-path">./src/routes/bank-accounts.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">users.js</span>
+                            <span class="module-lines">130 lines</span>
+                        </div>
+                        <div class="module-description">User management and authentication API endpoints</div>
+                        <div class="module-path">./src/routes/users.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Users</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">reports.js</span>
+                            <span class="module-lines">189 lines</span>
+                        </div>
+                        <div class="module-description">Custom report builder API with dynamic queries</div>
+                        <div class="module-path">./src/routes/reports.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Reporting</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">import.js</span>
+                            <span class="module-lines">248 lines</span>
+                        </div>
+                        <div class="module-description">Data import functionality API endpoints</div>
+                        <div class="module-path">./src/routes/import.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Import</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Module Detail Modal -->
+        <div id="moduleModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <div class="module-detail-header">
+                    <h2 class="module-detail-title">Module Name</h2>
+                    <div class="module-detail-path">./path/to/module.js</div>
+                </div>
+                
+                <div class="module-detail-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Lines of Code</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">API Endpoints</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Dependencies</div>
+                    </div>
+                </div>
+                
+                <div class="module-detail-description">
+                    <h3>Description</h3>
+                    <p>Detailed module description goes here.</p>
+                </div>
+                
+                <div class="module-detail-code">
+                    <h3>Sample Code</h3>
+                    <pre><code>// Sample code snippet
+const express = require('express');
+const router = express.Router();
+
+router.get('/', (req, res) => {
+    res.json({ message: 'API endpoint works!' });
+});
+
+module.exports = router;</code></pre>
+                </div>
+                
+                <div class="module-detail-dependencies">
+                    <h3>Dependencies</h3>
+                    <ul class="dependency-list">
+                        <li class="dependency-item">
+                            <span class="dependency-icon">↔️</span>
+                            <span>express</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics and Benefits Section -->
+        <section class="section">
+            <h2 class="section-title">Backend Code Metrics & Benefits</h2>
+            <p>Key metrics and benefits of the modular backend architecture transformation.</p>
+            
+            <div class="section-content">
+                <div class="metrics-container">
+                    <div class="metric-card">
+                        <div class="metric-value">15</div>
+                        <div class="metric-label">Focused Modules</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">2,900+</div>
+                        <div class="metric-label">Total Lines of Code</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">110</div>
+                        <div class="metric-label">Server Orchestration Lines</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">12</div>
+                        <div class="metric-label">API Route Modules</div>
+                    </div>
+                </div>
+                
+                <div class="benefits-list">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🔧</div>
+                        <div class="benefit-title">Maintainability</div>
+                        <div class="benefit-description">Each backend module handles one business domain, making the codebase easier to maintain and update. Focused modules with clear API responsibilities.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">⚡</div>
+                        <div class="benefit-title">Performance</div>
+                        <div class="benefit-description">Faster file loading and editing. Improved development experience with smaller, more manageable files. Better API response times.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">👥</div>
+                        <div class="benefit-title">Team Development</div>
+                        <div class="benefit-description">Multiple developers can work in parallel on different backend modules without conflicts. Improved collaboration and productivity.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🧪</div>
+                        <div class="benefit-title">Testability</div>
+                        <div class="benefit-description">Individual API modules can be tested in isolation, enabling more comprehensive unit testing and improved code quality.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🐛</div>
+                        <div class="benefit-title">Debugging</div>
+                        <div class="benefit-description">Easier to locate and fix API issues when they're isolated to specific modules. Reduced debugging time and complexity.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">📝</div>
+                        <div class="benefit-title">Code Review</div>
+                        <div class="benefit-description">Smaller, focused API changes are easier to review, leading to better code quality and fewer bugs in production.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Module Dependency Visualization -->
+        <section class="section">
+            <h2 class="section-title">Backend Module Dependency Visualization</h2>
+            <p>Interactive visualization of backend module dependencies and relationships. All modules interact with the consolidated database schema in database/db-init.sql.</p>
+            
+            <div class="section-content">
+                <div class="dependency-visualization" id="dependencyVisualization">
+                    <svg width="100%" height="100%" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Server Module (Central) -->
+                        <g class="module-node" id="server-node">
+                            <circle cx="500" cy="300" r="50" fill="#9b59b6" />
+                            <text x="500" y="305" text-anchor="middle" fill="white" font-weight="bold">server-modular.js</text>
+                        </g>
+                        
+                        <!-- Core Infrastructure Modules -->
+                        <g class="module-node" id="connection-node">
+                            <circle cx="300" cy="150" r="40" fill="#3498db" />
+                            <text x="300" y="155" text-anchor="middle" fill="white" font-weight="bold">connection.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="helpers-node">
+                            <circle cx="500" cy="150" r="40" fill="#f39c12" />
+                            <text x="500" y="155" text-anchor="middle" fill="white" font-weight="bold">helpers.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="error-handler-node">
+                            <circle cx="700" cy="150" r="40" fill="#1abc9c" />
+                            <text x="700" y="155" text-anchor="middle" fill="white" font-weight="bold">error-handler.js</text>
+                        </g>
+                        
+                        <!-- Route Modules (First Row) -->
+                        <g class="module-node" id="entities-node">
+                            <circle cx="200" cy="450" r="35" fill="#2ecc71" />
+                            <text x="200" y="455" text-anchor="middle" fill="white" font-weight="bold">entities.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="accounts-node">
+                            <circle cx="300" cy="450" r="35" fill="#2ecc71" />
+                            <text x="300" y="455" text-anchor="middle" fill="white" font-weight="bold">accounts.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="funds-node">
+                            <circle cx="400" cy="450" r="35" fill="#2ecc71" />
+                            <text x="400" y="455" text-anchor="middle" fill="white" font-weight="bold">funds.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="vendors-node">
+                            <circle cx="500" cy="450" r="35" fill="#2ecc71" />
+                            <text x="500" y="455" text-anchor="middle" fill="white" font-weight="bold">vendors.js</text>
+                        </g>
+                        
+                        <!-- Route Modules (Second Row) -->
+                        <g class="module-node" id="payment-batches-node">
+                            <circle cx="600" cy="450" r="35" fill="#2ecc71" />
+                            <text x="600" y="455" text-anchor="middle" fill="white" font-size="10">payment-batches.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="nacha-settings-node">
+                            <circle cx="700" cy="450" r="35" fill="#2ecc71" />
+                            <text x="700" y="455" text-anchor="middle" fill="white" font-size="10">nacha-settings.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="journal-entries-node">
+                            <circle cx="800" cy="450" r="35" fill="#2ecc71" />
+                            <text x="800" y="455" text-anchor="middle" fill="white" font-size="10">journal-entries.js</text>
+                        </g>
+                        
+                        <!-- Route Modules (Third Row) -->
+                        <g class="module-node" id="bank-accounts-node">
+                            <circle cx="300" cy="550" r="35" fill="#2ecc71" />
+                            <text x="300" y="555" text-anchor="middle" fill="white" font-size="10">bank-accounts.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="users-node">
+                            <circle cx="400" cy="550" r="35" fill="#2ecc71" />
+                            <text x="400" y="555" text-anchor="middle" fill="white" font-weight="bold">users.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="reports-node">
+                            <circle cx="500" cy="550" r="35" fill="#2ecc71" />
+                            <text x="500" y="555" text-anchor="middle" fill="white" font-weight="bold">reports.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="import-node">
+                            <circle cx="600" cy="550" r="35" fill="#2ecc71" />
+                            <text x="600" y="555" text-anchor="middle" fill="white" font-weight="bold">import.js</text>
+                        </g>
+                        
+                        <g class="module-node" id="nacha-files-node">
+                            <circle cx="700" cy="550" r="35" fill="#2ecc71" />
+                            <text x="700" y="555" text-anchor="middle" fill="white" font-size="10">nacha-files.js</text>
+                        </g>
+                        
+                        <!-- Connection Lines from Server to Core -->
+                        <line x1="500" y1="250" x2="300" y2="190" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="500" y1="250" x2="500" y2="190" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="500" y1="250" x2="700" y2="190" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
+                        
+                        <!-- Connection Lines from Server to Routes (First Row) -->
+                        <line x1="500" y1="350" x2="200" y2="415" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="300" y2="415" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="400" y2="415" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="500" y2="415" stroke="#333" stroke-width="2" />
+                        
+                        <!-- Connection Lines from Server to Routes (Second Row) -->
+                        <line x1="500" y1="350" x2="600" y2="415" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="700" y2="415" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="800" y2="415" stroke="#333" stroke-width="2" />
+                        
+                        <!-- Connection Lines from Server to Routes (Third Row) -->
+                        <line x1="500" y1="350" x2="300" y2="515" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="400" y2="515" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="500" y2="515" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="600" y2="515" stroke="#333" stroke-width="2" />
+                        <line x1="500" y1="350" x2="700" y2="515" stroke="#333" stroke-width="2" />
+                        
+                        <!-- Connection Lines between Route Modules -->
+                        <line x1="200" y1="485" x2="300" y2="515" stroke="#333" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="300" y1="485" x2="400" y2="515" stroke="#333" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="400" y1="485" x2="500" y2="515" stroke="#333" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="600" y1="485" x2="500" y2="515" stroke="#333" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="700" y1="485" x2="600" y2="515" stroke="#333" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="700" y1="485" x2="700" y2="515" stroke="#333" stroke-width="1" stroke-dasharray="3,3" />
+                        
+                        <!-- Connection Lines from Core to Routes -->
+                        <line x1="300" y1="190" x2="200" y2="415" stroke="#3498db" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="300" y1="190" x2="300" y2="415" stroke="#3498db" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="300" y1="190" x2="400" y2="415" stroke="#3498db" stroke-width="1" stroke-dasharray="3,3" />
+                        
+                        <line x1="500" y1="190" x2="500" y2="415" stroke="#f39c12" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="500" y1="190" x2="600" y2="415" stroke="#f39c12" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="500" y1="190" x2="700" y2="415" stroke="#f39c12" stroke-width="1" stroke-dasharray="3,3" />
+                        
+                        <line x1="700" y1="190" x2="800" y2="415" stroke="#1abc9c" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="700" y1="190" x2="400" y2="515" stroke="#1abc9c" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="700" y1="190" x2="500" y2="515" stroke="#1abc9c" stroke-width="1" stroke-dasharray="3,3" />
+                    </svg>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <p>Mr-Moneybags-v1.x Backend Architecture</p>
+            <p>Node.js/Express API server with consolidated database schema</p>
+            <div class="footer-links">
+                <a href="database-er-diagram.html">Database Schema</a>
+                <a href="docs/guides/Ubuntu_Deployment_Guide_v1.x.pdf">Deployment Guide</a>
+                <a href="#">Documentation</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Module Filter Functionality
+        const filterButtons = document.querySelectorAll('.filter-button');
+        const moduleCards = document.querySelectorAll('.module-card');
+        
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Update active button
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // Filter modules
+                const filter = button.getAttribute('data-filter');
+                
+                moduleCards.forEach(card => {
+                    if (filter === 'all' || card.getAttribute('data-category') === filter) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Module Detail Modal Functionality
+        const modal = document.getElementById('moduleModal');
+        const closeButton = document.querySelector('.close-button');
+        
+        moduleCards.forEach(card => {
+            card.addEventListener('click', () => {
+                // Get module details
+                const moduleName = card.querySelector('.module-name').textContent;
+                const modulePath = card.querySelector('.module-path').textContent;
+                const moduleLines = card.querySelector('.module-lines').textContent.split(' ')[0];
+                const moduleDescription = card.querySelector('.module-description').textContent;
+                
+                // Update modal content
+                document.querySelector('.module-detail-title').textContent = moduleName;
+                document.querySelector('.module-detail-path').textContent = modulePath;
+                document.querySelector('.stat-value').textContent = moduleLines;
+                
+                // Set API endpoints count based on module type
+                const categoryType = card.getAttribute('data-category');
+                let apiEndpoints = 0;
+                
+                if (categoryType === 'routes') {
+                    // Estimate API endpoints based on module size
+                    apiEndpoints = Math.round(parseInt(moduleLines) / 50);
+                }
+                
+                document.querySelectorAll('.stat-value')[1].textContent = apiEndpoints;
+                
+                // Set dependencies count
+                let dependencies = 2; // Minimum dependencies (express, pool)
+                
+                if (moduleName === 'server-modular.js') {
+                    dependencies = 15; // All route modules + core modules
+                } else if (categoryType === 'routes') {
+                    dependencies = 3; // express, pool, helpers
+                }
+                
+                document.querySelectorAll('.stat-value')[2].textContent = dependencies;
+                
+                // Update description
+                document.querySelector('.module-detail-description p').textContent = moduleDescription;
+                
+                // Update sample code based on module type
+                let sampleCode = '';
+                
+                if (categoryType === 'routes') {
+                    sampleCode = `// ${moduleName} - Route handler module
+const express = require('express');
+const router = express.Router();
+const { pool } = require('../database/connection');
+const { asyncHandler } = require('../utils/helpers');
+
+/**
+ * GET /api/${moduleName.replace('.js', '')}
+ * Returns all items
+ */
+router.get('/', asyncHandler(async (req, res) => {
+    const { rows } = await pool.query('SELECT * FROM ${moduleName.replace('.js', '')}');
+    res.json(rows);
+}));
+
+module.exports = router;`;
+                } else if (moduleName === 'server-modular.js') {
+                    sampleCode = `// server-modular.js - Main application orchestration
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { pool } = require('./src/database/connection');
+const { errorHandler } = require('./src/middleware/error-handler');
+
+// Initialize Express app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Configure middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
+// Register API routes
+app.use('/api/entities', require('./src/routes/entities'));
+app.use('/api/accounts', require('./src/routes/accounts'));
+// ... more route registrations
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(\`Server running on port \${PORT}\`);
+});`;
+                } else if (moduleName === 'connection.js') {
+                    sampleCode = `// Database connection module
+const { Pool } = require('pg');
+
+// Initialize database connection pool
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT
+});
+
+// Test database connection
+const testConnection = async () => {
+    try {
+        const client = await pool.connect();
+        console.log('Database connected successfully');
+        client.release();
+        return true;
+    } catch (error) {
+        console.error('Database connection error:', error);
+        return false;
+    }
+};
+
+module.exports = { pool, testConnection };`;
+                } else {
+                    sampleCode = `// ${moduleName} - Utility module
+const ${moduleName.replace('.js', '')} = {
+    /**
+     * Async handler wrapper to avoid try/catch blocks
+     */
+    asyncHandler: (fn) => (req, res, next) => {
+        Promise.resolve(fn(req, res, next)).catch(next);
+    },
+    
+    /**
+     * Request logger middleware
+     */
+    requestLogger: (req, res, next) => {
+        console.log(\`\${new Date().toISOString()} [\${req.method}] \${req.url}\`);
+        next();
+    }
+};
+
+module.exports = ${moduleName.replace('.js', '')};`;
+                }
+                
+                document.querySelector('.module-detail-code code').textContent = sampleCode;
+                
+                // Update dependencies list
+                const dependencyList = document.querySelector('.dependency-list');
+                dependencyList.innerHTML = '';
+                
+                const commonDeps = ['express', 'pool'];
+                
+                if (categoryType === 'routes') {
+                    commonDeps.push('asyncHandler');
+                }
+                
+                if (moduleName === 'server-modular.js') {
+                    const routeDeps = [
+                        'entities', 'accounts', 'funds', 'vendors', 
+                        'payment-batches', 'nacha-settings', 'nacha-files', 'journal-entries',
+                        'bank-accounts', 'users', 'reports', 'import'
+                    ];
+                    
+                    routeDeps.forEach(dep => {
+                        commonDeps.push(`./src/routes/${dep}`);
+                    });
+                }
+                
+                commonDeps.forEach(dep => {
+                    const li = document.createElement('li');
+                    li.className = 'dependency-item';
+                    li.innerHTML = `<span class="dependency-icon">↔️</span><span>${dep}</span>`;
+                    dependencyList.appendChild(li);
+                });
+                
+                // Show modal
+                modal.style.display = 'block';
+            });
+        });
+        
+        // Close modal when clicking the close button
+        closeButton.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        
+        // Close modal when clicking outside the modal content
+        window.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+        
+        // Module Dependency Visualization Interactivity
+        const moduleNodes = document.querySelectorAll('.module-node');
+        
+        moduleNodes.forEach(node => {
+            node.addEventListener('mouseenter', () => {
+                // Highlight the node
+                const circle = node.querySelector('circle');
+                const originalFill = circle.getAttribute('fill');
+                circle.setAttribute('fill-opacity', '0.7');
+                circle.setAttribute('stroke', '#fff');
+                circle.setAttribute('stroke-width', '3');
+                
+                // Store original attributes for reset
+                circle.setAttribute('data-original-fill', originalFill);
+            });
+            
+            node.addEventListener('mouseleave', () => {
+                // Reset the node
+                const circle = node.querySelector('circle');
+                const originalFill = circle.getAttribute('data-original-fill');
+                circle.setAttribute('fill', originalFill);
+                circle.setAttribute('fill-opacity', '1');
+                circle.removeAttribute('stroke');
+                circle.removeAttribute('stroke-width');
+            });
+        });
+    </script>
+</body>
+</html>

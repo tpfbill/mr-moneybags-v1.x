@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr-Moneybags-v1.x - Frontend Architecture</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --primary-dark: #2980b9;
+            --secondary-color: #2ecc71;
+            --secondary-dark: #27ae60;
+            --accent-color: #e74c3c;
+            --light-bg: #f5f7fa;
+            --dark-bg: #2c3e50;
+            --text-color: #333;
+            --light-text: #f5f7fa;
+            --border-color: #ddd;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            
+            --html-color: #e3f2fd;
+            --html-border: #90caf9;
+            --css-color: #e8f5e9;
+            --css-border: #a5d6a7;
+            --js-color: #fff3e0;
+            --js-border: #ffcc80;
+            --doc-color: #f3e5f5;
+            --doc-border: #ce93d8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--light-bg);
+            padding: 0;
+            margin: 0;
+        }
+
+        header {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            padding: 2rem;
+            text-align: center;
+        }
+
+        header h1 {
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 2rem;
+        }
+
+        .section-title {
+            color: var(--dark-bg);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .section-content {
+            margin-top: 1.5rem;
+        }
+
+        /* Architecture Diagram */
+        .architecture-diagram {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .architecture-diagram svg {
+            width: 100%;
+            height: auto;
+        }
+
+        /* Module Explorer */
+        .module-filter {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-button {
+            padding: 0.5rem 1rem;
+            background-color: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-button:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .filter-button.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .module-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            border-top: 4px solid var(--primary-color);
+        }
+
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .module-card.html {
+            border-top-color: var(--html-border);
+            background-color: var(--html-color);
+        }
+
+        .module-card.css {
+            border-top-color: var(--css-border);
+            background-color: var(--css-color);
+        }
+
+        .module-card.js {
+            border-top-color: var(--js-border);
+            background-color: var(--js-color);
+        }
+
+        .module-card.doc {
+            border-top-color: var(--doc-border);
+            background-color: var(--doc-color);
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .module-name {
+            font-weight: bold;
+            color: var(--dark-bg);
+        }
+
+        .module-lines {
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--dark-bg);
+        }
+
+        .module-description {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .module-path {
+            font-family: monospace;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+            word-break: break-all;
+        }
+
+        .module-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .module-tag {
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Metrics Section */
+        .metrics-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            flex: 1;
+            min-width: 200px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        .benefits-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .benefit-item {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .benefit-icon {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            align-self: center;
+        }
+
+        .benefit-title {
+            font-weight: bold;
+            color: var(--dark-bg);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .benefit-description {
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        /* Frontend-Backend Integration */
+        .integration-diagram {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .integration-diagram svg {
+            width: 100%;
+            height: auto;
+        }
+
+        /* Code Samples */
+        .code-sample {
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .code-sample.html {
+            border-left-color: var(--html-border);
+        }
+
+        .code-sample.css {
+            border-left-color: var(--css-border);
+        }
+
+        .code-sample.js {
+            border-left-color: var(--js-border);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .footer-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .footer-links {
+            margin-top: 1rem;
+        }
+
+        .footer-links a {
+            color: var(--light-text);
+            margin: 0 0.5rem;
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Mr-Moneybags-v1.x</h1>
+        <div class="subtitle">Frontend Architecture</div>
+    </header>
+
+    <div class="container">
+        <!-- Frontend Overview Section -->
+        <section class="section">
+            <h2 class="section-title">Single Page Application Architecture</h2>
+            <p>The Mr. MoneyBags v1.x frontend is built as a modern Single Page Application (SPA) with modular HTML, CSS, and JavaScript components. The frontend communicates with the backend via REST API calls to provide a seamless user experience.</p>
+            
+            <div class="section-content">
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Main HTML Container -->
+                        <rect x="300" y="50" width="200" height="60" rx="5" fill="#3498db" />
+                        <text x="400" y="85" text-anchor="middle" fill="white" font-size="16">index.html</text>
+                        
+                        <!-- CSS Modules -->
+                        <rect x="100" y="180" width="160" height="50" rx="5" fill="#2ecc71" />
+                        <text x="180" y="210" text-anchor="middle" fill="white" font-size="14">styles.css</text>
+                        
+                        <rect x="100" y="250" width="160" height="50" rx="5" fill="#2ecc71" />
+                        <text x="180" y="280" text-anchor="middle" fill="white" font-size="14">entity-hierarchy.css</text>
+                        
+                        <rect x="100" y="320" width="160" height="50" rx="5" fill="#2ecc71" />
+                        <text x="180" y="350" text-anchor="middle" fill="white" font-size="14">vendor-payments.css</text>
+                        
+                        <!-- JS Modules -->
+                        <rect x="540" y="180" width="160" height="50" rx="5" fill="#f39c12" />
+                        <text x="620" y="210" text-anchor="middle" fill="white" font-size="14">app.js</text>
+                        
+                        <rect x="540" y="250" width="160" height="50" rx="5" fill="#f39c12" />
+                        <text x="620" y="280" text-anchor="middle" fill="white" font-size="14">ui.js</text>
+                        
+                        <rect x="540" y="320" width="160" height="50" rx="5" fill="#f39c12" />
+                        <text x="620" y="350" text-anchor="middle" fill="white" font-size="14">utils.js</text>
+                        
+                        <rect x="540" y="390" width="160" height="50" rx="5" fill="#f39c12" />
+                        <text x="620" y="420" text-anchor="middle" fill="white" font-size="14">vendor-payments.js</text>
+                        
+                        <!-- Connection lines -->
+                        <line x1="400" y1="110" x2="180" y2="180" stroke="#333" stroke-width="2" />
+                        <line x1="400" y1="110" x2="180" y2="250" stroke="#333" stroke-width="2" />
+                        <line x1="400" y1="110" x2="180" y2="320" stroke="#333" stroke-width="2" />
+                        
+                        <line x1="400" y1="110" x2="620" y2="180" stroke="#333" stroke-width="2" />
+                        <line x1="400" y1="110" x2="620" y2="250" stroke="#333" stroke-width="2" />
+                        <line x1="400" y1="110" x2="620" y2="320" stroke="#333" stroke-width="2" />
+                        <line x1="400" y1="110" x2="620" y2="390" stroke="#333" stroke-width="2" />
+                        
+                        <!-- API Connection -->
+                        <rect x="300" y="430" width="200" height="60" rx="5" fill="#9b59b6" />
+                        <text x="400" y="465" text-anchor="middle" fill="white" font-size="16">Backend API</text>
+                        
+                        <line x1="400" y1="110" x2="400" y2="430" stroke="#e74c3c" stroke-width="3" stroke-dasharray="10,5" />
+                        <text x="420" y="270" text-anchor="start" fill="#e74c3c" font-size="14" transform="rotate(90, 420, 270)">REST API Calls</text>
+                        
+                        <!-- Labels -->
+                        <text x="180" y="150" text-anchor="middle" font-size="16" font-weight="bold">CSS Modules</text>
+                        <text x="620" y="150" text-anchor="middle" font-size="16" font-weight="bold">JavaScript Modules</text>
+                    </svg>
+                </div>
+                
+                <div style="margin-top: 2rem;">
+                    <h3>Key Architecture Features</h3>
+                    <ul style="margin-left: 2rem; margin-top: 1rem;">
+                        <li>Single Page Application (SPA) architecture</li>
+                        <li>Modular CSS and JavaScript components</li>
+                        <li>REST API communication with backend</li>
+                        <li>Dynamic content loading</li>
+                        <li>Interactive data visualizations</li>
+                        <li>Responsive design for all devices</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Module Explorer Section -->
+        <section class="section">
+            <h2 class="section-title">Frontend Module Explorer</h2>
+            <p>Explore all modules in the frontend architecture. Each module provides specific functionality for the user interface.</p>
+            
+            <div class="section-content">
+                <div class="module-filter">
+                    <button class="filter-button active" data-filter="all">All Modules</button>
+                    <button class="filter-button" data-filter="html">HTML</button>
+                    <button class="filter-button" data-filter="css">CSS</button>
+                    <button class="filter-button" data-filter="js">JavaScript</button>
+                    <button class="filter-button" data-filter="doc">Documentation</button>
+                </div>
+                
+                <div class="modules-grid">
+                    <!-- HTML Modules -->
+                    <div class="module-card html" data-category="html">
+                        <div class="module-header">
+                            <span class="module-name">index.html</span>
+                            <span class="module-lines">550 lines</span>
+                        </div>
+                        <div class="module-description">Main application Single Page Application (SPA) container with all UI components</div>
+                        <div class="module-path">./index.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">HTML</span>
+                            <span class="module-tag">SPA</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card html" data-category="html">
+                        <div class="module-header">
+                            <span class="module-name">vendor-payments.html</span>
+                            <span class="module-lines">270 lines</span>
+                        </div>
+                        <div class="module-description">Vendor payments management interface with NACHA file generation</div>
+                        <div class="module-path">./vendor-payments.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">HTML</span>
+                            <span class="module-tag">Payments</span>
+                        </div>
+                    </div>
+                    
+                    <!-- CSS Modules -->
+                    <div class="module-card css" data-category="css">
+                        <div class="module-header">
+                            <span class="module-name">styles.css</span>
+                            <span class="module-lines">1250 lines</span>
+                        </div>
+                        <div class="module-description">Main application styles for all UI components and responsive design</div>
+                        <div class="module-path">./src/css/styles.css</div>
+                        <div class="module-tags">
+                            <span class="module-tag">CSS</span>
+                            <span class="module-tag">Core</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card css" data-category="css">
+                        <div class="module-header">
+                            <span class="module-name">entity-hierarchy.css</span>
+                            <span class="module-lines">145 lines</span>
+                        </div>
+                        <div class="module-description">Styles for entity hierarchy visualization and interactive elements</div>
+                        <div class="module-path">./src/css/entity-hierarchy.css</div>
+                        <div class="module-tags">
+                            <span class="module-tag">CSS</span>
+                            <span class="module-tag">Visualization</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card css" data-category="css">
+                        <div class="module-header">
+                            <span class="module-name">vendor-payments.css</span>
+                            <span class="module-lines">78 lines</span>
+                        </div>
+                        <div class="module-description">Styles for vendor payments interface and NACHA file management</div>
+                        <div class="module-path">./src/css/vendor-payments.css</div>
+                        <div class="module-tags">
+                            <span class="module-tag">CSS</span>
+                            <span class="module-tag">Payments</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card css" data-category="css">
+                        <div class="module-header">
+                            <span class="module-name">report-styles.css</span>
+                            <span class="module-lines">210 lines</span>
+                        </div>
+                        <div class="module-description">Styles for financial reports, tables, and printable documents</div>
+                        <div class="module-path">./src/css/report-styles.css</div>
+                        <div class="module-tags">
+                            <span class="module-tag">CSS</span>
+                            <span class="module-tag">Reports</span>
+                        </div>
+                    </div>
+                    
+                    <!-- JavaScript Modules -->
+                    <div class="module-card js" data-category="js">
+                        <div class="module-header">
+                            <span class="module-name">app.js</span>
+                            <span class="module-lines">680 lines</span>
+                        </div>
+                        <div class="module-description">Main application controller with page routing and initialization</div>
+                        <div class="module-path">./src/js/app.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Core</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js">
+                        <div class="module-header">
+                            <span class="module-name">ui.js</span>
+                            <span class="module-lines">320 lines</span>
+                        </div>
+                        <div class="module-description">UI interaction handlers and dynamic content rendering</div>
+                        <div class="module-path">./src/js/ui.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">UI</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js">
+                        <div class="module-header">
+                            <span class="module-name">utils.js</span>
+                            <span class="module-lines">185 lines</span>
+                        </div>
+                        <div class="module-description">Utility functions for data formatting, validation, and manipulation</div>
+                        <div class="module-path">./src/js/utils.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Utilities</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js">
+                        <div class="module-header">
+                            <span class="module-name">vendor-payments.js</span>
+                            <span class="module-lines">392 lines</span>
+                        </div>
+                        <div class="module-description">Vendor payment management and batch processing interface</div>
+                        <div class="module-path">./src/js/vendor-payments.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Payments</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js">
+                        <div class="module-header">
+                            <span class="module-name">journal.js</span>
+                            <span class="module-lines">310 lines</span>
+                        </div>
+                        <div class="module-description">Journal entry management and validation</div>
+                        <div class="module-path">./src/js/journal.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Accounting</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Documentation Modules -->
+                    <div class="module-card doc" data-category="doc">
+                        <div class="module-header">
+                            <span class="module-name">database-er-diagram.html</span>
+                            <span class="module-lines">1535 lines</span>
+                        </div>
+                        <div class="module-description">Interactive database entity-relationship diagram</div>
+                        <div class="module-path">./database-er-diagram.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Documentation</span>
+                            <span class="module-tag">Interactive</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card doc" data-category="doc">
+                        <div class="module-header">
+                            <span class="module-name">backend-architecture-diagram.html</span>
+                            <span class="module-lines">1450 lines</span>
+                        </div>
+                        <div class="module-description">Interactive backend architecture visualization</div>
+                        <div class="module-path">./backend-architecture-diagram.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Documentation</span>
+                            <span class="module-tag">Interactive</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sample Code Section -->
+        <section class="section">
+            <h2 class="section-title">Frontend Code Samples</h2>
+            <p>Representative code samples from key frontend modules.</p>
+            
+            <div class="section-content">
+                <h3>HTML Structure (index.html)</h3>
+                <div class="code-sample html">
+                    <pre>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;Mr. MoneyBags v1.x - Fund Accounting System&lt;/title&gt;
+    &lt;link rel="stylesheet" href="src/css/styles.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="header"&gt;
+        &lt;!-- Header content --&gt;
+    &lt;/div&gt;
+    
+    &lt;div class="main-content"&gt;
+        &lt;!-- Dynamic content area --&gt;
+    &lt;/div&gt;
+    
+    &lt;script src="src/js/app.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+                </div>
+                
+                <h3>CSS Styling (styles.css)</h3>
+                <div class="code-sample css">
+                    <pre>/* Main application styles */
+.header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 1rem;
+}
+
+.main-nav {
+    display: flex;
+    background-color: #34495e;
+}
+
+.nav-item {
+    padding: 0.5rem 1rem;
+    color: white;
+    cursor: pointer;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .main-nav {
+        flex-direction: column;
+    }
+}</pre>
+                </div>
+                
+                <h3>JavaScript Functionality (app.js)</h3>
+                <div class="code-sample js">
+                    <pre>// Main application controller
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize application
+    console.log('Mr. MoneyBags v1.x initializing...');
+    
+    // Set up navigation
+    setupNavigation();
+    
+    // Load initial data
+    loadEntityData()
+        .then(setupEntitySelector)
+        .catch(handleError);
+});
+
+function setupNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const pageName = this.getAttribute('data-page');
+            if (pageName) {
+                showPage(pageName);
+            }
+        });
+    });
+}</pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Metrics and Benefits Section -->
+        <section class="section">
+            <h2 class="section-title">Frontend Code Metrics & Benefits</h2>
+            <p>Key metrics and benefits of the modular frontend architecture.</p>
+            
+            <div class="section-content">
+                <div class="metrics-container">
+                    <div class="metric-card">
+                        <div class="metric-value">15+</div>
+                        <div class="metric-label">Frontend Modules</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">4,500+</div>
+                        <div class="metric-label">Total Lines of Code</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">10+</div>
+                        <div class="metric-label">UI Components</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">12+</div>
+                        <div class="metric-label">API Endpoints Used</div>
+                    </div>
+                </div>
+                
+                <div class="benefits-list">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🎨</div>
+                        <div class="benefit-title">Modular Design</div>
+                        <div class="benefit-description">Separation of concerns with modular CSS and JavaScript files makes the codebase easier to maintain and update.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">⚡</div>
+                        <div class="benefit-title">Performance</div>
+                        <div class="benefit-description">Single Page Application architecture with dynamic content loading provides a fast, responsive user experience.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">📱</div>
+                        <div class="benefit-title">Responsive Design</div>
+                        <div class="benefit-description">Fully responsive layout adapts to all screen sizes from desktop to mobile devices.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🔄</div>
+                        <div class="benefit-title">API Integration</div>
+                        <div class="benefit-description">Seamless integration with backend API endpoints for real-time data updates and persistence.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Frontend-Backend Integration Section -->
+        <section class="section">
+            <h2 class="section-title">Frontend-Backend Integration</h2>
+            <p>The frontend communicates with the backend through REST API endpoints, providing a seamless user experience with real-time data updates.</p>
+            
+            <div class="section-content">
+                <div class="integration-diagram">
+                    <svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Frontend Container -->
+                        <rect x="50" y="50" width="300" height="300" rx="10" fill="#f5f7fa" stroke="#ddd" stroke-width="2" />
+                        <text x="200" y="80" text-anchor="middle" font-weight="bold" font-size="18">Frontend</text>
+                        
+                        <!-- Backend Container -->
+                        <rect x="450" y="50" width="300" height="300" rx="10" fill="#f5f7fa" stroke="#ddd" stroke-width="2" />
+                        <text x="600" y="80" text-anchor="middle" font-weight="bold" font-size="18">Backend</text>
+                        
+                        <!-- Frontend Modules -->
+                        <rect x="100" y="120" width="200" height="40" rx="5" fill="#3498db" />
+                        <text x="200" y="145" text-anchor="middle" fill="white" font-size="14">HTML/CSS</text>
+                        
+                        <rect x="100" y="180" width="200" height="40" rx="5" fill="#f39c12" />
+                        <text x="200" y="205" text-anchor="middle" fill="white" font-size="14">JavaScript Modules</text>
+                        
+                        <rect x="100" y="240" width="200" height="40" rx="5" fill="#e74c3c" />
+                        <text x="200" y="265" text-anchor="middle" fill="white" font-size="14">API Client</text>
+                        
+                        <!-- Backend Modules -->
+                        <rect x="500" y="120" width="200" height="40" rx="5" fill="#9b59b6" />
+                        <text x="600" y="145" text-anchor="middle" fill="white" font-size="14">Express Server</text>
+                        
+                        <rect x="500" y="180" width="200" height="40" rx="5" fill="#16a085" />
+                        <text x="600" y="205" text-anchor="middle" fill="white" font-size="14">API Routes</text>
+                        
+                        <rect x="500" y="240" width="200" height="40" rx="5" fill="#8e44ad" />
+                        <text x="600" y="265" text-anchor="middle" fill="white" font-size="14">Database</text>
+                        
+                        <!-- API Connection -->
+                        <line x1="300" y1="260" x2="500" y2="200" stroke="#e74c3c" stroke-width="3" stroke-dasharray="10,5" />
+                        <text x="400" y="210" text-anchor="middle" fill="#e74c3c" font-weight="bold">REST API</text>
+                        
+                        <!-- API Endpoints -->
+                        <text x="400" y="320" text-anchor="middle" font-size="14">Key API Endpoints:</text>
+                        <text x="400" y="350" text-anchor="middle" font-size="12">/api/entities, /api/accounts, /api/journal-entries, /api/reports</text>
+                    </svg>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <p>Mr-Moneybags-v1.x Frontend Architecture</p>
+            <p>Single Page Application with modular components and API integration</p>
+            <div class="footer-links">
+                <a href="database-er-diagram.html">Database Schema</a>
+                <a href="backend-architecture-diagram.html">Backend Architecture</a>
+                <a href="docs/guides/Ubuntu_Deployment_Guide_v1.x.pdf">Deployment Guide</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Simple module filtering
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterButtons = document.querySelectorAll('.filter-button');
+            const moduleCards = document.querySelectorAll('.module-card');
+            
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Update active button
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Filter modules
+                    const filter = this.getAttribute('data-filter');
+                    
+                    moduleCards.forEach(card => {
+                        if (filter === 'all' || card.getAttribute('data-category') === filter) {
+                            card.style.display = 'block';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

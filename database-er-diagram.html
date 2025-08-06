@@ -278,15 +278,9 @@
             width: 280px;
         }
 
-        #journal-entry-lines-table {
-            top: 40px;
-            left: 380px;
-            width: 250px;
-        }
-
         #journal-entry-items-table {
             top: 40px;
-            left: 680px;
+            left: 380px;
             width: 250px;
         }
 
@@ -464,8 +458,9 @@
     </header>
 
     <div class="description">
-        <p>This diagram represents the complete entity-relationship model for the nonprofit fund accounting system.
-        It shows all tables, their relationships, and key fields that make up the database structure.</p>
+        <p>This interactive diagram depicts the consolidated <strong>Mr.&nbsp;MoneyBags&nbsp;v1.x</strong> schema generated from the single
+        <code>database/db-init.sql</code> file. It visualises every table, primary / foreign-key field and relationship that
+        ships with the v1.x&nbsp;error-free deployment baseline.</p>
     </div>
 
     <div class="controls">
@@ -685,48 +680,6 @@
                     </div>
                 </div>
 
-                <!-- JOURNAL_ENTRY_LINES Table -->
-                <div class="db-table" id="journal-entry-lines-table" data-table="journal_entry_lines">
-                    <div class="table-header">JOURNAL_ENTRY_LINES</div>
-                    <div class="table-content">
-                        <div class="field-row">
-                            <div class="field-name">id</div>
-                            <div class="field-type">uuid</div>
-                            <div class="field-key"><span class="pk">PK</span></div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-name">journal_entry_id</div>
-                            <div class="field-type">uuid</div>
-                            <div class="field-key"><span class="fk">FK</span></div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-name">account_id</div>
-                            <div class="field-type">uuid</div>
-                            <div class="field-key"><span class="fk">FK</span></div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-name">fund_id</div>
-                            <div class="field-type">uuid</div>
-                            <div class="field-key"><span class="fk">FK</span></div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-name">debit_amount</div>
-                            <div class="field-type">decimal</div>
-                            <div class="field-key"></div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-name">credit_amount</div>
-                            <div class="field-type">decimal</div>
-                            <div class="field-key"></div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-name">description</div>
-                            <div class="field-type">string</div>
-                            <div class="field-key"></div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- JOURNAL_ENTRY_ITEMS Table -->
                 <div class="db-table" id="journal-entry-items-table" data-table="journal_entry_items">
                     <div class="table-header">JOURNAL_ENTRY_ITEMS</div>
@@ -752,7 +705,12 @@
                             <div class="field-key"><span class="fk">FK</span></div>
                         </div>
                         <div class="field-row">
-                            <div class="field-name">amount</div>
+                            <div class="field-name">debit</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">credit</div>
                             <div class="field-type">decimal</div>
                             <div class="field-key"></div>
                         </div>
@@ -1287,18 +1245,15 @@
             { from: 'entities', fromField: 'id', to: 'custom_report_definitions', toField: 'entity_id', label: 'defines' },
             
             // Accounts relationships
-            { from: 'accounts', fromField: 'id', to: 'journal_entry_lines', toField: 'account_id', label: 'posted_to' },
-            { from: 'accounts', fromField: 'id', to: 'journal_entry_items', toField: 'account_id', label: 'referenced_by' },
+            { from: 'accounts', fromField: 'id', to: 'journal_entry_items', toField: 'account_id', label: 'posted_to' },
             { from: 'accounts', fromField: 'id', to: 'budgets', toField: 'account_id', label: 'budgeted_for' },
             
             // Funds relationships
-            { from: 'funds', fromField: 'id', to: 'journal_entry_lines', toField: 'fund_id', label: 'allocated_to' },
             { from: 'funds', fromField: 'id', to: 'journal_entry_items', toField: 'fund_id', label: 'allocated_to' },
             { from: 'funds', fromField: 'id', to: 'payment_batches', toField: 'fund_id', label: 'funds' },
             { from: 'funds', fromField: 'id', to: 'budgets', toField: 'fund_id', label: 'budgeted_in' },
             
             // Journal entries relationships
-            { from: 'journal_entries', fromField: 'id', to: 'journal_entry_lines', toField: 'journal_entry_id', label: 'contains' },
             { from: 'journal_entries', fromField: 'id', to: 'journal_entry_items', toField: 'journal_entry_id', label: 'contains' },
             { from: 'journal_entries', fromField: 'id', to: 'payment_items', toField: 'journal_entry_id', label: 'linked_to' },
             

@@ -153,8 +153,8 @@ CREATE TABLE funds (
 Journal Entries Table:
 CREATE TABLE journal_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id UUID NOT NULL REFERENCES entities(id),
-    entry_date DATE NOT NULL,
+Journal Entry Items Table:
+CREATE TABLE journal_entry_items (
     reference_number VARCHAR(100) UNIQUE,
     description TEXT,
     total_amount DECIMAL(19, 4) NOT NULL, -- Sum of debits (or credits)
@@ -167,17 +167,17 @@ CREATE TABLE journal_entries (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-Journal Entry Lines Table:
-CREATE TABLE journal_entry_lines (
+Journal Entry Items Table:
+CREATE TABLE journal_entry_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     journal_entry_id UUID NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
     account_id UUID NOT NULL REFERENCES accounts(id),
     fund_id UUID REFERENCES funds(id), -- Optional, depending on accounting rules
-    debit_amount DECIMAL(19, 4) DEFAULT 0.00,
-    credit_amount DECIMAL(19, 4) DEFAULT 0.00,
+    debit DECIMAL(19, 4) DEFAULT 0.00,
+    credit DECIMAL(19, 4) DEFAULT 0.00,
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT chk_debit_credit CHECK (debit_amount >= 0 AND credit_amount >= 0 AND (debit_amount > 0 OR credit_amount > 0))
+    CONSTRAINT chk_debit_credit CHECK (debit >= 0 AND credit >= 0 AND (debit > 0 OR credit > 0))
 );
 */
 

@@ -201,19 +201,6 @@ router.put('/:id', asyncHandler(async (req, res) => {
 router.delete('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    // Check for journal entry lines using this account
-    const journalLinesCheck = await pool.query(
-        'SELECT id FROM journal_entry_lines WHERE account_id = $1 LIMIT 1',
-        [id]
-    );
-    
-    if (journalLinesCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Cannot delete account with journal entry lines',
-            details: 'This account is referenced in journal entries and cannot be deleted'
-        });
-    }
-    
     // Check for journal entry items using this account
     const journalItemsCheck = await pool.query(
         'SELECT id FROM journal_entry_items WHERE account_id = $1 LIMIT 1',

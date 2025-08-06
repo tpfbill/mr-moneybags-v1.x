@@ -26,8 +26,8 @@ function registerInterEntityTransferRoutes(app, pool) {
         const { 
             account_id, 
             fund_id, 
-            debit_amount, 
-            credit_amount, 
+            debit, 
+            credit, 
             description 
         } = req.body;
 
@@ -36,7 +36,7 @@ function registerInterEntityTransferRoutes(app, pool) {
             return res.status(400).json({ message: 'Account ID is required' });
         }
 
-        if (debit_amount === undefined && credit_amount === undefined) {
+        if (debit === undefined && credit === undefined) {
             return res.status(400).json({ message: 'Either debit or credit amount is required' });
         }
 
@@ -55,16 +55,16 @@ function registerInterEntityTransferRoutes(app, pool) {
 
             // Create the journal entry line
             const { rows } = await pool.query(
-                `INSERT INTO journal_entry_lines 
-                (journal_entry_id, account_id, fund_id, debit_amount, credit_amount, description, entity_id) 
+                `INSERT INTO journal_entry_items 
+                (journal_entry_id, account_id, fund_id, debit, credit, description, entity_id) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7) 
                 RETURNING *`,
                 [
                     id, 
                     account_id, 
                     fund_id, 
-                    parseFloat(debit_amount || 0), 
-                    parseFloat(credit_amount || 0), 
+                    parseFloat(debit || 0), 
+                    parseFloat(credit || 0), 
                     description || '',
                     entity_id
                 ]
@@ -276,8 +276,8 @@ function registerInterEntityTransferRoutes(app, pool) {
             
             // Create source journal entry lines
             await client.query(
-                `INSERT INTO journal_entry_lines 
-                (journal_entry_id, account_id, fund_id, debit_amount, credit_amount, description, entity_id) 
+                `INSERT INTO journal_entry_items 
+                (journal_entry_id, account_id, fund_id, debit, credit, description, entity_id) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [
                     sourceJournalEntryId,
@@ -291,8 +291,8 @@ function registerInterEntityTransferRoutes(app, pool) {
             );
             
             await client.query(
-                `INSERT INTO journal_entry_lines 
-                (journal_entry_id, account_id, fund_id, debit_amount, credit_amount, description, entity_id) 
+                `INSERT INTO journal_entry_items 
+                (journal_entry_id, account_id, fund_id, debit, credit, description, entity_id) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [
                     sourceJournalEntryId,
@@ -346,8 +346,8 @@ function registerInterEntityTransferRoutes(app, pool) {
             
             // Create target journal entry lines
             await client.query(
-                `INSERT INTO journal_entry_lines 
-                (journal_entry_id, account_id, fund_id, debit_amount, credit_amount, description, entity_id) 
+                `INSERT INTO journal_entry_items 
+                (journal_entry_id, account_id, fund_id, debit, credit, description, entity_id) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [
                     targetJournalEntryId,
@@ -361,8 +361,8 @@ function registerInterEntityTransferRoutes(app, pool) {
             );
             
             await client.query(
-                `INSERT INTO journal_entry_lines 
-                (journal_entry_id, account_id, fund_id, debit_amount, credit_amount, description, entity_id) 
+                `INSERT INTO journal_entry_items 
+                (journal_entry_id, account_id, fund_id, debit, credit, description, entity_id) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [
                     targetJournalEntryId,
@@ -474,9 +474,9 @@ async function updateJournalEntryTotal(pool, journalEntryId) {
         // Calculate total from lines
         const totalResult = await pool.query(
             `SELECT 
-                COALESCE(SUM(debit_amount), 0) as total_debits,
-                COALESCE(SUM(credit_amount), 0) as total_credits
-            FROM journal_entry_lines
+                COALESCE(SUM(debit), 0) as total_debits,
+                COALESCE(SUM(credit), 0) as total_credits
+            FROM journal_entry_items
             WHERE journal_entry_id = $1`,
             [journalEntryId]
         );

@@ -7,8 +7,8 @@ const { asyncHandler } = require('../utils/helpers');
 // A secure map of allowed fields and tables for the report builder.
 // This is a critical security measure to prevent SQL injection.
 const REPORT_BUILDER_FIELD_MAP = {
-    journal_entry_lines: {
-        from: 'FROM journal_entry_lines jel',
+    journal_entry_items: {
+        from: 'FROM journal_entry_items jel',
         joins: `
             JOIN journal_entries je ON je.id = jel.journal_entry_id
             JOIN accounts a ON a.id = jel.account_id
@@ -18,8 +18,8 @@ const REPORT_BUILDER_FIELD_MAP = {
             entry_date: { sql: 'je.entry_date', type: 'date' },
             reference_number: { sql: 'je.reference_number', type: 'string' },
             description: { sql: 'jel.description', type: 'string' },
-            debit_amount: { sql: 'jel.debit_amount', type: 'number' },
-            credit_amount: { sql: 'jel.credit_amount', type: 'number' },
+            debit: { sql: 'jel.debit', type: 'number' },
+            credit: { sql: 'jel.credit', type: 'number' },
             account_code: { sql: 'a.code', type: 'string' },
             account_name: { sql: 'a.name', type: 'string' },
             account_type: { sql: 'a.type', type: 'string' },
