@@ -15,6 +15,21 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
+-- POSTGRESQL ROLE CREATION
+-- -----------------------------------------------------------------------------
+
+-- Create the application database role if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'npfadmin') THEN
+        CREATE ROLE npfadmin WITH LOGIN PASSWORD 'npfa123';
+        -- Allow the application role to create databases (optional)
+        ALTER ROLE npfadmin CREATEDB;
+    END IF;
+END
+$$;
+
+-- -----------------------------------------------------------------------------
 -- DATABASE CREATION AND EXTENSIONS
 -- -----------------------------------------------------------------------------
 
