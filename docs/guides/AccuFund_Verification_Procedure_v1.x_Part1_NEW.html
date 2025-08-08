@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccuFund Verification Procedure v1.x - Part 1</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+            line-height: 1.5;
+            color: #333;
+            font-size: 10pt;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Page layout for print */
+        @page {
+            size: letter;
+            margin: 0.75in;
+        }
+        
+        /* Headers and sections */
+        h1 {
+            font-size: 16pt;
+            font-weight: 600;
+            margin-top: 0.4in;
+            margin-bottom: 0.2in;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.1in;
+            page-break-before: always;
+        }
+        
+        h1:first-of-type {
+            page-break-before: avoid;
+        }
+        
+        h2 {
+            font-size: 14pt;
+            font-weight: 600;
+            margin-top: 0.3in;
+            margin-bottom: 0.15in;
+            color: #2c3e50;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 0.05in;
+        }
+        
+        h3 {
+            font-size: 12pt;
+            font-weight: 600;
+            margin-top: 0.25in;
+            margin-bottom: 0.1in;
+            color: #2c3e50;
+        }
+        
+        /* Content formatting */
+        p {
+            margin-bottom: 0.15in;
+        }
+        
+        strong {
+            font-weight: 600;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0.2in;
+            page-break-inside: avoid;
+            font-size: 9pt;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 0.08in;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+        
+        /* Checkboxes */
+        .checkbox {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1px solid #333;
+            margin-right: 5px;
+            position: relative;
+            top: 1px;
+        }
+        
+        .checkbox.checked:after {
+            content: "✓";
+            position: absolute;
+            top: -3px;
+            left: 2px;
+        }
+        
+        /* Horizontal rule */
+        hr {
+            border: none;
+            border-top: 1px solid #e9ecef;
+            margin: 0.2in 0;
+        }
+        
+        /* Code blocks */
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f8f9fa;
+            padding: 0 0.05in;
+            border-radius: 3px;
+            font-size: 9pt;
+        }
+        
+        /* Prevent page breaks inside important elements */
+        .no-break {
+            page-break-inside: avoid;
+        }
+        
+        /* Utility classes */
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .mt-1 {
+            margin-top: 0.1in;
+        }
+        
+        .mb-1 {
+            margin-bottom: 0.1in;
+        }
+        
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 0.5in;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #7f8c8d;
+        }
+        
+        /* Lists */
+        ul, ol {
+            margin-left: 0.2in;
+            margin-bottom: 0.15in;
+        }
+        
+        li {
+            margin-bottom: 0.05in;
+        }
+    </style>
+</head>
+<body>
+    <h1>AccuFund → Mr. MoneyBags v1.x</h1>
+    <h2>Comprehensive Verification &amp; Acceptance Procedure – Part 1 (Sections 0-6)</h2>
+    
+    <p>Use this end-to-end checklist to confirm that every capability of Mr. MoneyBags v1.x functions correctly after migration from AccuFund 9.x.<br>
+    Mark each item ☐ / ☑, attach evidence (📸 screenshot or export file name), record issues, and obtain final sign-off.</p>
+    
+    <hr>
+    
+    <h2>0 Document Control</h2>
+    <table>
+        <tr>
+            <th>Item</th>
+            <th>Value</th>
+        </tr>
+        <tr>
+            <td>Version</td>
+            <td>1.0</td>
+        </tr>
+        <tr>
+            <td>Prepared by</td>
+            <td>San Francisco AI Factory – Migration Services</td>
+        </tr>
+        <tr>
+            <td>Date</td>
+            <td>07 Aug 2025</td>
+        </tr>
+        <tr>
+            <td>Environment</td>
+            <td><code>PROD</code> / <code>SANDBOX</code> (circle)</td>
+        </tr>
+        <tr>
+            <td>AccuFund Source Version</td>
+            <td>9.x</td>
+        </tr>
+        <tr>
+            <td>Acceptance Window</td>
+            <td>___ / ___ / 2025 – ___ / ___ / 2025</td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>Legend</h2>
+    <ul>
+        <li>☐ = Not executed ☑ = Pass ✖ = Fail / Issue logged</li>
+        <li>📸 = Evidence stored in <code>/verification_evidence/…</code></li>
+        <li>👤 Roles: <strong>A</strong> = Admin, <strong>F</strong> = Finance, <strong>V</strong> = Viewer</li>
+    </ul>
+    
+    <hr>
+    
+    <h2>1 Pre-Verification Setup (6 tests)</h2>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Task</th>
+            <th>Steps</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>Result</th>
+        </tr>
+        <tr>
+            <td>1.1</td>
+            <td>System requirements confirmed</td>
+            <td>Check Ubuntu 24 LTS, Docker ≥ 24, 8 GB RAM, 4 vCPU</td>
+            <td>Meets specs</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>1.2</td>
+            <td>User accounts created</td>
+            <td>Verify <strong>admin</strong>, <strong>finance1</strong>, <strong>viewer1</strong> can log in</td>
+            <td>All accounts working</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>1.3</td>
+            <td>Backup snapshot</td>
+            <td>Run <code>pg_dump -Fc</code> and VM snapshot</td>
+            <td>Files saved &amp; hash logged</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>1.4</td>
+            <td>Sample data loaded</td>
+            <td>All 24 tables contain ≥ 5 rows</td>
+            <td>Counts correct</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>1.5</td>
+            <td>Network accessibility</td>
+            <td>Ports 3000, 5432 reachable from client VLAN</td>
+            <td>Telnet succeeds</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>1.6</td>
+            <td>SSL certificate valid</td>
+            <td>Access app via HTTPS</td>
+            <td>No browser warning</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>2 Authentication &amp; Security Verification (17 tests)</h2>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test Case</th>
+            <th>Steps</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>2.1</td>
+            <td>Password hashing</td>
+            <td>Inspect <code>users.password_hash</code> length</td>
+            <td>60-char bcrypt</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.2</td>
+            <td>Session timeout</td>
+            <td>Idle 35 min</td>
+            <td>Forced logout</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.3</td>
+            <td>Role visibility</td>
+            <td>Viewer menu lacks Settings</td>
+            <td>No Settings tab</td>
+            <td>V</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.4</td>
+            <td>Failed login lockout</td>
+            <td>Enter wrong pwd 5×</td>
+            <td>Account locked 15 min</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.5</td>
+            <td>Password reset flow</td>
+            <td>Use "Forgot Password"</td>
+            <td>Reset email sent</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.6</td>
+            <td>Password complexity</td>
+            <td>Try "password123"</td>
+            <td>Rejected</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.7</td>
+            <td>Session persistence</td>
+            <td>Navigate 5 pages</td>
+            <td>Session retained</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.8</td>
+            <td>Cross-tab session</td>
+            <td>Open new tab</td>
+            <td>Still authenticated</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.9</td>
+            <td>Direct admin route</td>
+            <td>Viewer hits <code>/api/users</code></td>
+            <td>403 Forbidden</td>
+            <td>V</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.10</td>
+            <td>Logout button</td>
+            <td>Click Logout</td>
+            <td>Redirect to login</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.11</td>
+            <td>Back-button after logout</td>
+            <td>Press browser ←</td>
+            <td>Remains logged out</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.12</td>
+            <td>CSRF token check</td>
+            <td>Inspect POST forms</td>
+            <td>Token present</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.13</td>
+            <td>XSS protection</td>
+            <td>Input <code>&lt;script&gt;</code></td>
+            <td>Rendered as text</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.14</td>
+            <td>SQL injection</td>
+            <td>Enter <code>' OR 1=1--</code></td>
+            <td>No data leak</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.15</td>
+            <td>Admin CRUD users</td>
+            <td>Create user "Jane D."</td>
+            <td>User appears in list</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.16</td>
+            <td>Finance user rights</td>
+            <td>Finance cannot delete user</td>
+            <td>Action denied</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>2.17</td>
+            <td>Viewer JE post</td>
+            <td>Viewer tries to post JE</td>
+            <td>Button disabled</td>
+            <td>V</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>3 Core Fund Accounting Verification (45 tests)</h2>
+    
+    <h3>3.1 Chart of Accounts (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>3.1.1</td>
+            <td>Open COA list</td>
+            <td>Count = CSV import</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.2</td>
+            <td>View acct 4000</td>
+            <td>Details match source</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.3</td>
+            <td>Inactivate then cancel</td>
+            <td>Status unchanged</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.4</td>
+            <td>Create new account</td>
+            <td>Added successfully</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.5</td>
+            <td>Edit account</td>
+            <td>Changes saved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.6</td>
+            <td>Filter by type</td>
+            <td>List filtered</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.7</td>
+            <td>Search by name</td>
+            <td>Matches displayed</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.8</td>
+            <td>Export to CSV</td>
+            <td>File downloads</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.9</td>
+            <td>Delete acct w/ history</td>
+            <td>Error shown</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.1.10</td>
+            <td>Inactivate unused acct</td>
+            <td>Status → Inactive</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>3.2 Funds &amp; Entities (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>3.2.1</td>
+            <td>Funds count</td>
+            <td>Matches source</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.2</td>
+            <td>Toggle consolidated</td>
+            <td>Balances refresh</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.3</td>
+            <td>Create fund</td>
+            <td>Fund added</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.4</td>
+            <td>Edit fund</td>
+            <td>Changes saved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.5</td>
+            <td>Check hierarchy</td>
+            <td>Parent-child correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.6</td>
+            <td>Filter funds</td>
+            <td>Filtered list</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.7</td>
+            <td>Add entity with parent</td>
+            <td>Hierarchy updated</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.8</td>
+            <td>Enable consolidate flag</td>
+            <td>Flag stored</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.9</td>
+            <td>Entity graph view</td>
+            <td>Matches DB</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.2.10</td>
+            <td>Change entity currency</td>
+            <td>No error</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>3.3 Journal Entries (15 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>3.3.1</td>
+            <td>Create $100 JE draft</td>
+            <td>Status Draft</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.2</td>
+            <td>Post JE</td>
+            <td>Trial balance nets 0</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.3</td>
+            <td>Viewer create JE</td>
+            <td>Denied</td>
+            <td>V</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.4</td>
+            <td>Multi-line JE</td>
+            <td>Debits = Credits</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.5</td>
+            <td>Inter-entity JE</td>
+            <td>Mirror created</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.6</td>
+            <td>Edit draft</td>
+            <td>Saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.7</td>
+            <td>Edit posted</td>
+            <td>Not allowed / adj</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.8</td>
+            <td>Import JE batch CSV</td>
+            <td>Imported</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.9</td>
+            <td>Reverse posted JE</td>
+            <td>Offset created</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.10</td>
+            <td>Filter by date</td>
+            <td>Filtered list</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.11</td>
+            <td>Search description</td>
+            <td>Matches</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.12</td>
+            <td>Export JE list</td>
+            <td>CSV</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.13</td>
+            <td>Audit trail</td>
+            <td>Shows user/time</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.14</td>
+            <td>Create recurring template</td>
+            <td>Template saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.3.15</td>
+            <td>Generate from template</td>
+            <td>Draft created</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>3.4 Budgets &amp; Allocations (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>3.4.1</td>
+            <td>Load budget list</td>
+            <td>Page loads</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.2</td>
+            <td>Create budget</td>
+            <td>Added</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.3</td>
+            <td>Edit budget line</td>
+            <td>Saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.4</td>
+            <td>Import budget CSV</td>
+            <td>Rows imported</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.5</td>
+            <td>Lock budget</td>
+            <td>Status Locked</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.6</td>
+            <td>Allocate budget</td>
+            <td>JE created</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.7</td>
+            <td>Copy last year</td>
+            <td>Data copied</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.8</td>
+            <td>Variance report</td>
+            <td>Variance correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.9</td>
+            <td>Export budget</td>
+            <td>CSV</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>3.4.10</td>
+            <td>Delete unused budget</td>
+            <td>Removed</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>4 Banking Module Verification (40 tests)</h2>
+    
+    <h3>4.1 Bank Reconciliation (15 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>4.1.1</td>
+            <td>Upload OFX sample</td>
+            <td>Transactions listed</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.2</td>
+            <td>Auto-match</td>
+            <td>≥ 95 % matched</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.3</td>
+            <td>Complete reconcile</td>
+            <td>Status Reconciled</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.4</td>
+            <td>Manual match</td>
+            <td>Success</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.5</td>
+            <td>Add adjustment JE</td>
+            <td>JE auto-posted</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.6</td>
+            <td>Upload CSV stmt</td>
+            <td>Parsed</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.7</td>
+            <td>Save progress</td>
+            <td>Draft saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.8</td>
+            <td>Generate report</td>
+            <td>PDF generated</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.9</td>
+            <td>View history</td>
+            <td>Entry visible</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.10</td>
+            <td>Verify balances</td>
+            <td>Match bank stmt</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.11</td>
+            <td>Unmatch txn</td>
+            <td>Returned</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.12</td>
+            <td>Drag-drop match</td>
+            <td>Works</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.13</td>
+            <td>Filter amount</td>
+            <td>Filtered list</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.14</td>
+            <td>Search description</td>
+            <td>Matches</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.1.15</td>
+            <td>Mark cleared item</td>
+            <td>Status Cleared</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>4.2 Bank Deposits (15 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>4.2.1</td>
+            <td>Create deposit 3 items</td>
+            <td>Total correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.2</td>
+            <td>Mark cleared</td>
+            <td>Cleared date set</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.3</td>
+            <td>Generate slip PDF</td>
+            <td>Slip formatted</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.4</td>
+            <td>Add check item</td>
+            <td>Total updates</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.5</td>
+            <td>Add cash item</td>
+            <td>Total updates</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.6</td>
+            <td>Edit item</td>
+            <td>Saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.7</td>
+            <td>Remove item</td>
+            <td>Total updates</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.8</td>
+            <td>Submit approval</td>
+            <td>Status Pending</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.9</td>
+            <td>Approve deposit</td>
+            <td>Status Approved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.10</td>
+            <td>History list</td>
+            <td>Shows deposit</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.11</td>
+            <td>Filter status</td>
+            <td>Filtered</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.12</td>
+            <td>Search description</td>
+            <td>Matches</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.13</td>
+            <td>Export CSV</td>
+            <td>File</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.14</td>
+            <td>Verify JE</td>
+            <td>Correct accounts</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.2.15</td>
+            <td>Batch print slips</td>
+            <td>Works</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>4.3 Check Printing (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>4.3.1</td>
+            <td>Add check → Queue</td>
+            <td>Queue +1</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.2</td>
+            <td>Print to PDF printer</td>
+            <td>MICR line visible</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.3</td>
+            <td>Create check format</td>
+            <td>Saved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.4</td>
+            <td>Edit format</td>
+            <td>Saved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.5</td>
+            <td>Set default format</td>
+            <td>Default set</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.6</td>
+            <td>Print single check</td>
+            <td>Printed</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.7</td>
+            <td>Print batch</td>
+            <td>Numbers correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.8</td>
+            <td>Void check</td>
+            <td>Status Void</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.9</td>
+            <td>Reprint voided</td>
+            <td>New number</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>4.3.10</td>
+            <td>Amount-to-words</td>
+            <td>Text correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>5 Vendor Payment Verification (20 tests)</h2>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>5.1</td>
+            <td>Add bank info to vendor</td>
+            <td>Routing validated</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.2</td>
+            <td>Generate ACH batch (2 vendors)</td>
+            <td>NACHA file "Generated"</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.3</td>
+            <td>Viewer downloads NACHA</td>
+            <td>Access denied</td>
+            <td>V</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.4</td>
+            <td>Create new vendor</td>
+            <td>Vendor added</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.5</td>
+            <td>Edit vendor</td>
+            <td>Changes saved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.6</td>
+            <td>Multiple bank accts</td>
+            <td>Default selectable</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.7</td>
+            <td>Create payment batch</td>
+            <td>Batch created</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.8</td>
+            <td>Edit payment batch</td>
+            <td>Changes saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.9</td>
+            <td>Approve batch</td>
+            <td>Status Approved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.10</td>
+            <td>Generate NACHA file</td>
+            <td>Correct format</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.11</td>
+            <td>Verify NACHA contents</td>
+            <td>Header/detail/footer OK</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.12</td>
+            <td>Mark batch sent</td>
+            <td>Status Sent</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.13</td>
+            <td>Mark payments cleared</td>
+            <td>Status Cleared</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.14</td>
+            <td>View payment history</td>
+            <td>All payments listed</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.15</td>
+            <td>Filter by status</td>
+            <td>Filtered view</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.16</td>
+            <td>Search by vendor</td>
+            <td>Matches</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.17</td>
+            <td>Export payments CSV</td>
+            <td>File downloads</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.18</td>
+            <td>Verify payment JE</td>
+            <td>Correct accounts</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.19</td>
+            <td>Prenote generation</td>
+            <td>Zero-dollar file</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>5.20</td>
+            <td>Vendor 1099 settings</td>
+            <td>Tax flags saved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>6 Reporting Verification (40 tests)</h2>
+    
+    <h3>6.1 Standard Financial Reports (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>6.1.1</td>
+            <td>Income Statement (YTD)</td>
+            <td>Matches AccuFund ± 1¢</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.2</td>
+            <td>Balance Sheet</td>
+            <td>Assets = Liabilities + Equity</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.3</td>
+            <td>Cash Flow Statement</td>
+            <td>Beg + Net = End</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.4</td>
+            <td>Trial Balance</td>
+            <td>Debits = Credits</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.5</td>
+            <td>Budget vs Actual</td>
+            <td>Variance correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.6</td>
+            <td>Export → PDF</td>
+            <td>PDF generated</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.7</td>
+            <td>Export → Excel</td>
+            <td>Excel complete</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.8</td>
+            <td>Filter by date</td>
+            <td>Filtered data</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.9</td>
+            <td>Filter by fund</td>
+            <td>Filtered data</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.1.10</td>
+            <td>Consolidated report</td>
+            <td>All entities included</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>6.2 Custom Reports (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>6.2.1</td>
+            <td>Build pivot report</td>
+            <td>CSV downloads</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.2</td>
+            <td>Create tabular report</td>
+            <td>Displays correctly</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.3</td>
+            <td>Add calculated column</td>
+            <td>Formula works</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.4</td>
+            <td>Add grouping/subtotals</td>
+            <td>Totals correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.5</td>
+            <td>Add chart</td>
+            <td>Chart renders</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.6</td>
+            <td>Save report</td>
+            <td>Appears in list</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.7</td>
+            <td>Edit saved report</td>
+            <td>Changes saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.8</td>
+            <td>Schedule recurring</td>
+            <td>Schedule saved</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.9</td>
+            <td>Export custom PDF</td>
+            <td>PDF generated</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.2.10</td>
+            <td>Share with users</td>
+            <td>Shared access</td>
+            <td>A</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>6.3 Natural Language Queries (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>6.3.1</td>
+            <td>"Show restricted fund balances"</td>
+            <td>Returns ≥ 1 row</td>
+            <td>V</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.2</td>
+            <td>"Top 5 expenses last month"</td>
+            <td>Shows 5 expenses</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.3</td>
+            <td>"Revenue by month this year"</td>
+            <td>Monthly breakdown</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.4</td>
+            <td>"Balance sheet as of last quarter"</td>
+            <td>Balance sheet output</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.5</td>
+            <td>"Cash position trend"</td>
+            <td>Trend chart</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.6</td>
+            <td>Save query</td>
+            <td>Query saved</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.7</td>
+            <td>Export results CSV</td>
+            <td>File downloads</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.8</td>
+            <td>Entity filter query</td>
+            <td>Entity-specific results</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.9</td>
+            <td>Date-range query</td>
+            <td>Filtered results</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.3.10</td>
+            <td>Complex condition query</td>
+            <td>Correct results</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>6.4 Fund Reports (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>6.4.1</td>
+            <td>Fund Balance Report</td>
+            <td>Balances match GL</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.2</td>
+            <td>Fund Activity Report</td>
+            <td>Activity matches JEs</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.3</td>
+            <td>Fund Statement</td>
+            <td>Balances correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.4</td>
+            <td>Funds Comparison</td>
+            <td>All funds included</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.5</td>
+            <td>Filter by date</td>
+            <td>Filtered data</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.6</td>
+            <td>Export → PDF</td>
+            <td>PDF generated</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.7</td>
+            <td>Export → Excel</td>
+            <td>Excel complete</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.8</td>
+            <td>Restricted funds only</td>
+            <td>Filtered correctly</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.9</td>
+            <td>Hierarchy view</td>
+            <td>Parent-child shown</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>6.4.10</td>
+            <td>Balance calculation</td>
+            <td>Matches GL</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <p class="mt-1"><strong>Proceed to "AccuFund Verification Procedure v1.x – Part 2" for Sections 7–13 (Utility Features, UI, Data Integrity, Performance, Documentation, Backup &amp; Recovery, and Final Acceptance).</strong></p>
+    
+    <div class="footer">
+        © 2025 San Francisco AI Factory · All rights reserved.
+    </div>
+</body>
+</html>

@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr-Moneybags v1.x – User Guide</title>
+    <style>
+        /* PDF-optimized styling */
+        @page {
+            size: letter;
+            margin: 1in 0.75in;
+            @top-center {
+                content: "Mr-Moneybags v1.x – User Guide";
+                font-family: "Helvetica Neue", Arial, sans-serif;
+                font-size: 9pt;
+                color: #666;
+            }
+            @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: "Helvetica Neue", Arial, sans-serif;
+                font-size: 9pt;
+                color: #666;
+            }
+        }
+
+        /* Global styles */
+        body {
+            font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            counter-reset: page 1;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            page-break-after: avoid;
+        }
+
+        h1 {
+            font-size: 24pt;
+            text-align: center;
+            border-bottom: 1px solid #2c3e50;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 18pt;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            color: #2980b9;
+            margin-top: 2em;
+        }
+
+        h3 {
+            font-size: 14pt;
+            color: #3498db;
+        }
+
+        h4 {
+            font-size: 12pt;
+            color: #2c3e50;
+        }
+
+        p {
+            margin-bottom: 0.8em;
+            text-align: justify;
+        }
+
+        /* Links */
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        /* Cover page */
+        .cover-page {
+            text-align: center;
+            height: 9.5in;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            page-break-after: always;
+        }
+
+        .cover-title {
+            font-size: 36pt;
+            color: #2c3e50;
+            margin-bottom: 0.5em;
+        }
+
+        .cover-subtitle {
+            font-size: 18pt;
+            color: #7f8c8d;
+            margin-bottom: 2em;
+        }
+
+        .cover-version {
+            font-size: 14pt;
+            color: #3498db;
+            margin-bottom: 4em;
+        }
+
+        .cover-date {
+            font-size: 12pt;
+            color: #7f8c8d;
+            margin-top: 4em;
+        }
+
+        /* Table of Contents */
+        .toc {
+            page-break-after: always;
+        }
+
+        .toc h2 {
+            text-align: center;
+        }
+
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            margin-bottom: 0.5em;
+        }
+
+        .toc-item {
+            display: flex;
+            align-items: baseline;
+            width: 100%;
+        }
+
+        .toc-number {
+            margin-right: 0.5em;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .toc-text {
+            flex-grow: 1;
+        }
+
+        .toc-dots {
+            flex-grow: 1;
+            border-bottom: 1px dotted #ccc;
+            margin: 0 0.5em;
+        }
+
+        .toc-page {
+            text-align: right;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.3em;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5em;
+            page-break-inside: avoid;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            font-weight: bold;
+        }
+
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* Code blocks */
+        pre, code {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 0.2em 0.4em;
+            font-size: 10pt;
+        }
+
+        pre {
+            padding: 1em;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            page-break-inside: avoid;
+        }
+
+        /* Blockquotes */
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 1em;
+            margin-left: 0;
+            color: #7f8c8d;
+            font-style: italic;
+            page-break-inside: avoid;
+        }
+
+        /* Images */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 1.5em auto;
+            page-break-inside: avoid;
+        }
+
+        .image-placeholder {
+            border: 1px dashed #ccc;
+            background-color: #f9f9f9;
+            text-align: center;
+            padding: 2em 1em;
+            margin: 1.5em 0;
+            color: #7f8c8d;
+            page-break-inside: avoid;
+        }
+
+        /* Notes and tips */
+        .note, .tip, .warning {
+            padding: 1em;
+            margin: 1.5em 0;
+            border-left: 4px solid;
+            page-break-inside: avoid;
+        }
+
+        .note {
+            background-color: #f8f9fa;
+            border-color: #3498db;
+        }
+
+        .tip {
+            background-color: #f0fff4;
+            border-color: #2ecc71;
+        }
+
+        .warning {
+            background-color: #fff5f5;
+            border-color: #e74c3c;
+        }
+
+        /* Page breaks */
+        .page-break {
+            page-break-after: always;
+        }
+
+        /* Section headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1em;
+        }
+
+        .section-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #3498db;
+            margin-right: 0.5em;
+            min-width: 1.5em;
+            text-align: right;
+        }
+
+        /* Keyboard shortcuts */
+        .keyboard {
+            display: inline-block;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 0.1em 0.5em;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.9em;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 2em;
+            padding-top: 1em;
+            border-top: 1px solid #ddd;
+            font-size: 9pt;
+            color: #7f8c8d;
+        }
+
+        /* Utility classes */
+        .text-center {
+            text-align: center;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+
+        .small {
+            font-size: 0.9em;
+        }
+
+        /* Print-specific styles */
+        @media print {
+            a {
+                color: #000;
+                text-decoration: none;
+            }
+            
+            a[href^="http"]:after {
+                content: " (" attr(href) ")";
+                font-size: 0.8em;
+                color: #666;
+            }
+            
+            a[href^="#"]:after {
+                content: "";
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Cover Page -->
+    <div class="cover-page">
+        <div class="cover-title">Mr-Moneybags</div>
+        <div class="cover-subtitle">User Guide</div>
+        <div class="cover-version">Version 1.x</div>
+        <div class="image-placeholder" style="width: 60%; height: 200px;">
+            [Logo Placeholder]
+        </div>
+        <div class="cover-date">August 2025</div>
+    </div>
+
+    <!-- Table of Contents -->
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        
+        <div class="toc-item">
+            <div class="toc-number">1</div>
+            <div class="toc-text">Introduction & Overview</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">1</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">2</div>
+            <div class="toc-text">Getting Started</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">2</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">2.1</div>
+            <div class="toc-text">Logging In</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">2</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">2.2</div>
+            <div class="toc-text">Authentication & Sessions</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">3</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">2.3</div>
+            <div class="toc-text">Roles</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">3</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">3</div>
+            <div class="toc-text">Dashboard Navigation</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">4</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">4</div>
+            <div class="toc-text">Core Fund Accounting</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">5</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">4.1</div>
+            <div class="toc-text">Entities & Funds</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">5</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">4.2</div>
+            <div class="toc-text">Chart of Accounts</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">6</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">4.3</div>
+            <div class="toc-text">Journal Entries</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">6</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">5</div>
+            <div class="toc-text">Banking Operations</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">7</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">5.1</div>
+            <div class="toc-text">Bank Reconciliation</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">7</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">5.2</div>
+            <div class="toc-text">Bank Deposits</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">9</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">5.3</div>
+            <div class="toc-text">Check Printing</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">10</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">6</div>
+            <div class="toc-text">Vendor Management</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">12</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">6.1</div>
+            <div class="toc-text">Vendors & ACH Details</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">12</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">6.2</div>
+            <div class="toc-text">Payment Batches</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">13</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">7</div>
+            <div class="toc-text">Reporting & Analytics</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">14</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">8</div>
+            <div class="toc-text">Administrative Functions</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">15</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">8.1</div>
+            <div class="toc-text">User Management</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">15</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">8.2</div>
+            <div class="toc-text">System Settings</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">16</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">8.3</div>
+            <div class="toc-text">Security Tips</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">16</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">9</div>
+            <div class="toc-text">Troubleshooting</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">17</div>
+        </div>
+        
+        <div class="toc-item">
+            <div class="toc-number">10</div>
+            <div class="toc-text">Appendices</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">18</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">A</div>
+            <div class="toc-text">Keyboard Shortcuts</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">18</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">B</div>
+            <div class="toc-text">REST API Quick Reference</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">19</div>
+        </div>
+        
+        <div class="toc-item" style="padding-left: 1.5em;">
+            <div class="toc-number">C</div>
+            <div class="toc-text">Sample Data</div>
+            <div class="toc-dots"></div>
+            <div class="toc-page">20</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+        <section id="introduction">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <h2>Introduction & Overview</h2>
+            </div>
+            
+            <p>Welcome to <strong>Mr-Moneybags v1.x</strong>, an open-source, non-profit fund-accounting platform built with Node.js/Express and a PostgreSQL back-end. This comprehensive solution has been designed specifically to meet the unique financial management needs of charitable organizations, foundations, and other non-profit entities.</p>
+            
+            <p>Mr-Moneybags delivers a complete set of features that enable efficient financial management:</p>
+            
+            <ul>
+                <li><strong>True fund accounting</strong> with support for multiple entities and funds, allowing proper segregation of restricted and unrestricted resources</li>
+                <li><strong>Full banking workflow</strong> including reconciliation, deposits, and check printing to streamline day-to-day financial operations</li>
+                <li><strong>Electronic vendor payments</strong> with NACHA export capabilities for efficient disbursements</li>
+                <li><strong>Role-based security</strong> with session persistence to ensure proper access controls</li>
+                <li><strong>Custom report builder</strong> and interactive dashboards for meaningful financial insights</li>
+            </ul>
+            
+            <blockquote>
+                <p><em>Audience</em>: This guide is intended for finance staff, treasurers, auditors, and system administrators of charitable organizations who need to manage financial operations efficiently while maintaining proper fund accounting principles.</p>
+            </blockquote>
+            
+            <p>Version 1.x represents a significant evolution from previous releases, with enhanced banking modules, improved security features, and a more intuitive user interface. This guide will walk you through all aspects of the system, from basic navigation to advanced financial operations.</p>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="getting-started">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <h2>Getting Started</h2>
+            </div>
+            
+            <p>This section covers the essential first steps for using Mr-Moneybags, including logging in, understanding authentication, and working with user roles.</p>
+            
+            <section id="logging-in">
+                <div class="section-header">
+                    <div class="section-number">2.1</div>
+                    <h3>Logging In</h3>
+                </div>
+                
+                <p>Mr-Moneybags features a secure authentication system with session management. Follow these steps to log in:</p>
+                
+                <ol>
+                    <li>Open your web browser and navigate to <strong>https://&lt;server&gt;/login.html</strong>, where &lt;server&gt; is your installation's domain name or IP address.</li>
+                    <li>Enter your assigned <em>Username</em> in the first field.</li>
+                    <li>Enter your <em>Password</em> in the second field.</li>
+                    <li>If you want to remain logged in for 24 hours, check the <strong>Remember me</strong> box. Otherwise, your session will expire after 60 minutes of inactivity.</li>
+                    <li>Click the <strong>Sign In</strong> button to authenticate.</li>
+                </ol>
+                
+                <div class="image-placeholder">
+                    [Screenshot: Login Screen showing username/password fields and Remember me checkbox]
+                </div>
+                
+                <div class="note">
+                    <p><strong>Note:</strong> On successful authentication, you will be redirected to the Dashboard. If authentication fails, a red toast notification will appear with an error message.</p>
+                </div>
+                
+                <p>For security reasons, after five consecutive failed login attempts, your account will be temporarily locked for 15 minutes. If you need immediate access, contact your system administrator to reset your account.</p>
+            </section>
+            
+            <section id="authentication-sessions">
+                <div class="section-header">
+                    <div class="section-number">2.2</div>
+                    <h3>Authentication & Sessions</h3>
+                </div>
+                
+                <p>Mr-Moneybags implements a robust session management system:</p>
+                
+                <ul>
+                    <li>Sessions are stored securely in the PostgreSQL database, providing persistence across server restarts.</li>
+                    <li>Every API call automatically includes the session cookie to maintain your authenticated state.</li>
+                    <li>Sessions expire after 60 minutes of inactivity, unless the "Remember me" option was selected during login.</li>
+                    <li>To manually end your session, click your username in the top-right corner of any page and select <strong>Log out</strong>.</li>
+                </ul>
+                
+                <div class="tip">
+                    <p><strong>Tip:</strong> For security reasons, always log out when you're finished using the system, especially on shared computers.</p>
+                </div>
+                
+                <p>The system uses HTTP-only cookies for session management, which provides protection against cross-site scripting (XSS) attacks. All authentication traffic is encrypted when using HTTPS, which is strongly recommended for production environments.</p>
+            </section>
+            
+            <section id="roles">
+                <div class="section-header">
+                    <div class="section-number">2.3</div>
+                    <h3>Roles</h3>
+                </div>
+                
+                <p>Mr-Moneybags implements role-based access control to ensure users have appropriate permissions. The system includes two primary roles:</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Role</th>
+                            <th>Permissions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>admin</strong></td>
+                            <td>Full access to all system features, including the Settings tab, user management, and system configuration.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>user</strong></td>
+                            <td>Access to day-to-day accounting and banking operations. The Settings tab is not visible, and certain administrative functions are restricted.</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <p>Your assigned role determines which features and modules you can access. If you attempt to access a restricted area, you will be automatically redirected to the Dashboard.</p>
+                
+                <div class="warning">
+                    <p><strong>Important:</strong> Role names are case-sensitive. The system recognizes "admin" (lowercase) but not "Admin" (capitalized).</p>
+                </div>
+            </section>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="dashboard-navigation">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <h2>Dashboard Navigation</h2>
+            </div>
+            
+            <p>The Dashboard serves as the central hub for navigating Mr-Moneybags. It provides quick access to all modules and displays key financial information at a glance.</p>
+            
+            <div class="image-placeholder">
+                [Screenshot: Dashboard showing navigation menu, widgets, and activity feed]
+            </div>
+            
+            <p>The Dashboard is organized into several key areas:</p>
+            
+            <ol>
+                <li><strong>Global Header</strong> - Located at the top of every page, this area includes:
+                    <ul>
+                        <li>Current entity selector - Allows you to switch between different organizational entities</li>
+                        <li>Fund selector - Filters data by specific fund</li>
+                        <li>User menu - Shows your username and provides access to logout and profile options</li>
+                    </ul>
+                </li>
+                <li><strong>Left Navigation</strong> - The primary menu for accessing different modules:
+                    <ul>
+                        <li>Dashboard - Returns to the main dashboard from any page</li>
+                        <li>Accounts - Chart of accounts management</li>
+                        <li>Journal Entries - Create and manage accounting transactions</li>
+                        <li>Banking modules - Bank Reconciliation, Bank Deposits, Check Printing</li>
+                        <li>Vendors - Vendor management and payments</li>
+                        <li>Reports - Financial reporting and analytics</li>
+                        <li>Settings - System configuration (admin users only)</li>
+                    </ul>
+                </li>
+                <li><strong>At-a-Glance Widgets</strong> - Dashboard cards showing key metrics:
+                    <ul>
+                        <li>Cash Balances - Current balances for all bank accounts</li>
+                        <li>Open Deposits - Deposits awaiting confirmation</li>
+                        <li>Unreconciled Items - Transactions pending reconciliation</li>
+                        <li>Pending Checks - Checks in queue for printing</li>
+                    </ul>
+                </li>
+                <li><strong>Recent Activity Feed</strong> - Chronological list of recent financial transactions and system activities</li>
+            </ol>
+            
+            <p>For efficient navigation, Mr-Moneybags supports keyboard shortcuts. The most commonly used shortcuts include:</p>
+            
+            <ul>
+                <li><span class="keyboard">g</span> + <span class="keyboard">d</span> - Navigate to Dashboard</li>
+                <li><span class="keyboard">g</span> + <span class="keyboard">b</span> - Navigate to Bank Reconciliation</li>
+                <li><span class="keyboard">g</span> + <span class="keyboard">v</span> - Navigate to Vendor Payments</li>
+            </ul>
+            
+            <p>All banking module pages feature a consistent green <strong>Back to Dashboard</strong> button at the top of the page, providing a standardized way to return to the main dashboard.</p>
+            
+            <div class="tip">
+                <p><strong>Tip:</strong> Hover over dashboard widgets to see additional details or quick action buttons.</p>
+            </div>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="core-fund-accounting">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <h2>Core Fund Accounting</h2>
+            </div>
+            
+            <p>Mr-Moneybags implements true fund accounting principles, essential for non-profit organizations that need to track and report on multiple funds with different restrictions.</p>
+            
+            <section id="entities-funds">
+                <div class="section-header">
+                    <div class="section-number">4.1</div>
+                    <h3>Entities & Funds</h3>
+                </div>
+                
+                <p><strong>Entities</strong> represent organizational units within your non-profit structure. They can be arranged in a parent/child hierarchy to reflect your organizational structure.</p>
+                
+                <p>To manage entities:</p>
+                
+                <ol>
+                    <li>Navigate to <strong>Settings → Entities</strong> (admin users only)</li>
+                    <li>Click <strong>Add Entity</strong> to create a new organizational unit</li>
+                    <li>Enter the entity name, code, and select a parent entity if applicable</li>
+                    <li>Click <strong>Save</strong> to create the entity</li>
+                </ol>
+                
+                <p><strong>Funds</strong> are accounting entities established for specific purposes, particularly to ensure that restricted resources are used only for their intended purposes.</p>
+                
+                <p>To manage funds:</p>
+                
+                <ol>
+                    <li>Navigate to <strong>Settings → Funds</strong> (admin users only)</li>
+                    <li>Click <strong>Add Fund</strong> to create a new fund</li>
+                    <li>Enter the fund name, code, and set the <strong>Restricted</strong> flag as appropriate:
+                        <ul>
+                            <li><strong>Restricted = true</strong>: Resources can only be used for specific purposes</li>
+                            <li><strong>Restricted = false</strong>: Resources can be used for any legitimate organizational purpose</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to create the fund</li>
+                </ol>
+                
+                <div class="note no-break">
+                    <p><strong>Practical Example:</strong> Creating a Scholarship Fund</p>
+                    <ol>
+                        <li>Navigate to <strong>Settings → Funds</strong></li>
+                        <li>Click <strong>Add Fund</strong></li>
+                        <li>Enter "Scholarship Fund" as the name</li>
+                        <li>Enter "SCHOL" as the code</li>
+                        <li>Set <strong>Restricted</strong> to "true"</li>
+                        <li>Add a description: "For student scholarships only"</li>
+                        <li>Click <strong>Save</strong></li>
+                    </ol>
+                </div>
+            </section>
+            
+            <section id="chart-of-accounts">
+                <div class="section-header">
+                    <div class="section-number">4.2</div>
+                    <h3>Chart of Accounts</h3>
+                </div>
+                
+                <p>The Chart of Accounts is the foundation of your accounting system, organizing all financial transactions into appropriate categories.</p>
+                
+                <p>To manage accounts:</p>
+                
+                <ol>
+                    <li>Navigate to the <strong>Accounts</strong> module</li>
+                    <li>Click <strong>New Account</strong> to create a new account</li>
+                    <li>Enter the account details:
+                        <ul>
+                            <li><strong>Account Number</strong>: Unique identifier (recommended: 4-digit natural numbers)</li>
+                            <li><strong>Name</strong>: Descriptive account name</li>
+                            <li><strong>Type</strong>: Asset, Liability, Equity, Revenue, or Expense</li>
+                            <li><strong>Parent Account</strong>: Optional parent for hierarchical organization</li>
+                            <li><strong>Active</strong>: Whether the account is available for transactions</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to create the account</li>
+                </ol>
+                
+                <div class="tip">
+                    <p><strong>Tip:</strong> Consider using a structured account numbering system, such as:</p>
+                    <ul>
+                        <li>1000-1999: Assets</li>
+                        <li>2000-2999: Liabilities</li>
+                        <li>3000-3999: Equity</li>
+                        <li>4000-4999: Revenue</li>
+                        <li>5000-5999: Expenses</li>
+                    </ul>
+                    <p>You can also add fund/department segments if required (e.g., 5100-SCHOL for scholarship-related expenses).</p>
+                </div>
+            </section>
+            
+            <section id="journal-entries">
+                <div class="section-header">
+                    <div class="section-number">4.3</div>
+                    <h3>Journal Entries</h3>
+                </div>
+                
+                <p>Journal entries are the fundamental records of financial transactions in the system. Each entry must balance (debits = credits) following double-entry accounting principles.</p>
+                
+                <p>To create a journal entry:</p>
+                
+                <ol>
+                    <li>Navigate to <strong>Journal Entries</strong> from the main menu</li>
+                    <li>Click <strong>New Entry</strong> to open the journal entry form</li>
+                    <li>Enter the header information:
+                        <ul>
+                            <li><strong>Date</strong>: Transaction date</li>
+                            <li><strong>Reference</strong>: Optional reference number or identifier</li>
+                            <li><strong>Memo</strong>: Description of the transaction</li>
+                            <li><strong>Entity</strong>: The organizational entity for this transaction</li>
+                        </ul>
+                    </li>
+                    <li>Add debit and credit lines:
+                        <ul>
+                            <li>Click <strong>Add Line</strong> to add each transaction line</li>
+                            <li>Select the <strong>Account</strong> from the dropdown</li>
+                            <li>Enter either a <strong>Debit</strong> or <strong>Credit</strong> amount</li>
+                            <li>Select the <strong>Fund</strong> if applicable</li>
+                            <li>Add a line-specific <strong>Memo</strong> if needed</li>
+                        </ul>
+                    </li>
+                    <li>Verify that the entry balances (total debits = total credits)</li>
+                    <li>Click <strong>Post</strong> to record the entry in the ledger</li>
+                </ol>
+                
+                <div class="image-placeholder">
+                    [Screenshot: Journal Entry Form showing header and line items]
+                </div>
+                
+                <p>The system enforces double-entry accounting rules and will not allow you to post an unbalanced entry. A running total at the bottom of the form shows the current balance status of the entry.</p>
+                
+                <div class="note">
+                    <p><strong>Note:</strong> Once posted, journal entries cannot be deleted. To correct an error, create a reversing entry.</p>
+                </div>
+            </section>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="banking-operations">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <h2>Banking Operations</h2>
+            </div>
+            
+            <p>Mr-Moneybags v1.x includes comprehensive banking modules that streamline day-to-day financial operations. These modules handle bank reconciliation, deposits, and check printing with professional-grade features.</p>
+            
+            <section id="bank-reconciliation">
+                <div class="section-header">
+                    <div class="section-number">5.1</div>
+                    <h3>Bank Reconciliation</h3>
+                </div>
+                
+                <p>The Bank Reconciliation module allows you to match your internal records with your bank statements, ensuring accuracy and identifying discrepancies.</p>
+                
+                <div class="image-placeholder">
+                    [Screenshot: Bank Reconciliation Workspace showing matching interface]
+                </div>
+                
+                <p>The reconciliation process consists of three main steps:</p>
+                
+                <h4>Step 1: Upload Bank Statement</h4>
+                
+                <ol>
+                    <li>Navigate to the <strong>Bank Reconciliation</strong> page</li>
+                    <li>Select the <strong>Bank Statements</strong> tab</li>
+                    <li>Click <strong>Upload Statement</strong> to open the upload dialog</li>
+                    <li>Select the <strong>Bank Account</strong> from the dropdown</li>
+                    <li>Enter the <strong>Statement Date</strong> and <strong>Ending Balance</strong></li>
+                    <li>Choose the file format:
+                        <ul>
+                            <li><strong>CSV</strong>: Comma-separated values (most common)</li>
+                            <li><strong>QIF</strong>: Quicken Interchange Format</li>
+                            <li><strong>OFX</strong>: Open Financial Exchange</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Choose File</strong> to select your statement file</li>
+                    <li>Click <strong>Upload</strong> to import the statement</li>
+                </ol>
+                
+                <div class="tip">
+                    <p><strong>Tip:</strong> If your bank doesn't offer statement downloads, you can manually enter transactions by clicking <strong>Add Transaction</strong> on the Bank Statements tab.</p>
+                </div>
+                
+                <h4>Step 2: Match Transactions</h4>
+                
+                <p>After uploading a statement, switch to the <strong>Workspace</strong> tab to begin matching transactions:</p>
+                
+                <ol>
+                    <li>Review the <strong>Auto-Matched</strong> section, which shows transactions the system has automatically paired based on amount, date, and description</li>
+                    <li>For unmatched transactions, use the drag-and-drop interface:
+                        <ul>
+                            <li>The left panel shows your book transactions (from your accounting records)</li>
+                            <li>The right panel shows bank statement transactions</li>
+                            <li>Drag a transaction from one side to the other to create a match</li>
+                        </ul>
+                    </li>
+                    <li>For transactions that appear only in the bank statement (like bank fees or interest):
+                        <ul>
+                            <li>Click <strong>Create Adjustment</strong></li>
+                            <li>Select the appropriate account (e.g., Bank Fees Expense)</li>
+                            <li>Enter the amount and description</li>
+                            <li>Click <strong>Save</strong> to create a new journal entry for this item</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <p>The system provides a real-time reconciliation summary showing:</p>
+                
+                <ul>
+                    <li><strong>Statement Balance</strong>: Ending balance from the bank statement</li>
+                    <li><strong>Reconciled Balance</strong>: Sum of all matched and cleared transactions</li>
+                    <li><strong>Difference</strong>: The amount remaining to be reconciled</li>
+                </ul>
+                
+                <h4>Step 3: Finalize Reconciliation</h4>
+                
+                <ol>
+                    <li>Once the <strong>Difference</strong> equals zero, review all matches for accuracy</li>
+                    <li>Click <strong>Finish Reconciliation</strong> to complete the process</li>
+                    <li>The system will generate a reconciliation report in PDF format</li>
+                    <li>All matched transactions will be marked as "Cleared" in your accounting records</li>
+                </ol>
+                
+                <div class="warning">
+                    <p><strong>Important:</strong> Once a reconciliation is finalized, it cannot be undone. Make sure all matches are correct before completing this step.</p>
+                </div>
+                
+                <p>Completed reconciliations are stored in the system and can be viewed at any time from the <strong>Reports</strong> tab of the Bank Reconciliation module.</p>
+            </section>
+            
+            <div class="page-break"></div>
+            
+            <section id="bank-deposits">
+                <div class="section-header">
+                    <div class="section-number">5.2</div>
+                    <h3>Bank Deposits</h3>
+                </div>
+                
+                <p>The Bank Deposits module streamlines the process of recording and tracking deposits to your bank accounts. It supports multi-item deposits and generates professional deposit slips.</p>
+                
+                <h4>Creating a New Deposit</h4>
+                
+                <ol>
+                    <li>Navigate to <strong>Bank Deposits</strong> from the main menu</li>
+                    <li>Click <strong>New Deposit</strong> to open the deposit form</li>
+                    <li>Enter the deposit header information:
+                        <ul>
+                            <li><strong>Bank Account</strong>: Select the destination account</li>
+                            <li><strong>Deposit Date</strong>: Date the deposit will be made</li>
+                            <li><strong>Reference</strong>: Optional reference number</li>
+                            <li><strong>Description</strong>: Brief description of the deposit</li>
+                        </ul>
+                    </li>
+                    <li>Add deposit items:
+                        <ul>
+                            <li>Click <strong>Add Item</strong> for each check, cash amount, or ACH gift</li>
+                            <li>Select the <strong>Type</strong>: Check, Cash, or ACH</li>
+                            <li>For checks, enter the <strong>Check Number</strong> and <strong>Payer</strong></li>
+                            <li>Enter the <strong>Amount</strong></li>
+                            <li>Select the appropriate <strong>Revenue Account</strong> and <strong>Fund</strong></li>
+                            <li>Add a <strong>Memo</strong> if needed</li>
+                        </ul>
+                    </li>
+                    <li>Verify the deposit total, which updates in real-time as you add items</li>
+                    <li>Click <strong>Submit Deposit</strong> to save the deposit with a status of <em>Pending</em></li>
+                </ol>
+                
+                <div class="image-placeholder">
+                    [Screenshot: Bank Deposit Form showing header and item entry]
+                </div>
+                
+                <h4>Deposit Workflow</h4>
+                
+                <p>Deposits follow a status workflow:</p>
+                
+                <ol>
+                    <li><strong>Draft</strong>: Initial state, deposit is being prepared</li>
+                    <li><strong>Pending</strong>: Deposit has been submitted but not yet confirmed by the bank</li>
+                    <li><strong>Cleared</strong>: Deposit has been confirmed by the bank and funds are available</li>
+                </ol>
+                
+                <p>To update a deposit's status:</p>
+                
+                <ol>
+                    <li>Navigate to the <strong>Deposits List</strong> tab</li>
+                    <li>Find the deposit you want to update</li>
+                    <li>Click the <strong>Actions</strong> button and select <strong>Mark as Cleared</strong></li>
+                    <li>Enter the date the deposit cleared the bank</li>
+                    <li>Click <strong>Confirm</strong> to update the status</li>
+                </ol>
+                
+                <h4>Generating Deposit Slips</h4>
+                
+                <p>Mr-Moneybags can generate formatted deposit slips for printing:</p>
+                
+                <ol>
+                    <li>Navigate to the <strong>Deposit Slip</strong> tab</li>
+                    <li>Select the deposit from the dropdown list</li>
+                    <li>Click <strong>Generate Deposit Slip</strong></li>
+                    <li>A printable deposit slip will be displayed, formatted to fit standard deposit slip forms</li>
+                    <li>Click <strong>Print</strong> to send the slip to your printer</li>
+                </ol>
+                
+                <div class="tip">
+                    <p><strong>Tip:</strong> Deposit slips can be printed on plain letter paper. There's no need for special forms.</p>
+                </div>
+            </section>
+            
+            <div class="page-break"></div>
+            
+            <section id="check-printing">
+                <div class="section-header">
+                    <div class="section-number">5.3</div>
+                    <h3>Check Printing</h3>
+                </div>
+                
+                <p>The Check Printing module provides a complete solution for managing and printing checks. It supports multiple check formats, maintains a check register, and tracks the status of each check through its lifecycle.</p>
+                
+                <p>The module is organized into four tabs:</p>
+                
+                <ul>
+                    <li><strong>Check Register</strong>: Lists all checks with their current status</li>
+                    <li><strong>New Check</strong>: Form for creating new checks</li>
+                    <li><strong>Print Queue</strong>: Manages checks waiting to be printed</li>
+                    <li><strong>Check Formats</strong>: Configures templates for different check stock types</li>
+                </ul>
+                
+                <h4>Check Workflow</h4>
+                
+                <p>Checks follow a defined workflow through several statuses:</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Draft</strong></td>
+                            <td>Initial state when a check is first created</td>
+                        </tr>
+                        <tr>
+                            <td><strong>In Queue</strong></td>
+                            <td>Check has been added to the print queue but not yet printed</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Printed</strong></td>
+                            <td>Check has been physically printed</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Void</strong></td>
+                            <td>Check has been invalidated (creates reversing journal entry)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cleared</strong></td>
+                            <td>Check has been processed by the bank</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h4>Creating a New Check</h4>
+                
+                <ol>
+                    <li>Navigate to the <strong>New Check</strong> tab</li>
+                    <li>Enter the check header information:
+                        <ul>
+                            <li><strong>Bank Account</strong>: Source account for the check</li>
+                            <li><strong>Payee</strong>: Recipient of the check</li>
+                            <li><strong>Date</strong>: Check date</li>
+                            <li><strong>Amount</strong>: Total check amount</li>
+                            <li><strong>Memo</strong>: Optional memo to print on the check</li>
+                        </ul>
+                    </li>
+                    <li>Add accounting lines:
+                        <ul>
+                            <li>Click <strong>Add Line</strong> for each expense or account to be charged</li>
+                            <li>Select the <strong>Account</strong> from the dropdown</li>
+                            <li>Enter the <strong>Amount</strong> for this line</li>
+                            <li>Select the <strong>Fund</strong> if applicable</li>
+                            <li>Add a line-specific <strong>Memo</strong> if needed</li>
+                        </ul>
+                    </li>
+                    <li>Verify that the sum of all lines equals the check amount</li>
+                    <li>Click <strong>Save as Draft</strong> to save the check</li>
+                    <li>Click <strong>Add to Print Queue</strong> to move the check to the print queue</li>
+                </ol>
+                
+                <div class="image-placeholder">
+                    [Screenshot: New Check Form showing payee, amount, and accounting lines]
+                </div>
+                
+                <h4>Printing Checks</h4>
+                
+                <ol>
+                    <li>Navigate to the <strong>Print Queue</strong> tab</li>
+                    <li>Select the checks you want to print by checking the boxes next to them</li>
+                    <li>Click <strong>Print Selected</strong> to open the print preview</li>
+                    <li>Verify that the check information is correct</li>
+                    <li>Load your check stock into the printer</li>
+                    <li>Select the appropriate <strong>Check Format</strong> from the dropdown</li>
+                    <li>Enter the <strong>Starting Check Number</strong> that matches your physical check stock</li>
+                    <li>Click <strong>Print</strong> to send the checks to your printer</li>
+                    <li>After successful printing, click <strong>Confirm Printed</strong> to update the check status</li>
+                </ol>
+                
+                <div class="warning">
+                    <p><strong>Important:</strong> Always verify that your printer is properly aligned with your check stock before printing. Use the <strong>Test Print</strong> option to print a sample on plain paper first.</p>
+                </div>
+                
+                <h4>Managing Check Formats</h4>
+                
+                <p>The system comes with four predefined check formats:</p>
+                
+                <ul>
+                    <li><strong>Standard</strong>: Standard business check with detachable stub</li>
+                    <li><strong>QuickBooks</strong>: Compatible with QuickBooks check stock</li>
+                    <li><strong>Voucher</strong>: Check with detailed voucher section</li>
+                    <li><strong>Wallet</strong>: Smaller format for personal-sized checks</li>
+                </ul>
+                
+                <p>Administrators can customize these formats or create new ones:</p>
+                
+                <ol>
+                    <li>Navigate to the <strong>Check Formats</strong> tab</li>
+                    <li>Click <strong>Duplicate</strong> next to an existing format to create a copy</li>
+                    <li>Edit the format settings:
+                        <ul>
+                            <li><strong>Name</strong>: Descriptive name for the format</li>
+                            <li><strong>Description</strong>: Optional detailed description</li>
+                            <li><strong>Field Positions</strong>: X/Y coordinates for each check element (date, payee, amount, etc.)</li>
+                            <li><strong>Margins</strong>: Top, bottom, left, and right margins</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to store the format</li>
+                    <li>Use the <strong>Test Print</strong> button to verify alignment</li>
+                </ol>
+            </section>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="vendor-management">
+            <div class="section-header">
+                <div class="section-number">6</div>
+                <h2>Vendor Management</h2>
+            </div>
+            
+            <p>Mr-Moneybags provides comprehensive vendor management capabilities, including maintaining vendor information, bank account details for electronic payments, and batch payment processing with NACHA file generation.</p>
+            
+            <section id="vendors-ach-details">
+                <div class="section-header">
+                    <div class="section-number">6.1</div>
+                    <h3>Vendors & ACH Details</h3>
+                </div>
+                
+                <p>The Vendors module allows you to maintain a database of your suppliers and service providers, including their contact information and payment details.</p>
+                
+                <h4>Creating a New Vendor</h4>
+                
+                <ol>
+                    <li>Navigate to <strong>Vendors</strong> from the main menu</li>
+                    <li>Click <strong>New Vendor</strong> to open the vendor form</li>
+                    <li>Enter the vendor information:
+                        <ul>
+                            <li><strong>Name</strong>: Legal name of the vendor</li>
+                            <li><strong>Code</strong>: Short identifier for the vendor</li>
+                            <li><strong>Tax ID</strong>: EIN or SSN for tax reporting</li>
+                            <li><strong>Address</strong>: Mailing address for checks and correspondence</li>
+                            <li><strong>Contact Information</strong>: Phone, email, and contact person</li>
+                            <li><strong>Default Expense Account</strong>: Primary GL account for this vendor</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to create the vendor record</li>
+                </ol>
+                
+                <h4>Adding ACH Payment Details</h4>
+                
+                <p>For vendors who accept electronic payments, you can add bank account information:</p>
+                
+                <ol>
+                    <li>Open the vendor record by clicking on their name in the vendors list</li>
+                    <li>Navigate to the <strong>Bank Accounts</strong> tab</li>
+                    <li>Click <strong>Add Bank Account</strong></li>
+                    <li>Enter the account details:
+                        <ul>
+                            <li><strong>Account Name</strong>: Description of the account (e.g., "Operating Account")</li>
+                            <li><strong>Routing Number</strong>: 9-digit ABA routing number</li>
+                            <li><strong>Account Number</strong>: Bank account number</li>
+                            <li><strong>Account Type</strong>: Checking or Savings</li>
+                            <li><strong>Default</strong>: Check this box if this is the primary account for payments</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to store the bank account information</li>
+                </ol>
+                
+                <div class="note">
+                    <p><strong>Note:</strong> Bank account information is encrypted in the database for security. Only the last four digits of account numbers are displayed after initial entry.</p>
+                </div>
+                
+                <div class="image-placeholder">
+                    [Screenshot: Vendor Bank Account Entry Form]
+                </div>
+            </section>
+            
+            <div class="page-break"></div>
+            
+            <section id="payment-batches">
+                <div class="section-header">
+                    <div class="section-number">6.2</div>
+                    <h3>Payment Batches</h3>
+                </div>
+                
+                <p>The Vendor Payments module allows you to create batches of payments for efficient processing. You can generate NACHA files for electronic payments through your banking system.</p>
+                
+                <h4>Creating a Payment Batch</h4>
+                
+                <ol>
+                    <li>Navigate to <strong>Vendor Payments</strong> from the main menu</li>
+                    <li>Click <strong>New Batch</strong> to create a payment batch</li>
+                    <li>Enter the batch header information:
+                        <ul>
+                            <li><strong>Batch Name</strong>: Descriptive name (e.g., "July Utilities")</li>
+                            <li><strong>Payment Date</strong>: Date payments should be processed</li>
+                            <li><strong>Bank Account</strong>: Source account for the payments</li>
+                            <li><strong>Description</strong>: Optional detailed description</li>
+                        </ul>
+                    </li>
+                    <li>Add payment items:
+                        <ul>
+                            <li>Click <strong>Add Payment</strong> for each vendor payment</li>
+                            <li>Select the <strong>Vendor</strong> from the dropdown</li>
+                            <li>The system will automatically select the default bank account if available</li>
+                            <li>Enter the <strong>Amount</strong></li>
+                            <li>Enter an <strong>Invoice Number</strong> if applicable</li>
+                            <li>Add a <strong>Description</strong> that will appear on the vendor's bank statement</li>
+                            <li>Select the appropriate <strong>Expense Account</strong> and <strong>Fund</strong></li>
+                        </ul>
+                    </li>
+                    <li>Alternatively, click <strong>Import Invoices</strong> to upload a CSV file of invoices to pay</li>
+                    <li>Review the batch total and payment items</li>
+                    <li>Click <strong>Save as Draft</strong> to save the batch for later editing</li>
+                    <li>Click <strong>Approve Batch</strong> when ready to process</li>
+                </ol>
+                
+                <h4>Generating NACHA Files</h4>
+                
+                <p>Once a batch is approved, you can generate a NACHA file for submission to your bank:</p>
+                
+                <ol>
+                    <li>Navigate to the <strong>Batches</strong> tab in Vendor Payments</li>
+                    <li>Find the approved batch you want to process</li>
+                    <li>Click <strong>Generate NACHA</strong></li>
+                    <li>The system will validate all bank account information</li>
+                    <li>If validation passes, a NACHA file will be generated and available for download</li>
+                    <li>The batch status will change to <em>Sent</em></li>
+                </ol>
+                
+                <div class="image-placeholder">
+                    [Screenshot: NACHA File Generation Interface]
+                </div>
+                
+                <h4>Payment Batch Workflow</h4>
+                
+                <p>Payment batches follow a status workflow:</p>
+                
+                <ul>
+                    <li><strong>Draft</strong>: Initial state, batch can be edited</li>
+                    <li><strong>Approved</strong>: Batch is ready for NACHA file generation</li>
+                    <li><strong>Sent</strong>: NACHA file has been generated and submitted to the bank</li>
+                    <li><strong>Cleared</strong>: All payments in the batch have cleared the bank</li>
+                </ul>
+                
+                <p>To update a batch's status to Cleared:</p>
+                
+                <ol>
+                    <li>Navigate to the <strong>Batches</strong> tab</li>
+                    <li>Find the batch you want to update</li>
+                    <li>Click <strong>Mark as Cleared</strong></li>
+                    <li>Enter the date the payments cleared the bank</li>
+                    <li>Click <strong>Confirm</strong> to update the status</li>
+                </ol>
+                
+                <div class="note">
+                    <p><strong>Note:</strong> The system tracks each batch and item status separately. This allows for detailed reconciliation and audit trails.</p>
+                </div>
+            </section>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="reporting-analytics">
+            <div class="section-header">
+                <div class="section-number">7</div>
+                <h2>Reporting & Analytics</h2>
+            </div>
+            
+            <p>Mr-Moneybags provides powerful reporting capabilities to help you analyze your financial data, prepare for audits, and make informed decisions.</p>
+            
+            <h4>Creating a Custom Report</h4>
+            
+            <ol>
+                <li>Navigate to <strong>Reports</strong> from the main menu</li>
+                <li>Click <strong>Create Report</strong> to open the report builder</li>
+                <li>Select a report template:
+                    <ul>
+                        <li><strong>Statement of Activities</strong>: Revenue and expenses for a period</li>
+                        <li><strong>Trial Balance</strong>: List of all accounts with their balances</li>
+                        <li><strong>Fund Balance Report</strong>: Balance and activity by fund</li>
+                        <li><strong>General Ledger</strong>: Detailed transaction listing</li>
+                        <li><strong>Bank Reconciliation Summary</strong>: Reconciliation status by account</li>
+                    </ul>
+                </li>
+                <li>Configure report filters:
+                    <ul>
+                        <li><strong>Entity</strong>: Select specific organizational entities</li>
+                        <li><strong>Fund</strong>: Filter by specific funds</li>
+                        <li><strong>Period</strong>: Select date range or fiscal period</li>
+                        <li><strong>Account Types</strong>: Include specific account categories</li>
+                        <li><strong>Comparison</strong>: Enable period-to-period comparison</li>
+                    </ul>
+                </li>
+                <li>Click <strong>Preview</strong> to see the report</li>
+                <li>Adjust filters as needed</li>
+                <li>Click <strong>Save Definition</strong> to store the report configuration for future use</li>
+                <li>Enter a name and description for the saved report</li>
+            </ol>
+            
+            <div class="image-placeholder">
+                [Screenshot: Report Builder Interface]
+            </div>
+            
+            <h4>Exporting Reports</h4>
+            
+            <p>Reports can be exported in several formats:</p>
+            
+            <ol>
+                <li>Generate the report by selecting a saved definition or creating a new one</li>
+                <li>Click the <strong>Export</strong> button</li>
+                <li>Select the desired format:
+                    <ul>
+                        <li><strong>PDF</strong>: Portable Document Format (best for printing)</li>
+                        <li><strong>Excel</strong>: Microsoft Excel spreadsheet (for further analysis)</li>
+                        <li><strong>CSV</strong>: Comma-separated values (for data import to other systems)</li>
+                    </ul>
+                </li>
+                <li>The report will be generated and downloaded to your computer</li>
+            </ol>
+            
+            <h4>Scheduled Reports</h4>
+            
+            <p>Administrators can set up automatic report generation and delivery:</p>
+            
+            <ol>
+                <li>Save a report definition as described above</li>
+                <li>Contact your system administrator to configure the schedule</li>
+                <li>The administrator will edit the <code>reports_schedule</code> table to set up:
+                    <ul>
+                        <li>Frequency (daily, weekly, monthly)</li>
+                        <li>Delivery method (email, file system)</li>
+                        <li>Recipients</li>
+                        <li>Format</li>
+                    </ul>
+                </li>
+            </ol>
+            
+            <div class="tip">
+                <p><strong>Tip:</strong> For board meetings or regular financial reviews, set up scheduled reports to be delivered automatically before the meeting date.</p>
+            </div>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="administrative-functions">
+            <div class="section-header">
+                <div class="section-number">8</div>
+                <h2>Administrative Functions (Admin Only)</h2>
+            </div>
+            
+            <p>This section covers functions available only to users with the <strong>admin</strong> role. These functions allow for system configuration, user management, and security settings.</p>
+            
+            <section id="user-management">
+                <div class="section-header">
+                    <div class="section-number">8.1</div>
+                    <h3>User Management</h3>
+                </div>
+                
+                <p>Administrators can create and manage user accounts through the Settings module.</p>
+                
+                <h4>Adding a New User</h4>
+                
+                <ol>
+                    <li>Navigate to <strong>Settings → Users</strong></li>
+                    <li>Click <strong>Add User</strong> to open the user form</li>
+                    <li>Enter the user information:
+                        <ul>
+                            <li><strong>Username</strong>: Unique login identifier</li>
+                            <li><strong>First Name</strong> and <strong>Last Name</strong></li>
+                            <li><strong>Email</strong>: User's email address</li>
+                            <li><strong>Role</strong>: Select "admin" or "user"</li>
+                            <li><strong>Temporary Password</strong>: Initial password (user will be prompted to change at first login)</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to create the user account</li>
+                </ol>
+                
+                <div class="warning">
+                    <p><strong>Important:</strong> Role names are case-sensitive. Use lowercase "admin" or "user" for proper functionality.</p>
+                </div>
+                
+                <h4>Managing Existing Users</h4>
+                
+                <p>To modify or disable a user account:</p>
+                
+                <ol>
+                    <li>Navigate to <strong>Settings → Users</strong></li>
+                    <li>Find the user in the list</li>
+                    <li>Click <strong>Edit</strong> to modify their information</li>
+                    <li>To disable a user, uncheck the <strong>Active</strong> checkbox</li>
+                    <li>To reset a password, click <strong>Reset Password</strong> and enter a new temporary password</li>
+                    <li>Click <strong>Save</strong> to apply the changes</li>
+                </ol>
+                
+                <div class="note">
+                    <p><strong>Note:</strong> For security reasons, user accounts cannot be deleted from the system. Instead, they should be disabled when no longer needed.</p>
+                </div>
+            </section>
+            
+            <section id="system-settings">
+                <div class="section-header">
+                    <div class="section-number">8.2</div>
+                    <h3>System Settings</h3>
+                </div>
+                
+                <p>The Settings module allows administrators to configure various system parameters.</p>
+                
+                <h4>Company Information</h4>
+                
+                <ol>
+                    <li>Navigate to <strong>Settings → Company</strong></li>
+                    <li>Enter your organization's details:
+                        <ul>
+                            <li><strong>Name</strong>: Legal name of the organization</li>
+                            <li><strong>Address</strong>: Physical and mailing address</li>
+                            <li><strong>Tax ID</strong>: EIN for tax purposes</li>
+                            <li><strong>Fiscal Year</strong>: Start and end dates of your fiscal year</li>
+                            <li><strong>Logo</strong>: Upload your organization's logo for reports</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to update the information</li>
+                </ol>
+                
+                <h4>NACHA Settings</h4>
+                
+                <ol>
+                    <li>Navigate to <strong>Settings → NACHA</strong></li>
+                    <li>Configure your ACH payment settings:
+                        <ul>
+                            <li><strong>Company ID</strong>: Your ACH company identifier</li>
+                            <li><strong>Company Name</strong>: Name to appear on recipient statements</li>
+                            <li><strong>Originating DFI</strong>: Your bank's routing number</li>
+                            <li><strong>Destination Name</strong>: Your bank's name</li>
+                            <li><strong>Entry Description</strong>: Default description for ACH entries</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to update the settings</li>
+                </ol>
+                
+                <h4>Check Numbering</h4>
+                
+                <ol>
+                    <li>Navigate to <strong>Settings → Checks</strong></li>
+                    <li>Configure check numbering for each bank account:
+                        <ul>
+                            <li><strong>Bank Account</strong>: Select the account</li>
+                            <li><strong>Next Check Number</strong>: Set the starting number for new checks</li>
+                            <li><strong>Auto-increment</strong>: Enable/disable automatic numbering</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Save</strong> to update the settings</li>
+                </ol>
+            </section>
+            
+            <section id="security-tips">
+                <div class="section-header">
+                    <div class="section-number">8.3</div>
+                    <h3>Security Tips</h3>
+                </div>
+                
+                <p>As an administrator, consider these security best practices:</p>
+                
+                <ul>
+                    <li><strong>HTTPS Enforcement</strong>: Always configure your web server to use HTTPS to encrypt all traffic.</li>
+                    <li><strong>Password Rotation</strong>: Require admin passwords to be changed quarterly.</li>
+                    <li><strong>Session Management</strong>: Back up the <code>session</code> table daily to preserve active logins after database restores.</li>
+                    <li><strong>Access Control</strong>: Regularly audit user accounts and disable those that are no longer needed.</li>
+                    <li><strong>Database Backups</strong>: Schedule regular backups of the PostgreSQL database.</li>
+                    <li><strong>Audit Logs</strong>: Review system logs periodically for unusual activity.</li>
+                </ul>
+                
+                <div class="warning">
+                    <p><strong>Important:</strong> Never share admin credentials or allow multiple users to use the same account. Each user should have their own account with appropriate permissions.</p>
+                </div>
+            </section>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="troubleshooting">
+            <div class="section-header">
+                <div class="section-number">9</div>
+                <h2>Troubleshooting</h2>
+            </div>
+            
+            <p>This section provides solutions to common issues you might encounter while using Mr-Moneybags.</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Symptom</th>
+                        <th>Likely Cause</th>
+                        <th>Fix</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>"Loading..." message never ends</td>
+                        <td>Session cookie missing or invalid</td>
+                        <td>Clear browser cookies, re-login. Ensure API fetches use <code>credentials:"include"</code>.</td>
+                    </tr>
+                    <tr>
+                        <td>Settings tab invisible for admin user</td>
+                        <td>User role not lowercase "admin"</td>
+                        <td>Check Users table; update role to lowercase "admin".</td>
+                    </tr>
+                    <tr>
+                        <td>Cannot print checks – blank preview</td>
+                        <td>Check format has zero margins</td>
+                        <td>Go to Check Formats → edit layout offsets.</td>
+                    </tr>
+                    <tr>
+                        <td>Bank statement import fails</td>
+                        <td>Wrong CSV headers or format</td>
+                        <td>Use provided sample template in Help → Samples.</td>
+                    </tr>
+                    <tr>
+                        <td><code>psql: relation "..." does not exist</code></td>
+                        <td>Database schema not loaded</td>
+                        <td>Run <code>psql -f database/master-schema.sql</code>.</td>
+                    </tr>
+                    <tr>
+                        <td>Journal entry won't post</td>
+                        <td>Debits and credits don't balance</td>
+                        <td>Check that total debits equal total credits.</td>
+                    </tr>
+                    <tr>
+                        <td>NACHA file generation fails</td>
+                        <td>Missing vendor bank information</td>
+                        <td>Verify routing and account numbers for all vendors in the batch.</td>
+                    </tr>
+                    <tr>
+                        <td>Report shows no data</td>
+                        <td>Filter criteria too restrictive</td>
+                        <td>Broaden date range or remove some filters.</td>
+                    </tr>
+                    <tr>
+                        <td>User cannot log in despite correct password</td>
+                        <td>Account may be disabled</td>
+                        <td>Admin should check user's "Active" status in Settings → Users.</td>
+                    </tr>
+                    <tr>
+                        <td>Reconciliation shows persistent difference</td>
+                        <td>Missing transaction or incorrect amount</td>
+                        <td>Create an adjustment entry for the difference after verifying with bank.</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h4>Diagnostic Information</h4>
+            
+            <p>When troubleshooting issues, check these sources of diagnostic information:</p>
+            
+            <ul>
+                <li><strong>Server Logs</strong>: Located in <code>logs/server.log</code>, these contain backend errors and API request information.</li>
+                <li><strong>Browser Console</strong>: Press F12 in most browsers to open developer tools and view JavaScript errors and network requests.</li>
+                <li><strong>Database Queries</strong>: Administrators can run direct SQL queries to investigate data issues.</li>
+            </ul>
+            
+            <h4>Common Error Messages</h4>
+            
+            <ul>
+                <li><strong>"Unauthorized"</strong>: Session expired or invalid. Re-login.</li>
+                <li><strong>"Validation Error"</strong>: Form data doesn't meet requirements. Check input fields.</li>
+                <li><strong>"Database Error"</strong>: Problem with data storage or retrieval. Check server logs.</li>
+                <li><strong>"Network Error"</strong>: API request failed. Check internet connection and server status.</li>
+            </ul>
+            
+            <div class="tip">
+                <p><strong>Tip:</strong> If you encounter a persistent issue not covered here, check the server logs and contact your system administrator with the exact error message and steps to reproduce the problem.</p>
+            </div>
+        </section>
+        
+        <div class="page-break"></div>
+        
+        <section id="appendices">
+            <div class="section-header">
+                <div class="section-number">10</div>
+                <h2>Appendices</h2>
+            </div>
+            
+            <section id="keyboard-shortcuts">
+                <div class="section-header">
+                    <div class="section-number">A</div>
+                    <h3>Keyboard Shortcuts</h3>
+                </div>
+                
+                <p>Mr-Moneybags supports various keyboard shortcuts to improve efficiency. Press the keys in sequence, not simultaneously.</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Keys</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Navigate to Dashboard</td>
+                            <td><span class="keyboard">g</span> then <span class="keyboard">d</span></td>
+                        </tr>
+                        <tr>
+                            <td>Navigate to Bank Reconciliation</td>
+                            <td><span class="keyboard">g</span> then <span class="keyboard">b</span></td>
+                        </tr>
+                        <tr>
+                            <td>Navigate to Vendor Payments</td>
+                            <td><span class="keyboard">g</span> then <span class="keyboard">v</span></td>
+                        </tr>
+                        <tr>
+                            <td>Create New Journal Entry</td>
+                            

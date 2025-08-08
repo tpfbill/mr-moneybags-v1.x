@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccuFund Verification Procedure v1.x - Part 2</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+            line-height: 1.5;
+            color: #333;
+            font-size: 10pt;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Page layout for print */
+        @page {
+            size: letter;
+            margin: 0.75in;
+        }
+        
+        /* Headers and sections */
+        h1 {
+            font-size: 16pt;
+            font-weight: 600;
+            margin-top: 0.4in;
+            margin-bottom: 0.2in;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.1in;
+            page-break-before: always;
+        }
+        
+        h1:first-of-type {
+            page-break-before: avoid;
+        }
+        
+        h2 {
+            font-size: 14pt;
+            font-weight: 600;
+            margin-top: 0.3in;
+            margin-bottom: 0.15in;
+            color: #2c3e50;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 0.05in;
+        }
+        
+        h3 {
+            font-size: 12pt;
+            font-weight: 600;
+            margin-top: 0.25in;
+            margin-bottom: 0.1in;
+            color: #2c3e50;
+        }
+        
+        /* Content formatting */
+        p {
+            margin-bottom: 0.15in;
+        }
+        
+        strong {
+            font-weight: 600;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0.2in;
+            page-break-inside: avoid;
+            font-size: 9pt;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 0.08in;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+        
+        /* Checkboxes */
+        .checkbox {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1px solid #333;
+            margin-right: 5px;
+            position: relative;
+            top: 1px;
+        }
+        
+        .checkbox.checked:after {
+            content: "✓";
+            position: absolute;
+            top: -3px;
+            left: 2px;
+        }
+        
+        /* Horizontal rule */
+        hr {
+            border: none;
+            border-top: 1px solid #e9ecef;
+            margin: 0.2in 0;
+        }
+        
+        /* Code blocks */
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f8f9fa;
+            padding: 0 0.05in;
+            border-radius: 3px;
+            font-size: 9pt;
+        }
+        
+        /* Prevent page breaks inside important elements */
+        .no-break {
+            page-break-inside: avoid;
+        }
+        
+        /* Utility classes */
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .mt-1 {
+            margin-top: 0.1in;
+        }
+        
+        .mb-1 {
+            margin-bottom: 0.1in;
+        }
+        
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 0.5in;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #7f8c8d;
+        }
+        
+        /* Lists */
+        ul, ol {
+            margin-left: 0.2in;
+            margin-bottom: 0.15in;
+        }
+        
+        li {
+            margin-bottom: 0.05in;
+        }
+        
+        /* Blockquote */
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 0.15in;
+            margin: 0.15in 0;
+            font-style: italic;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>AccuFund → Mr. MoneyBags v1.x</h1>
+    <h2>Comprehensive Verification &amp; Acceptance Procedure – Part 2 (Sections 7-13 &amp; Appendices)</h2>
+    
+    <p><em>Important:</em> Sections 0-6 (Pre-Verification through Reporting) are documented in <strong>"AccuFund Verification Procedure v1.x – Part 1.md."</strong><br>
+    Complete and pass all tests in Part 1 before proceeding with the checks below.</p>
+    
+    <hr>
+    
+    <h2>7 Utility Features Verification (30 tests)</h2>
+    
+    <h3>7.1 Inter-Entity Transfer Wizard (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>7.1.1</td>
+            <td>Create $50 transfer between entities</td>
+            <td>Two mirror JEs created</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.2</td>
+            <td>Due-to/Due-from accounts balanced</td>
+            <td>Balances zero out</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.3</td>
+            <td>Transfer with different currencies</td>
+            <td>FX rate applied correctly</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.4</td>
+            <td>Transfer with memo field</td>
+            <td>Memo appears in both JEs</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.5</td>
+            <td>View transfer history list</td>
+            <td>All transfers listed</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.6</td>
+            <td>Filter transfers by entity</td>
+            <td>List filters correctly</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.7</td>
+            <td>Search transfers by description</td>
+            <td>Matching rows shown</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.8</td>
+            <td>Reverse a transfer</td>
+            <td>Offsetting entries created</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.9</td>
+            <td>Export transfer list to CSV</td>
+            <td>File downloads with data</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.1.10</td>
+            <td>Verify JE link drill-down</td>
+            <td>Click row opens JE</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>7.2 Dashboard Features (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>7.2.1</td>
+            <td>Dashboard loads with charts</td>
+            <td>All widgets render</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.2</td>
+            <td>Fund Balance Trends chart</td>
+            <td>Trend correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.3</td>
+            <td>Income vs Expenses chart</td>
+            <td>Values accurate</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.4</td>
+            <td>Fund Distribution donut</td>
+            <td>Segments match data</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.5</td>
+            <td>Recent Transactions panel</td>
+            <td>Shows latest 10 txns</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.6</td>
+            <td>Unposted Entries panel</td>
+            <td>Shows draft JEs</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.7</td>
+            <td>Change date range</td>
+            <td>Charts refresh</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.8</td>
+            <td>Entity filter on dashboard</td>
+            <td>Data scoped to entity</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.9</td>
+            <td>Print dashboard</td>
+            <td>PDF generates correctly</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.2.10</td>
+            <td>Consolidated view toggle</td>
+            <td>Switches between views</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>7.3 Default Financial Reports (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>Role</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>7.3.1</td>
+            <td>Open Default Reports page</td>
+            <td>Report list loads</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.2</td>
+            <td>Statement of Financial Position</td>
+            <td>Report correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.3</td>
+            <td>Statement of Activities</td>
+            <td>Report correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.4</td>
+            <td>Statement of Functional Expenses</td>
+            <td>Report correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.5</td>
+            <td>Statement of Cash Flows</td>
+            <td>Report correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.6</td>
+            <td>Export report → PDF</td>
+            <td>PDF downloads</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.7</td>
+            <td>Export report → Excel</td>
+            <td>XLSX downloads</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.8</td>
+            <td>Filter report by fund</td>
+            <td>Data filters</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.9</td>
+            <td>Filter report by date range</td>
+            <td>Data filters</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>7.3.10</td>
+            <td>Print report</td>
+            <td>Print layout correct</td>
+            <td>F</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>8 User Interface Verification (20 tests)</h2>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Check</th>
+            <th>Steps</th>
+            <th>Expected</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>8.1</td>
+            <td>Navigation links</td>
+            <td>Click all main nav links</td>
+            <td>No 404 / errors</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.2</td>
+            <td>Responsive menu</td>
+            <td>Resize to 375 px width</td>
+            <td>Hamburger menu appears</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.3</td>
+            <td>Lighthouse a11y score</td>
+            <td>Run audit</td>
+            <td>Score ≥ 90</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.4</td>
+            <td>Color contrast</td>
+            <td>Check random pages</td>
+            <td>WCAG AA compliant</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.5</td>
+            <td>Keyboard navigation</td>
+            <td>Tab through inputs</td>
+            <td>Focusable & logical</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.6</td>
+            <td>Screen reader labels</td>
+            <td>Test with SR</td>
+            <td>Elements announced</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.7</td>
+            <td>Form validation messages</td>
+            <td>Submit invalid form</td>
+            <td>Clear guidance shown</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.8</td>
+            <td>Modal dialogs</td>
+            <td>Open/close all modals</td>
+            <td>No JS errors</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.9</td>
+            <td>Toast notifications</td>
+            <td>Trigger success/error</td>
+            <td>Toasts display & auto-dismiss</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.10</td>
+            <td>Loading indicators</td>
+            <td>Open heavy pages</td>
+            <td>Spinner visible</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.11</td>
+            <td>Table sorting</td>
+            <td>Click column headers</td>
+            <td>Rows sort correctly</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.12</td>
+            <td>Table filtering</td>
+            <td>Use filter boxes</td>
+            <td>Rows filter</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.13</td>
+            <td>Table pagination</td>
+            <td>Navigate pages</td>
+            <td>Data loads</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.14</td>
+            <td>Form reset/cancel</td>
+            <td>Click reset</td>
+            <td>Form returns to default</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.15</td>
+            <td>Print-friendly CSS</td>
+            <td>Print various pages</td>
+            <td>Layouts optimized</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.16</td>
+            <td>Back to Dashboard buttons</td>
+            <td>Click on banking pages</td>
+            <td>Returns home</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.17</td>
+            <td>Entity selector</td>
+            <td>Change entity</td>
+            <td>Values update</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.18</td>
+            <td>Consolidated toggle</td>
+            <td>Toggle on/off</td>
+            <td>Data refreshes</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.19</td>
+            <td>Tab interfaces</td>
+            <td>Switch tabs</td>
+            <td>Correct content visible</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>8.20</td>
+            <td>Help tooltips</td>
+            <td>Hover help icons</td>
+            <td>Tooltip text appears</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>9 Data Integrity Verification (28 tests)</h2>
+    
+    <h3>9.1 Database Integrity Checks (15 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Procedure</th>
+            <th>Expected</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>9.1.1</td>
+            <td>Debit = Credit</td>
+            <td>Trial balance variance 0</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.2</td>
+            <td>Restricted funds non-negative</td>
+            <td>No negatives</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.3</td>
+            <td>JE audit trail present</td>
+            <td>User/time recorded</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.4</td>
+            <td>Bank recon integrity proc</td>
+            <td>Returns 0 variance</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.5</td>
+            <td>Inter-entity balances</td>
+            <td>Due-to/Due-from zero</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.6</td>
+            <td>Vendor payment totals</td>
+            <td>Match invoices</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.7</td>
+            <td>Check number uniqueness</td>
+            <td>No duplicates</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.8</td>
+            <td>Deposit totals match items</td>
+            <td>Sums equal</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.9</td>
+            <td>NACHA file validator</td>
+            <td>No errors</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.10</td>
+            <td>Foreign keys enforced</td>
+            <td>No orphan rows</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.11</td>
+            <td>Unique constraints</td>
+            <td>No dup keys</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.12</td>
+            <td>Check constraints</td>
+            <td>All pass</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.13</td>
+            <td>Null constraints</td>
+            <td>Required not null</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.14</td>
+            <td>Data type conformity</td>
+            <td>Values proper types</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.1.15</td>
+            <td>Index health</td>
+            <td>All indexes valid</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>9.2 New Table Verification (13 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Table</th>
+            <th>Rows ≥</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>9.2.1</td>
+            <td><code>bank_statements</code></td>
+            <td>5</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.2</td>
+            <td><code>bank_statement_transactions</code></td>
+            <td>20</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.3</td>
+            <td><code>bank_reconciliations</code></td>
+            <td>3</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.4</td>
+            <td><code>bank_reconciliation_items</code></td>
+            <td>15</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.5</td>
+            <td><code>bank_reconciliation_adjustments</code></td>
+            <td>2</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.6</td>
+            <td><code>bank_deposits</code></td>
+            <td>5</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.7</td>
+            <td><code>bank_deposit_items</code></td>
+            <td>15</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.8</td>
+            <td><code>check_formats</code></td>
+            <td>4</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.9</td>
+            <td><code>printed_checks</code></td>
+            <td>10</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.10</td>
+            <td><code>vendor_bank_accounts</code></td>
+            <td>8</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.11</td>
+            <td><code>payment_items</code></td>
+            <td>12</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.12</td>
+            <td><code>nacha_files</code></td>
+            <td>3</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>9.2.13</td>
+            <td><code>session</code></td>
+            <td>1</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>10 Performance Verification (20 tests)</h2>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Scenario</th>
+            <th>Metric</th>
+            <th>Pass Threshold</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>10.1</td>
+            <td>Login (20 users)</td>
+            <td>Avg page load</td>
+            <td>< 2 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.2</td>
+            <td>Import 10k-line JE</td>
+            <td>Process time</td>
+            <td>< 60 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.3</td>
+            <td>Dashboard load</td>
+            <td>Page load</td>
+            <td>< 3 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.4</td>
+            <td>COA 1000 accts</td>
+            <td>Load time</td>
+            <td>< 2 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.5</td>
+            <td>JE list 10k rows</td>
+            <td>Load time</td>
+            <td>< 3 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.6</td>
+            <td>Reconcile 500 txns</td>
+            <td>Auto-match</td>
+            <td>< 10 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.7</td>
+            <td>Income Statement 12 mo</td>
+            <td>Report time</td>
+            <td>< 5 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.8</td>
+            <td>Custom report 20 cols</td>
+            <td>Report time</td>
+            <td>< 8 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.9</td>
+            <td>NL query processing</td>
+            <td>Response</td>
+            <td>< 3 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.10</td>
+            <td>NACHA generation 100+</td>
+            <td>Process</td>
+            <td>< 5 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.11</td>
+            <td>Print 50 checks</td>
+            <td>Processing</td>
+            <td>< 15 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.12</td>
+            <td>Database backup 100 MB</td>
+            <td>Backup</td>
+            <td>< 30 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.13</td>
+            <td>Database restore 100 MB</td>
+            <td>Restore</td>
+            <td>< 60 s</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.14</td>
+            <td>API 95th percentile</td>
+            <td>Resp time</td>
+            <td>< 500 ms</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.15</td>
+            <td>Memory under load</td>
+            <td>Max RAM</td>
+            <td>< 4 GB</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.16</td>
+            <td>CPU under load</td>
+            <td>Max CPU</td>
+            <td>< 80 %</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.17</td>
+            <td>DB pool usage</td>
+            <td>Connections</td>
+            <td>< 80 % pool</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.18</td>
+            <td>Network throughput</td>
+            <td>Bandwidth</td>
+            <td>< 10 Mbps</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.19</td>
+            <td>Disk I/O</td>
+            <td>IOPS</td>
+            <td>< 1000</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>10.20</td>
+            <td>Full load 50 users</td>
+            <td>Resp degradation</td>
+            <td>< 25 %</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>11 Documentation &amp; Help Verification (15 tests)</h2>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Expected</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>11.1</td>
+            <td>Administrator Guide v1.x</td>
+            <td>PDF accessible &amp; complete</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.2</td>
+            <td>User Guide v1.x</td>
+            <td>PDF accessible &amp; complete</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.3</td>
+            <td>Installation Guide</td>
+            <td>PDF accurate</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.4</td>
+            <td>Migration Guide v1.x</td>
+            <td>PDF accurate</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.5</td>
+            <td>Migration Steps v1.x</td>
+            <td>Checklist complete</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.6</td>
+            <td>Interactive ER Diagram</td>
+            <td>Loads; matches DB</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.7</td>
+            <td>Backend Architecture Diagram</td>
+            <td>Components complete</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.8</td>
+            <td>Frontend Architecture Diagram</td>
+            <td>Components complete</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.9</td>
+            <td>In-app help tooltips</td>
+            <td>Present on complex fields</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.10</td>
+            <td>Error messages</td>
+            <td>Clear, actionable</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.11</td>
+            <td>Form validation text</td>
+            <td>Clear requirements</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.12</td>
+            <td>Documentation links</td>
+            <td>No 404</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.13</td>
+            <td>Documentation search</td>
+            <td>Returns relevant results</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.14</td>
+            <td>Printability of docs</td>
+            <td>Print formatting correct</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>11.15</td>
+            <td>Overall completeness</td>
+            <td>All features documented</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>12 Backup &amp; Recovery Verification (10 tests)</h2>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Test</th>
+            <th>Steps</th>
+            <th>Expected</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>12.1</td>
+            <td>Automated nightly dump</td>
+            <td>Check cron log</td>
+            <td>Dump < 24 h old</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.2</td>
+            <td>Sandbox restore</td>
+            <td><code>pg_restore</code> runs</td>
+            <td>App starts ok</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.3</td>
+            <td>Manual backup</td>
+            <td>Run <code>pg_dump</code></td>
+            <td>Backup completes</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.4</td>
+            <td>Point-in-time recovery</td>
+            <td>Restore timestamp</td>
+            <td>Data correct</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.5</td>
+            <td>Backup encryption</td>
+            <td>Verify encryption</td>
+            <td>File unreadable raw</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.6</td>
+            <td>Backup compression</td>
+            <td>Check size</td>
+            <td>Compressed</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.7</td>
+            <td>Off-site transfer</td>
+            <td>Check logs</td>
+            <td>Transfer ok</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.8</td>
+            <td>Retention policy</td>
+            <td>History matches policy</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.9</td>
+            <td>Backup verification</td>
+            <td>Integrity check passes</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>12.10</td>
+            <td>Disaster recovery test</td>
+            <td>Full restore</td>
+            <td>System operational</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>13 Final Acceptance Testing</h2>
+    
+    <h3>13.1 End-to-End Workflows (10 tests)</h3>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Workflow</th>
+            <th>Steps</th>
+            <th>Expected</th>
+            <th>✔</th>
+        </tr>
+        <tr>
+            <td>13.1.1</td>
+            <td>Full Accounting Cycle</td>
+            <td>JE → Post → Reports</td>
+            <td>Reports reflect JE</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.2</td>
+            <td>Banking Cycle</td>
+            <td>Deposit → Check → Reconcile</td>
+            <td>All items reconciled</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.3</td>
+            <td>Vendor Payment Cycle</td>
+            <td>Vendor → Payment → NACHA</td>
+            <td>File generated</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.4</td>
+            <td>Reporting Cycle</td>
+            <td>Standard → Custom → Export</td>
+            <td>All reports generate</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.5</td>
+            <td>User Management Cycle</td>
+            <td>Create user → Assign role → Login</td>
+            <td>Proper access</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.6</td>
+            <td>Entity Management Cycle</td>
+            <td>Entity → Fund → JE → Consolidate</td>
+            <td>Included correctly</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.7</td>
+            <td>Bank Reconciliation Cycle</td>
+            <td>Import → Match → Reconcile</td>
+            <td>Balances correct</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.8</td>
+            <td>Check Printing Cycle</td>
+            <td>Create → Print → Void → Reprint</td>
+            <td>All steps succeed</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.9</td>
+            <td>Custom Reporting Cycle</td>
+            <td>Build → Save → Schedule → Receive</td>
+            <td>Report delivered</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+        <tr>
+            <td>13.1.10</td>
+            <td>Inter-Entity Transfer Cycle</td>
+            <td>Create transfer → Verify → Report</td>
+            <td>Reflected correctly</td>
+            <td><span class="checkbox"></span></td>
+        </tr>
+    </table>
+    
+    <h3>13.2 Stakeholder Sign-off</h3>
+    <table>
+        <tr>
+            <th>Role</th>
+            <th>Name</th>
+            <th>Date</th>
+            <th>Signature</th>
+        </tr>
+        <tr>
+            <td>Finance Lead</td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>IT Lead</td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>Executive Sponsor</td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+    </table>
+    
+    <blockquote><strong>All sections must be ☑ Pass before production cut-over.</strong></blockquote>
+    
+    <hr>
+    
+    <h2>Appendix A – Troubleshooting Reference</h2>
+    <table>
+        <tr>
+            <th>Area</th>
+            <th>Symptom</th>
+            <th>Likely Cause</th>
+            <th>Resolution</th>
+        </tr>
+        <tr>
+            <td>Auth</td>
+            <td>Logout loop</td>
+            <td>Missing <code>credentials:'include'</code></td>
+            <td>Clear cache; redeploy JS</td>
+        </tr>
+        <tr>
+            <td>Banking</td>
+            <td>Check mis-aligned</td>
+            <td>Printer DPI mis-set</td>
+            <td>Adjust X/Y offsets in format</td>
+        </tr>
+        <tr>
+            <td>ACH</td>
+            <td>Bank rejects file</td>
+            <td>Immediate Origin incorrect</td>
+            <td>Update ACH settings; regenerate</td>
+        </tr>
+        <tr>
+            <td>Reconciliation</td>
+            <td>Items won't match</td>
+            <td>Date format mismatch</td>
+            <td>Check import parser format</td>
+        </tr>
+        <tr>
+            <td>Reports</td>
+            <td>Slow generation</td>
+            <td>Missing DB index</td>
+            <td>Add index; re-analyze</td>
+        </tr>
+        <tr>
+            <td>Performance</td>
+            <td>High CPU</td>
+            <td>JS build in dev mode</td>
+            <td>Switch to production build</td>
+        </tr>
+        <tr>
+            <td>DB</td>
+            <td>Connection errors</td>
+            <td>Pool exhausted</td>
+            <td>Increase pool size; tune queries</td>
+        </tr>
+        <tr>
+            <td>Security</td>
+            <td>Session expiry too fast</td>
+            <td>TTL too low</td>
+            <td>Adjust session config</td>
+        </tr>
+        <tr>
+            <td>API</td>
+            <td>404 on <code>/formats</code></td>
+            <td>Route order conflict</td>
+            <td>Split into dedicated route</td>
+        </tr>
+        <tr>
+            <td>UI</td>
+            <td>Form won't submit</td>
+            <td>Client-side validation</td>
+            <td>Check browser console</td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>Appendix B – Test Data Reference</h2>
+    <table>
+        <tr>
+            <th>Test Area</th>
+            <th>Sample Data Location</th>
+            <th>Contents</th>
+        </tr>
+        <tr>
+            <td>Bank Reconciliation</td>
+            <td><code>/samples/bank/statements/</code></td>
+            <td>OFX, CSV, QFX samples</td>
+        </tr>
+        <tr>
+            <td>Vendor Payments</td>
+            <td><code>/samples/vendors/</code></td>
+            <td>Vendor CSV templates</td>
+        </tr>
+        <tr>
+            <td>Check Printing</td>
+            <td><code>/samples/checks/</code></td>
+            <td>Sample check formats</td>
+        </tr>
+        <tr>
+            <td>Journal Entries</td>
+            <td><code>/samples/journal/</code></td>
+            <td>JE import CSVs</td>
+        </tr>
+        <tr>
+            <td>Reports</td>
+            <td><code>/samples/reports/</code></td>
+            <td>Report definitions</td>
+        </tr>
+        <tr>
+            <td>Users</td>
+            <td><code>/samples/users/</code></td>
+            <td>User import template</td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <div class="footer">
+        © 2025 San Francisco AI Factory · All rights reserved.
+    </div>
+</body>
+</html>

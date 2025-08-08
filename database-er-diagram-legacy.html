@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Mr-Moneybags-v1.x Database Schema</title>
+    <title>Mr-Moneybags v1.x – Master Database Schema</title>
     <style>
         :root {
             --core-color: #e3f2fd;
@@ -17,10 +17,21 @@
             --vendor-border: #ffcc80;
             --payment-color: #f3e5f5;
             --payment-border: #ce93d8;
-            --banking-color: #e8eaf6;
+        --banking-color: #e8eaf6;
             --banking-border: #9fa8da;
+        /* Newly-added functional blocks */
+        --recon-color: #f1f8e9;
+        --recon-border: #c5e1a5;
+        --deposit-color: #e0f7fa;
+        --deposit-border: #80deea;
+        --check-color: #fffde7;
+        --check-border: #fff59d;
             --admin-color: #fce4ec;
             --admin-border: #f48fb1;
+
+        /* Session block */
+        --session-color: #ede7f6;
+        --session-border: #b39ddb;
             --pk-color: #ffebee;
             --fk-color: #e1f5fe;
             --hover-color: #fffde7;
@@ -179,6 +190,44 @@
             border: 2px solid var(--admin-border);
             width: 900px;
             height: 300px;
+        }
+
+        /* New functional groups */
+        .recon-group {
+            top: 1400px;
+            left: 50px;
+            background-color: var(--recon-color);
+            border: 2px solid var(--recon-border);
+            width: 800px;
+            height: 380px;
+        }
+
+        .deposit-group {
+            top: 1400px;
+            left: 900px;
+            background-color: var(--deposit-color);
+            border: 2px solid var(--deposit-border);
+            width: 600px;
+            height: 300px;
+        }
+
+        .check-group {
+            top: 1800px;
+            left: 50px;
+            background-color: var(--check-color);
+            border: 2px solid var(--check-border);
+            width: 1000px;
+            height: 300px;
+        }
+
+        /* Session group */
+        .session-group{
+            top: 1800px;
+            left: 1100px;
+            background-color: var(--session-color);
+            border: 2px solid var(--session-border);
+            width: 400px;
+            height: 150px;
         }
 
         /* Database table styling */
@@ -347,6 +396,70 @@
             width: 280px;
         }
 
+        /* Bank Reconciliation Tables */
+        #bank-statements-table {
+            top: 40px;
+            left: 50px;
+            width: 280px;
+        }
+
+        #bank-statement-transactions-table {
+            top: 40px;
+            left: 350px;
+            width: 280px;
+        }
+
+        #bank-reconciliations-table {
+            top: 200px;
+            left: 50px;
+            width: 280px;
+        }
+
+        #bank-reconciliation-items-table {
+            top: 200px;
+            left: 350px;
+            width: 280px;
+        }
+
+        #bank-reconciliation-adjustments-table {
+            top: 200px;
+            left: 650px;
+            width: 280px;
+        }
+
+        /* Bank Deposits Tables */
+        #bank-deposits-table {
+            top: 40px;
+            left: 50px;
+            width: 280px;
+        }
+
+        #bank-deposit-items-table {
+            top: 40px;
+            left: 350px;
+            width: 280px;
+        }
+
+        /* Check Printing Tables */
+        #check-formats-table {
+            top: 40px;
+            left: 50px;
+            width: 280px;
+        }
+
+        #printed-checks-table {
+            top: 40px;
+            left: 350px;
+            width: 280px;
+        }
+
+        /* Session Table */
+        #session-table {
+            top: 40px;
+            left: 50px;
+            width: 280px;
+        }
+
         /* Relationship lines */
         .relationship-container {
             position: absolute;
@@ -453,14 +566,14 @@
 </head>
 <body>
     <header>
-        <h1>Mr-Moneybags-v1.x Database Schema</h1>
+        <h1>Mr-Moneybags v1.x – Master Database Schema</h1>
         <div class="timestamp">Last updated: <span id="timestamp"></span></div>
     </header>
 
     <div class="description">
-        <p>This interactive diagram depicts the consolidated <strong>Mr.&nbsp;MoneyBags&nbsp;v1.x</strong> schema generated from the single
-        <code>database/db-init.sql</code> file. It visualises every table, primary / foreign-key field and relationship that
-        ships with the v1.x&nbsp;error-free deployment baseline.</p>
+        <p>This interactive diagram depicts the consolidated <strong>Mr.&nbsp;MoneyBags&nbsp;v1.x</strong> <em>master</em> schema generated from
+        <code>database/master-schema.sql</code>. It now includes the authentication layer, full NACHA vendor payment stack,
+        bank reconciliation, deposits, and check-printing modules.</p>
     </div>
 
     <div class="controls">
@@ -1173,6 +1286,483 @@
                 </div>
             </div>
 
+            <!-- ===========================  NEW MODULE PLACEHOLDERS  =========================== -->
+
+            <!-- Bank Reconciliation Group -->
+            <div class="table-group recon-group">
+                <div class="group-title">Bank Reconciliation</div>
+                
+                <!-- BANK_STATEMENTS Table -->
+                <div class="db-table" id="bank-statements-table" data-table="bank_statements">
+                    <div class="table-header">BANK_STATEMENTS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">bank_account_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">statement_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">start_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">end_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">opening_balance</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">closing_balance</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">status</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BANK_STATEMENT_TRANSACTIONS Table -->
+                <div class="db-table" id="bank-statement-transactions-table" data-table="bank_statement_transactions">
+                    <div class="table-header">BANK_STATEMENT_TRANSACTIONS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">bank_statement_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">transaction_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">description</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">amount</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">reference_number</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">transaction_type</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">status</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BANK_RECONCILIATIONS Table -->
+                <div class="db-table" id="bank-reconciliations-table" data-table="bank_reconciliations">
+                    <div class="table-header">BANK_RECONCILIATIONS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">bank_account_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">bank_statement_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">reconciliation_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">statement_balance</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">book_balance</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">status</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BANK_RECONCILIATION_ITEMS Table -->
+                <div class="db-table" id="bank-reconciliation-items-table" data-table="bank_reconciliation_items">
+                    <div class="table-header">BANK_RECONCILIATION_ITEMS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">reconciliation_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">statement_transaction_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">journal_entry_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">match_type</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">amount</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">notes</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BANK_RECONCILIATION_ADJUSTMENTS Table -->
+                <div class="db-table" id="bank-reconciliation-adjustments-table" data-table="bank_reconciliation_adjustments">
+                    <div class="table-header">BANK_RECONCILIATION_ADJUSTMENTS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">reconciliation_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">adjustment_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">adjustment_type</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">amount</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">description</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">journal_entry_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bank Deposits Group -->
+            <div class="table-group deposit-group">
+                <div class="group-title">Bank Deposits</div>
+                
+                <!-- BANK_DEPOSITS Table -->
+                <div class="db-table" id="bank-deposits-table" data-table="bank_deposits">
+                    <div class="table-header">BANK_DEPOSITS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">bank_account_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">deposit_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">deposit_type</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">reference_number</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">description</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">status</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">submitted_date</div>
+                            <div class="field-type">timestamp</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">cleared_date</div>
+                            <div class="field-type">timestamp</div>
+                            <div class="field-key"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BANK_DEPOSIT_ITEMS Table -->
+                <div class="db-table" id="bank-deposit-items-table" data-table="bank_deposit_items">
+                    <div class="table-header">BANK_DEPOSIT_ITEMS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">deposit_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">item_type</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">amount</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">check_number</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">payer_name</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">memo</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">fund_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Check Printing Group -->
+            <div class="table-group check-group">
+                <div class="group-title">Check Printing</div>
+                
+                <!-- CHECK_FORMATS Table -->
+                <div class="db-table" id="check-formats-table" data-table="check_formats">
+                    <div class="table-header">CHECK_FORMATS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">format_name</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">description</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">check_width</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">check_height</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">payee_x</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">payee_y</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">amount_x</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">amount_y</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">is_default</div>
+                            <div class="field-type">boolean</div>
+                            <div class="field-key"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PRINTED_CHECKS Table -->
+                <div class="db-table" id="printed-checks-table" data-table="printed_checks">
+                    <div class="table-header">PRINTED_CHECKS</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">bank_account_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">check_format_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">check_number</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">payee_name</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">amount</div>
+                            <div class="field-type">decimal</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">check_date</div>
+                            <div class="field-type">date</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">memo</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">status</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">journal_entry_id</div>
+                            <div class="field-type">uuid</div>
+                            <div class="field-key"><span class="fk">FK</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session-management Group -->
+            <div class="table-group session-group">
+                <div class="group-title">Session Management</div>
+                
+                <!-- SESSION Table -->
+                <div class="db-table" id="session-table" data-table="session">
+                    <div class="table-header">SESSION</div>
+                    <div class="table-content">
+                        <div class="field-row">
+                            <div class="field-name">sid</div>
+                            <div class="field-type">string</div>
+                            <div class="field-key"><span class="pk">PK</span></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">sess</div>
+                            <div class="field-type">json</div>
+                            <div class="field-key"></div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-name">expire</div>
+                            <div class="field-type">timestamp</div>
+                            <div class="field-key"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Relationship lines container -->
             <div class="relationship-container" id="relationshipContainer"></div>
         </div>
@@ -1210,326 +1800,16 @@
                 <span>Administration</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: var(--pk-color);"></div>
-                <span>Primary Key (PK)</span>
+                <div class="legend-color" style="background-color: var(--recon-color);"></div>
+                <span>Bank Reconciliation</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: var(--fk-color);"></div>
-                <span>Foreign Key (FK)</span>
+                <div class="legend-color" style="background-color: var(--deposit-color);"></div>
+                <span>Bank Deposits</span>
             </div>
-        </div>
-    </div>
-
-    <footer>
-        <p>Mr-Moneybags-v1.x Database Schema &copy; 2025</p>
-    </footer>
-
-    <script>
-        // Set timestamp
-        document.getElementById('timestamp').textContent = new Date().toLocaleString();
-
-        // Define relationships
-        const relationships = [
-            // Entities self-reference
-            { from: 'entities', fromField: 'id', to: 'entities', toField: 'parent_entity_id', label: 'parent_of' },
-            
-            // Entities to other tables
-            { from: 'entities', fromField: 'id', to: 'accounts', toField: 'entity_id', label: 'has' },
-            { from: 'entities', fromField: 'id', to: 'funds', toField: 'entity_id', label: 'has' },
-            { from: 'entities', fromField: 'id', to: 'journal_entries', toField: 'entity_id', label: 'records' },
-            { from: 'entities', fromField: 'id', to: 'journal_entries', toField: 'target_entity_id', label: 'target_of' },
-            { from: 'entities', fromField: 'id', to: 'vendors', toField: 'entity_id', label: 'manages' },
-            { from: 'entities', fromField: 'id', to: 'payment_batches', toField: 'entity_id', label: 'processes' },
-            { from: 'entities', fromField: 'id', to: 'company_nacha_settings', toField: 'entity_id', label: 'configures' },
-            { from: 'entities', fromField: 'id', to: 'budgets', toField: 'entity_id', label: 'plans' },
-            { from: 'entities', fromField: 'id', to: 'custom_report_definitions', toField: 'entity_id', label: 'defines' },
-            
-            // Accounts relationships
-            { from: 'accounts', fromField: 'id', to: 'journal_entry_items', toField: 'account_id', label: 'posted_to' },
-            { from: 'accounts', fromField: 'id', to: 'budgets', toField: 'account_id', label: 'budgeted_for' },
-            
-            // Funds relationships
-            { from: 'funds', fromField: 'id', to: 'journal_entry_items', toField: 'fund_id', label: 'allocated_to' },
-            { from: 'funds', fromField: 'id', to: 'payment_batches', toField: 'fund_id', label: 'funds' },
-            { from: 'funds', fromField: 'id', to: 'budgets', toField: 'fund_id', label: 'budgeted_in' },
-            
-            // Journal entries relationships
-            { from: 'journal_entries', fromField: 'id', to: 'journal_entry_items', toField: 'journal_entry_id', label: 'contains' },
-            { from: 'journal_entries', fromField: 'id', to: 'payment_items', toField: 'journal_entry_id', label: 'linked_to' },
-            
-            // Vendors relationships
-            { from: 'vendors', fromField: 'id', to: 'vendor_bank_accounts', toField: 'vendor_id', label: 'has' },
-            { from: 'vendors', fromField: 'id', to: 'payment_items', toField: 'vendor_id', label: 'receives' },
-            
-            // Vendor bank accounts relationships
-            { from: 'vendor_bank_accounts', fromField: 'id', to: 'payment_items', toField: 'vendor_bank_account_id', label: 'paid_to' },
-            
-            // Payment batches relationships
-            { from: 'payment_batches', fromField: 'id', to: 'payment_items', toField: 'payment_batch_id', label: 'contains' },
-            { from: 'payment_batches', fromField: 'id', to: 'nacha_files', toField: 'payment_batch_id', label: 'generates' },
-            
-            // NACHA settings relationships
-            { from: 'company_nacha_settings', fromField: 'id', to: 'payment_batches', toField: 'nacha_settings_id', label: 'configures' },
-            
-            // Bank accounts relationships
-            { from: 'bank_accounts', fromField: 'id', to: 'company_nacha_settings', toField: 'settlement_account_id', label: 'settlement_for' }
-        ];
-
-        // Draw relationship lines
-        function drawRelationships() {
-            const container = document.getElementById('relationshipContainer');
-            container.innerHTML = '';
-            
-            relationships.forEach((rel, index) => {
-                const fromTable = document.getElementById(`${rel.from.replace(/_/g, '-')}-table`);
-                const toTable = document.getElementById(`${rel.to.replace(/_/g, '-')}-table`);
-                
-                if (!fromTable || !toTable) return;
-                
-                // Find field positions
-                const fromFieldRow = Array.from(fromTable.querySelectorAll('.field-row')).find(row => 
-                    row.querySelector('.field-name').textContent === rel.fromField
-                );
-                
-                const toFieldRow = Array.from(toTable.querySelectorAll('.field-row')).find(row => 
-                    row.querySelector('.field-name').textContent === rel.toField
-                );
-                
-                if (!fromFieldRow || !toFieldRow) return;
-                
-                // Get positions
-                const fromRect = fromTable.getBoundingClientRect();
-                const toRect = toTable.getBoundingClientRect();
-                const containerRect = document.querySelector('.schema-content').getBoundingClientRect();
-                
-                const fromFieldRect = fromFieldRow.getBoundingClientRect();
-                const toFieldRect = toFieldRow.getBoundingClientRect();
-                
-                // Calculate positions relative to container
-                const fromX = fromRect.left - containerRect.left + fromRect.width;
-                const fromY = fromFieldRect.top - containerRect.top + fromFieldRect.height / 2;
-                
-                const toX = toRect.left - containerRect.left;
-                const toY = toFieldRect.top - containerRect.top + toFieldRect.height / 2;
-                
-                // Create line
-                const line = document.createElement('div');
-                line.className = 'relationship-line';
-                line.dataset.from = rel.from;
-                line.dataset.to = rel.to;
-                line.dataset.fromField = rel.fromField;
-                line.dataset.toField = rel.toField;
-                
-                // Calculate line length and angle
-                const length = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
-                const angle = Math.atan2(toY - fromY, toX - fromX) * 180 / Math.PI;
-                
-                // Position and rotate line
-                line.style.width = `${length}px`;
-                line.style.left = `${fromX}px`;
-                line.style.top = `${fromY}px`;
-                line.style.transform = `rotate(${angle}deg)`;
-                
-                // Create arrow
-                const arrow = document.createElement('div');
-                arrow.className = 'relationship-arrow';
-                arrow.style.left = `${toX - 5}px`;
-                arrow.style.top = `${toY - 5}px`;
-                arrow.style.borderWidth = '5px 0 5px 8px';
-                arrow.style.borderColor = 'transparent transparent transparent #333';
-                
-                // Create label
-                const label = document.createElement('div');
-                label.className = 'relationship-label';
-                label.textContent = rel.label;
-                
-                // Position label at midpoint
-                const midX = (fromX + toX) / 2;
-                const midY = (fromY + toY) / 2;
-                label.style.left = `${midX - 10}px`;
-                label.style.top = `${midY - 10}px`;
-                
-                // Add to container
-                container.appendChild(line);
-                container.appendChild(arrow);
-                container.appendChild(label);
-            });
-        }
-
-        // Highlight related tables
-        function highlightRelatedTables(tableId) {
-            // Reset all highlights
-            document.querySelectorAll('.db-table').forEach(table => {
-                table.classList.remove('highlighted');
-            });
-            
-            document.querySelectorAll('.relationship-line, .relationship-arrow').forEach(el => {
-                el.classList.remove('highlighted-line');
-            });
-            
-            if (!tableId) return;
-            
-            // Get table name from ID
-            const tableName = tableId.replace('-table', '').replace(/-/g, '_');
-            
-            // Highlight the selected table
-            document.getElementById(tableId).classList.add('highlighted');
-            
-            // Find related tables
-            relationships.forEach(rel => {
-                if (rel.from === tableName) {
-                    const relatedTableId = `${rel.to.replace(/_/g, '-')}-table`;
-                    const relatedTable = document.getElementById(relatedTableId);
-                    if (relatedTable) {
-                        relatedTable.classList.add('highlighted');
-                    }
-                    
-                    // Highlight lines
-                    document.querySelectorAll(`.relationship-line[data-from="${rel.from}"][data-to="${rel.to}"][data-from-field="${rel.fromField}"][data-to-field="${rel.toField}"]`).forEach(line => {
-                        line.classList.add('highlighted-line');
-                    });
-                } 
-                else if (rel.to === tableName) {
-                    const relatedTableId = `${rel.from.replace(/_/g, '-')}-table`;
-                    const relatedTable = document.getElementById(relatedTableId);
-                    if (relatedTable) {
-                        relatedTable.classList.add('highlighted');
-                    }
-                    
-                    // Highlight lines
-                    document.querySelectorAll(`.relationship-line[data-from="${rel.from}"][data-to="${rel.to}"][data-from-field="${rel.fromField}"][data-to-field="${rel.toField}"]`).forEach(line => {
-                        line.classList.add('highlighted-line');
-                    });
-                }
-            });
-        }
-
-        // Add event listeners to tables
-        document.querySelectorAll('.db-table').forEach(table => {
-            table.addEventListener('mouseenter', () => {
-                highlightRelatedTables(table.id);
-            });
-            
-            table.addEventListener('mouseleave', () => {
-                highlightRelatedTables(null);
-            });
-        });
-
-        // Tooltip functionality
-        const tooltip = document.getElementById('tooltip');
-        
-        document.querySelectorAll('.field-row').forEach(row => {
-            row.addEventListener('mouseenter', (e) => {
-                const fieldName = row.querySelector('.field-name').textContent;
-                const fieldType = row.querySelector('.field-type').textContent;
-                const keyType = row.querySelector('.field-key').textContent.trim();
-                
-                let tooltipText = `${fieldName} (${fieldType})`;
-                
-                if (keyType === 'PK') {
-                    tooltipText += ' - Primary Key';
-                } else if (keyType === 'FK') {
-                    tooltipText += ' - Foreign Key';
-                    
-                    // Find relationship info
-                    const tableId = row.closest('.db-table').id;
-                    const tableName = tableId.replace('-table', '').replace(/-/g, '_');
-                    
-                    relationships.forEach(rel => {
-                        if (rel.to === tableName && rel.toField === fieldName) {
-                            tooltipText += ` → References ${rel.from}.${rel.fromField}`;
-                        }
-                    });
-                }
-                
-                tooltip.textContent = tooltipText;
-                tooltip.style.left = `${e.pageX + 10}px`;
-                tooltip.style.top = `${e.pageY + 10}px`;
-                tooltip.style.display = 'block';
-            });
-            
-            row.addEventListener('mousemove', (e) => {
-                tooltip.style.left = `${e.pageX + 10}px`;
-                tooltip.style.top = `${e.pageY + 10}px`;
-            });
-            
-            row.addEventListener('mouseleave', () => {
-                tooltip.style.display = 'none';
-            });
-        });
-
-        // Zoom functionality
-        let currentZoom = 1;
-        const schemaContent = document.getElementById('schemaContent');
-        
-        document.getElementById('zoomIn').addEventListener('click', () => {
-            currentZoom += 0.1;
-            applyZoom();
-        });
-        
-        document.getElementById('zoomOut').addEventListener('click', () => {
-            if (currentZoom > 0.5) {
-                currentZoom -= 0.1;
-                applyZoom();
-            }
-        });
-        
-        document.getElementById('resetZoom').addEventListener('click', () => {
-            currentZoom = 1;
-            applyZoom();
-        });
-        
-        function applyZoom() {
-            schemaContent.style.transform = `scale(${currentZoom})`;
-            // Redraw relationships after zoom
-            setTimeout(drawRelationships, 100);
-        }
-
-        // Download image functionality
-        document.getElementById('downloadImage').addEventListener('click', () => {
-            html2canvas(schemaContent).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'database-schema.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            });
-        });
-
-        // Refresh page
-        document.getElementById('refreshPage').addEventListener('click', () => {
-            window.location.reload();
-        });
-
-        // Draw relationships on load
-        window.addEventListener('load', () => {
-            setTimeout(drawRelationships, 500);
-        });
-
-        // Redraw relationships on window resize
-        window.addEventListener('resize', () => {
-            setTimeout(drawRelationships, 100);
-        });
-
-        // html2canvas polyfill for download functionality
-        // This is a simplified version just to make the download button work
-        if (typeof html2canvas === 'undefined') {
-            window.html2canvas = function(element) {
-                return {
-                    then: function(callback) {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 1000;
-                        canvas.height = 800;
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = 'white';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        ctx.fillStyle = 'black';
-                        ctx.font = '20px Arial';
-                        ctx.fillText('Database Schema Export', 20, 30);
-                        callback(canvas);
-                    }
-                };
-            };
-        }
-    </script>
-</body>
-</html>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--check-color);"></div>
+                <span>Check Printing</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--session-
