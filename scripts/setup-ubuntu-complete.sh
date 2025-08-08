@@ -101,16 +101,37 @@ check_dependencies() {
     if npm list bcrypt >/dev/null 2>&1 || npm list -g bcrypt >/dev/null 2>&1; then
         success "bcrypt module found"
     else
-        warning "bcrypt module not found. Will attempt to install."
-        cd "$PROJECT_ROOT" && npm install bcrypt
+        warning "bcrypt module not found. It will be installed in the next step."
     fi
     
     # Check for pg module
     if npm list pg >/dev/null 2>&1 || npm list -g pg >/dev/null 2>&1; then
         success "pg module found"
     else
-        warning "pg module not found. Will attempt to install."
-        cd "$PROJECT_ROOT" && npm install pg
+        warning "pg module not found. It will be installed in the next step."
+    fi
+}
+
+# Install Node.js dependencies (project-level)
+install_dependencies() {
+    section "Installing Node.js Dependencies"
+    cd "$PROJECT_ROOT" || error "Unable to change to project root."
+
+    # Prefer npm ci when package-lock.json exists for reproducible installs
+    if [ -f "package-lock.json" ]; then
+        info "Running 'npm ci' (clean, reproducible install)..."
+        if npm ci --no-audit --no-fund; then
+            success "npm dependencies installed successfully (ci)"
+        else
+            error "npm ci failed. Please review the error messages above."
+        fi
+    else
+        info "Running 'npm install'..."
+        if npm install --no-audit --no-fund; then
+            success "npm dependencies installed successfully"
+        else
+            error "npm install failed. Please review the error messages above."
+        fi
     fi
 }
 
@@ -273,6 +294,7 @@ main() {
     
     # Run the setup steps
     check_dependencies
+    install_dependencies
     create_database
     rehash_passwords
     test_connection
