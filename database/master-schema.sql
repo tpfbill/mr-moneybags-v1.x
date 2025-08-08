@@ -261,7 +261,8 @@ CREATE TABLE IF NOT EXISTS company_nacha_settings (
     company_entry_description VARCHAR(50) DEFAULT 'PAYMENT',
     is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_entity_company_name UNIQUE(entity_id, company_name)
 );
 CREATE INDEX IF NOT EXISTS idx_nacha_settings_entity ON company_nacha_settings(entity_id);
 COMMENT ON TABLE company_nacha_settings IS 'NACHA settings for ACH payment processing';
@@ -305,7 +306,8 @@ CREATE TABLE IF NOT EXISTS vendor_bank_accounts (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT chk_account_type CHECK (account_type IN ('checking', 'savings')),
     CONSTRAINT chk_routing_number CHECK (LENGTH(routing_number) = 9),
-    CONSTRAINT chk_bank_account_status CHECK (status IN ('active', 'inactive', 'suspended'))
+    CONSTRAINT chk_bank_account_status CHECK (status IN ('active', 'inactive', 'suspended')),
+    CONSTRAINT unique_vendor_account_name UNIQUE(vendor_id, account_name)
 );
 CREATE INDEX IF NOT EXISTS idx_vendor_bank_vendor ON vendor_bank_accounts(vendor_id);
 COMMENT ON TABLE vendor_bank_accounts IS 'Stores vendor banking information for ACH transfers';
@@ -726,8 +728,7 @@ BEGIN
     VALUES
         (v_city_utils, 'City Utilities Operating', '021000021', '111122223333', 'checking', TRUE,  'active'),
         (v_abc_props,  'ABC Prop Main',            '026009593', '444455556666', 'checking', TRUE,  'active'),
-        (v_supplies,   'Office Supplies Plus',     '031100209', '777788889999', 'checking', TRUE,  'active')
-    ON CONFLICT (vendor_id, account_name) DO NOTHING;
+        (v_supplies,   'Office Supplies Plus',     '031100209', '777788889999', 'checking', TRUE,  'active');
 END $$;
 
 /* Insert organisation-wide NACHA company settings (one default) */
@@ -743,8 +744,7 @@ BEGIN
             service_class_code, company_entry_description, is_default)
     VALUES (ent_main, 'The Principle Foundation', '1234567890',
             '021000021', '123456789', 'JPMORGAN CHASE', 'TPF MAIN OPS',
-            'REF001', '220', 'VENDOR PAY', TRUE)
-    ON CONFLICT (entity_id, company_name) DO NOTHING;
+            'REF001', '220', 'VENDOR PAY', TRUE);
 END $$;
 
 /* -------------------------------------------------------------------------
@@ -770,12 +770,12 @@ BEGIN
     SELECT id      INTO ent_main   FROM entities              WHERE code = 'TPF_MAIN';
     SELECT id      INTO fund_gen   FROM funds                 WHERE code = 'GEN_OP';
     SELECT id      INTO default_ns FROM company_nacha_settings WHERE entity_id = ent_main AND is_default;
-    SELECT id      INTO vb_city    FROM vendor_bank_accounts  WHERE account_name ILIKE '%City Utilities%' LIMIT 1;
-    SELECT id      INTO vb_abc     FROM vendor_bank_accounts  WHERE account_name ILIKE '%ABC Prop%' LIMIT 1;
-    SELECT id      INTO vb_sup     FROM vendor_bank_accounts  WHERE account_name ILIKE '%Supplies%' LIMIT 1;
     SELECT id      INTO v_util001  FROM vendors WHERE vendor_code = 'UTIL001';
     SELECT id      INTO v_rent001  FROM vendors WHERE vendor_code = 'RENT001';
     SELECT id      INTO v_supp001  FROM vendors WHERE vendor_code = 'SUPP001';
+    SELECT id      INTO vb_city    FROM vendor_bank_accounts  WHERE vendor_id = v_util001 LIMIT 1;
+    SELECT id      INTO vb_abc     FROM vendor_bank_accounts  WHERE vendor_id = v_rent001 LIMIT 1;
+    SELECT id      INTO vb_sup     FROM vendor_bank_accounts  WHERE vendor_id = v_supp001 LIMIT 1;
 
     /* First payment batch */
     INSERT INTO payment_batches
@@ -821,8 +821,7 @@ BEGIN
          total_amount, total_items, file_control_total, status)
     VALUES
         (batch1, 'TPF_2025-05-ACH.ach', '/nacha/TPF_2025-05-ACH.ach',
-         CURRENT_TIMESTAMP - INTERVAL '6 days', 4100.00, 2, '00004100', 'generated')
-    ON CONFLICT DO NOTHING;
+         CURRENT_TIMESTAMP - INTERVAL '6 days', 4100.00, 2, '00004100', 'generated');
 END $$;
 
 -- ---------------------------------------------------------------------------
@@ -878,6 +877,7 @@ DECLARE
     op_acct      UUID;   -- Operating checking account
     user_admin   UUID;
     stmt1        UUID;
+    stmt_date    DATE;
     recon1       UUID;
 BEGIN
     SELECT id INTO op_acct    FROM bank_accounts WHERE account_name = 'Operating Account';
@@ -890,7 +890,7 @@ BEGIN
     VALUES
         (op_acct, date_trunc('month', CURRENT_DATE) - INTERVAL '1 month',
          300000.00, 310300.00, 'Reconciled', user_admin)
-    RETURNING id INTO stmt1;
+    RETURNING id, statement_date INTO stmt1, stmt_date;
 
     /* Second monthly statement */
     INSERT INTO bank_statements
@@ -905,12 +905,12 @@ BEGIN
         (bank_statement_id, transaction_date, description, reference_number,
          amount, transaction_type, is_credit, status)
     VALUES
-        (stmt1, stmt1::date + 2, 'Utility Payment',  'ACH123', -2100.00,'ACH',FALSE,'Matched'),
-        (stmt1, stmt1::date + 5, 'Office Rent',      'ACH124', -2000.00,'ACH',FALSE,'Matched'),
-        (stmt1, stmt1::date + 7, 'Contribution',     'DEP555',  5000.00,'Deposit',TRUE,'Matched'),
-        (stmt1, stmt1::date + 9, 'Deposit-Checks',   'DEP556',  1400.00,'Deposit',TRUE,'Matched'),
-        (stmt1, stmt1::date +12, 'Bank Fee',         'FEE12',    -25.00,'Fee',FALSE,'Unmatched'),
-        (stmt1, stmt1::date +15, 'Interest Earned',  'INT1',      50.00,'Interest',TRUE,'Unmatched');
+        (stmt1, stmt_date + INTERVAL '2 days', 'Utility Payment',  'ACH123', -2100.00,'ACH',FALSE,'Matched'),
+        (stmt1, stmt_date + INTERVAL '5 days', 'Office Rent',      'ACH124', -2000.00,'ACH',FALSE,'Matched'),
+        (stmt1, stmt_date + INTERVAL '7 days', 'Contribution',     'DEP555',  5000.00,'Deposit',TRUE,'Matched'),
+        (stmt1, stmt_date + INTERVAL '9 days', 'Deposit-Checks',   'DEP556',  1400.00,'Deposit',TRUE,'Matched'),
+        (stmt1, stmt_date + INTERVAL '12 days', 'Bank Fee',         'FEE12',    -25.00,'Fee',FALSE,'Unmatched'),
+        (stmt1, stmt_date + INTERVAL '15 days', 'Interest Earned',  'INT1',      50.00,'Interest',TRUE,'Unmatched');
 
     /* Reconciliation record for first statement */
     INSERT INTO bank_reconciliations
@@ -919,7 +919,7 @@ BEGIN
          cleared_payments, adjustments_amount, is_balanced,
          status, completed_by, completed_at, created_by)
     VALUES
-        (op_acct, stmt1, stmt1::date + 25,
+        (op_acct, stmt1, stmt_date + INTERVAL '25 days',
          300000.00, 310300.00, 6400.00, 4100.00, -25.00,
          TRUE, 'Completed', user_admin, NOW(), user_admin)
     RETURNING id INTO recon1;
@@ -939,9 +939,8 @@ BEGIN
         (reconciliation_id, adjustment_date, description,
          amount, adjustment_type, created_by)
     VALUES
-        (recon1, stmt1::date + 12, 'Bank Service Fee', -25.00,
-         'Bank Error', user_admin)
-    ON CONFLICT DO NOTHING;
+        (recon1, stmt_date + INTERVAL '12 days', 'Bank Service Fee', -25.00,
+         'Bank Error', user_admin);
 END $$;
 
 -- ---------------------------------------------------------------------------
@@ -1026,8 +1025,7 @@ BEGIN
          fmt_default, 1, CURRENT_TIMESTAMP - INTERVAL '18 days', user_admin),
         (op_acct, vend_util, '50003', CURRENT_DATE - 2,
          'City Utilities',  50.00,  'Gas Top-Up', 'Draft',
-         fmt_default, 0, NULL, user_admin)
-    ON CONFLICT DO NOTHING;
+         fmt_default, 0, NULL, user_admin);
 END $$;
 
 -- ---------------------------------------------------------------------------
@@ -1044,8 +1042,7 @@ VALUES
     ('Fund Balance Summary',
      'Lists ending balances for each fund',
      '{"type":"fund_balance","as_of":"today"}',
-     'System')
-ON CONFLICT DO NOTHING;
+     'System');
 
 -- -----------------------------------------------------------------------------
 -- PERMISSIONS SETUP
