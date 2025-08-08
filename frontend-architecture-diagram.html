@@ -26,6 +26,10 @@
             --js-border: #ffcc80;
             --doc-color: #f3e5f5;
             --doc-border: #ce93d8;
+            --auth-color: #f8bbd0;
+            --auth-border: #f48fb1;
+            --banking-color: #bbdefb;
+            --banking-border: #64b5f6;
         }
 
         * {
@@ -167,6 +171,16 @@
         .module-card.doc {
             border-top-color: var(--doc-border);
             background-color: var(--doc-color);
+        }
+
+        .module-card.auth {
+            border-top-color: var(--auth-border);
+            background-color: var(--auth-color);
+        }
+
+        .module-card.banking {
+            border-top-color: var(--banking-border);
+            background-color: var(--banking-color);
         }
 
         .module-header {
@@ -376,71 +390,138 @@
     <div class="container">
         <!-- Frontend Overview Section -->
         <section class="section">
-            <h2 class="section-title">Single Page Application Architecture</h2>
-            <p>The Mr. MoneyBags v1.x frontend is built as a modern Single Page Application (SPA) with modular HTML, CSS, and JavaScript components. The frontend communicates with the backend via REST API calls to provide a seamless user experience.</p>
+            <h2 class="section-title">Modular Frontend Architecture</h2>
+            <p>The Mr. MoneyBags v1.x frontend is built with modular HTML, CSS, and JavaScript components. The system now includes comprehensive authentication, banking modules (reconciliation, deposits, check printing), and role-based access control with consistent navigation patterns.</p>
             
             <div class="section-content">
                 <div class="architecture-diagram">
-                    <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                    <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Authentication Layer -->
+                        <rect x="300" y="20" width="200" height="50" rx="5" fill="#f48fb1" />
+                        <text x="400" y="50" text-anchor="middle" fill="white" font-size="16">Authentication Layer</text>
+                        <text x="400" y="65" text-anchor="middle" fill="white" font-size="12">login.html, session management</text>
+                        
                         <!-- Main HTML Container -->
-                        <rect x="300" y="50" width="200" height="60" rx="5" fill="#3498db" />
-                        <text x="400" y="85" text-anchor="middle" fill="white" font-size="16">index.html</text>
+                        <rect x="300" y="90" width="200" height="60" rx="5" fill="#3498db" />
+                        <text x="400" y="125" text-anchor="middle" fill="white" font-size="16">index.html</text>
+                        <text x="400" y="140" text-anchor="middle" fill="white" font-size="12">Dashboard & Navigation Hub</text>
+                        
+                        <!-- Banking Modules -->
+                        <rect x="50" y="190" width="160" height="50" rx="5" fill="#64b5f6" />
+                        <text x="130" y="220" text-anchor="middle" fill="white" font-size="14">bank-reconciliation.html</text>
+                        
+                        <rect x="230" y="190" width="160" height="50" rx="5" fill="#64b5f6" />
+                        <text x="310" y="220" text-anchor="middle" fill="white" font-size="14">bank-deposits.html</text>
+                        
+                        <rect x="410" y="190" width="160" height="50" rx="5" fill="#64b5f6" />
+                        <text x="490" y="220" text-anchor="middle" fill="white" font-size="14">check-printing.html</text>
+                        
+                        <rect x="590" y="190" width="160" height="50" rx="5" fill="#64b5f6" />
+                        <text x="670" y="220" text-anchor="middle" fill="white" font-size="14">vendor-payments.html</text>
                         
                         <!-- CSS Modules -->
-                        <rect x="100" y="180" width="160" height="50" rx="5" fill="#2ecc71" />
-                        <text x="180" y="210" text-anchor="middle" fill="white" font-size="14">styles.css</text>
+                        <rect x="50" y="280" width="160" height="40" rx="5" fill="#2ecc71" />
+                        <text x="130" y="305" text-anchor="middle" fill="white" font-size="14">styles.css</text>
                         
-                        <rect x="100" y="250" width="160" height="50" rx="5" fill="#2ecc71" />
-                        <text x="180" y="280" text-anchor="middle" fill="white" font-size="14">entity-hierarchy.css</text>
+                        <rect x="230" y="280" width="160" height="40" rx="5" fill="#2ecc71" />
+                        <text x="310" y="305" text-anchor="middle" fill="white" font-size="14">bank-reconciliation.css</text>
                         
-                        <rect x="100" y="320" width="160" height="50" rx="5" fill="#2ecc71" />
-                        <text x="180" y="350" text-anchor="middle" fill="white" font-size="14">vendor-payments.css</text>
+                        <rect x="410" y="280" width="160" height="40" rx="5" fill="#2ecc71" />
+                        <text x="490" y="305" text-anchor="middle" fill="white" font-size="14">bank-deposits.css</text>
                         
-                        <!-- JS Modules -->
-                        <rect x="540" y="180" width="160" height="50" rx="5" fill="#f39c12" />
-                        <text x="620" y="210" text-anchor="middle" fill="white" font-size="14">app.js</text>
+                        <rect x="590" y="280" width="160" height="40" rx="5" fill="#2ecc71" />
+                        <text x="670" y="305" text-anchor="middle" fill="white" font-size="14">check-printing.css</text>
                         
-                        <rect x="540" y="250" width="160" height="50" rx="5" fill="#f39c12" />
-                        <text x="620" y="280" text-anchor="middle" fill="white" font-size="14">ui.js</text>
+                        <!-- JS Core Modules -->
+                        <rect x="50" y="350" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="130" y="375" text-anchor="middle" fill="white" font-size="14">app.js</text>
                         
-                        <rect x="540" y="320" width="160" height="50" rx="5" fill="#f39c12" />
-                        <text x="620" y="350" text-anchor="middle" fill="white" font-size="14">utils.js</text>
+                        <rect x="230" y="350" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="310" y="375" text-anchor="middle" fill="white" font-size="14">ui.js</text>
                         
-                        <rect x="540" y="390" width="160" height="50" rx="5" fill="#f39c12" />
-                        <text x="620" y="420" text-anchor="middle" fill="white" font-size="14">vendor-payments.js</text>
+                        <rect x="410" y="350" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="490" y="375" text-anchor="middle" fill="white" font-size="14">utils.js</text>
                         
-                        <!-- Connection lines -->
-                        <line x1="400" y1="110" x2="180" y2="180" stroke="#333" stroke-width="2" />
-                        <line x1="400" y1="110" x2="180" y2="250" stroke="#333" stroke-width="2" />
-                        <line x1="400" y1="110" x2="180" y2="320" stroke="#333" stroke-width="2" />
+                        <!-- JS Banking Modules -->
+                        <rect x="50" y="410" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="130" y="435" text-anchor="middle" fill="white" font-size="14">bank-reconciliation-core.js</text>
                         
-                        <line x1="400" y1="110" x2="620" y2="180" stroke="#333" stroke-width="2" />
-                        <line x1="400" y1="110" x2="620" y2="250" stroke="#333" stroke-width="2" />
-                        <line x1="400" y1="110" x2="620" y2="320" stroke="#333" stroke-width="2" />
-                        <line x1="400" y1="110" x2="620" y2="390" stroke="#333" stroke-width="2" />
+                        <rect x="230" y="410" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="310" y="435" text-anchor="middle" fill="white" font-size="14">bank-deposits.js</text>
+                        
+                        <rect x="410" y="410" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="490" y="435" text-anchor="middle" fill="white" font-size="14">check-printing-core.js</text>
+                        
+                        <rect x="590" y="410" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="670" y="435" text-anchor="middle" fill="white" font-size="14">vendor-payments.js</text>
+                        
+                        <!-- JS Split Modules -->
+                        <rect x="410" y="470" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="490" y="495" text-anchor="middle" fill="white" font-size="14">check-printing-forms.js</text>
+                        
+                        <rect x="590" y="470" width="160" height="40" rx="5" fill="#f39c12" />
+                        <text x="670" y="495" text-anchor="middle" fill="white" font-size="14">check-printing-extras.js</text>
                         
                         <!-- API Connection -->
-                        <rect x="300" y="430" width="200" height="60" rx="5" fill="#9b59b6" />
-                        <text x="400" y="465" text-anchor="middle" fill="white" font-size="16">Backend API</text>
+                        <rect x="300" y="530" width="200" height="50" rx="5" fill="#9b59b6" />
+                        <text x="400" y="560" text-anchor="middle" fill="white" font-size="16">Backend API</text>
                         
-                        <line x1="400" y1="110" x2="400" y2="430" stroke="#e74c3c" stroke-width="3" stroke-dasharray="10,5" />
-                        <text x="420" y="270" text-anchor="start" fill="#e74c3c" font-size="14" transform="rotate(90, 420, 270)">REST API Calls</text>
+                        <!-- Connection lines - Authentication -->
+                        <line x1="400" y1="70" x2="400" y2="90" stroke="#f48fb1" stroke-width="3" />
+                        
+                        <!-- Connection lines - HTML to Banking Modules -->
+                        <line x1="400" y1="150" x2="130" y2="190" stroke="#3498db" stroke-width="2" />
+                        <line x1="400" y1="150" x2="310" y2="190" stroke="#3498db" stroke-width="2" />
+                        <line x1="400" y1="150" x2="490" y2="190" stroke="#3498db" stroke-width="2" />
+                        <line x1="400" y1="150" x2="670" y2="190" stroke="#3498db" stroke-width="2" />
+                        
+                        <!-- Connection lines - Banking HTML to CSS -->
+                        <line x1="130" y1="240" x2="130" y2="280" stroke="#64b5f6" stroke-width="2" />
+                        <line x1="310" y1="240" x2="310" y2="280" stroke="#64b5f6" stroke-width="2" />
+                        <line x1="490" y1="240" x2="490" y2="280" stroke="#64b5f6" stroke-width="2" />
+                        <line x1="670" y1="240" x2="670" y2="280" stroke="#64b5f6" stroke-width="2" />
+                        
+                        <!-- Connection lines - Banking HTML to JS -->
+                        <line x1="130" y1="240" x2="130" y2="410" stroke="#64b5f6" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="310" y1="240" x2="310" y2="410" stroke="#64b5f6" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="490" y1="240" x2="490" y2="410" stroke="#64b5f6" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="670" y1="240" x2="670" y2="410" stroke="#64b5f6" stroke-width="2" stroke-dasharray="5,5" />
+                        
+                        <!-- Connection lines - Core JS -->
+                        <line x1="130" y1="390" x2="130" y2="410" stroke="#f39c12" stroke-width="2" />
+                        <line x1="310" y1="390" x2="310" y2="410" stroke="#f39c12" stroke-width="2" />
+                        <line x1="490" y1="390" x2="490" y2="410" stroke="#f39c12" stroke-width="2" />
+                        <line x1="670" y1="390" x2="670" y2="410" stroke="#f39c12" stroke-width="2" />
+                        
+                        <!-- Connection lines - Split Modules -->
+                        <line x1="490" y1="450" x2="490" y2="470" stroke="#f39c12" stroke-width="2" />
+                        <line x1="490" y1="450" x2="670" y2="470" stroke="#f39c12" stroke-width="2" />
+                        
+                        <!-- Connection lines - API -->
+                        <line x1="130" y1="450" x2="300" y2="530" stroke="#9b59b6" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="310" y1="450" x2="350" y2="530" stroke="#9b59b6" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="490" y1="510" x2="400" y2="530" stroke="#9b59b6" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="670" y1="510" x2="450" y2="530" stroke="#9b59b6" stroke-width="2" stroke-dasharray="5,5" />
                         
                         <!-- Labels -->
-                        <text x="180" y="150" text-anchor="middle" font-size="16" font-weight="bold">CSS Modules</text>
-                        <text x="620" y="150" text-anchor="middle" font-size="16" font-weight="bold">JavaScript Modules</text>
+                        <text x="400" y="10" text-anchor="middle" font-size="16" font-weight="bold">Authentication & Session Management</text>
+                        <text x="400" y="180" text-anchor="middle" font-size="16" font-weight="bold">Banking Module Pages</text>
+                        <text x="400" y="270" text-anchor="middle" font-size="16" font-weight="bold">CSS Modules</text>
+                        <text x="400" y="340" text-anchor="middle" font-size="16" font-weight="bold">JavaScript Core Modules</text>
+                        <text x="400" y="400" text-anchor="middle" font-size="16" font-weight="bold">JavaScript Banking Modules</text>
+                        <text x="400" y="460" text-anchor="middle" font-size="16" font-weight="bold">Modular Split JS Files</text>
                     </svg>
                 </div>
                 
                 <div style="margin-top: 2rem;">
                     <h3>Key Architecture Features</h3>
                     <ul style="margin-left: 2rem; margin-top: 1rem;">
-                        <li>Single Page Application (SPA) architecture</li>
-                        <li>Modular CSS and JavaScript components</li>
-                        <li>REST API communication with backend</li>
-                        <li>Dynamic content loading</li>
-                        <li>Interactive data visualizations</li>
-                        <li>Responsive design for all devices</li>
+                        <li>Authentication layer with session management and role-based access control</li>
+                        <li>Comprehensive banking modules (reconciliation, deposits, check printing)</li>
+                        <li>Modular JavaScript architecture with file splitting to prevent truncation</li>
+                        <li>Consistent "Back to Dashboard" navigation pattern across all banking modules</li>
+                        <li>Responsive design with dedicated CSS modules for each banking feature</li>
+                        <li>REST API communication with credential persistence across pages</li>
                     </ul>
                 </div>
             </div>
@@ -457,33 +538,89 @@
                     <button class="filter-button" data-filter="html">HTML</button>
                     <button class="filter-button" data-filter="css">CSS</button>
                     <button class="filter-button" data-filter="js">JavaScript</button>
+                    <button class="filter-button" data-filter="auth">Authentication</button>
+                    <button class="filter-button" data-filter="banking">Banking</button>
                     <button class="filter-button" data-filter="doc">Documentation</button>
                 </div>
                 
                 <div class="modules-grid">
+                    <!-- Authentication Module -->
+                    <div class="module-card auth" data-category="auth">
+                        <div class="module-header">
+                            <span class="module-name">login.html</span>
+                            <span class="module-lines">180 lines</span>
+                        </div>
+                        <div class="module-description">Professional login interface with username/password authentication, remember me functionality, and session management</div>
+                        <div class="module-path">./login.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Authentication</span>
+                            <span class="module-tag">Session</span>
+                        </div>
+                    </div>
+                    
                     <!-- HTML Modules -->
                     <div class="module-card html" data-category="html">
                         <div class="module-header">
                             <span class="module-name">index.html</span>
                             <span class="module-lines">550 lines</span>
                         </div>
-                        <div class="module-description">Main application Single Page Application (SPA) container with all UI components</div>
+                        <div class="module-description">Main application dashboard with role-based navigation and user session display</div>
                         <div class="module-path">./index.html</div>
                         <div class="module-tags">
                             <span class="module-tag">HTML</span>
-                            <span class="module-tag">SPA</span>
+                            <span class="module-tag">Dashboard</span>
                         </div>
                     </div>
                     
-                    <div class="module-card html" data-category="html">
+                    <!-- Banking HTML Modules -->
+                    <div class="module-card banking" data-category="banking html">
+                        <div class="module-header">
+                            <span class="module-name">bank-reconciliation.html</span>
+                            <span class="module-lines">320 lines</span>
+                        </div>
+                        <div class="module-description">Bank reconciliation interface with statement upload, transaction matching, and reporting</div>
+                        <div class="module-path">./bank-reconciliation.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Banking</span>
+                            <span class="module-tag">Reconciliation</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card banking" data-category="banking html">
+                        <div class="module-header">
+                            <span class="module-name">bank-deposits.html</span>
+                            <span class="module-lines">270 lines</span>
+                        </div>
+                        <div class="module-description">Bank deposit management with deposit slip generation and multi-item deposits</div>
+                        <div class="module-path">./bank-deposits.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Banking</span>
+                            <span class="module-tag">Deposits</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card banking" data-category="banking html">
+                        <div class="module-header">
+                            <span class="module-name">check-printing.html</span>
+                            <span class="module-lines">380 lines</span>
+                        </div>
+                        <div class="module-description">Check printing system with format management, print queue, and check register</div>
+                        <div class="module-path">./check-printing.html</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Banking</span>
+                            <span class="module-tag">Checks</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card banking" data-category="banking html">
                         <div class="module-header">
                             <span class="module-name">vendor-payments.html</span>
                             <span class="module-lines">270 lines</span>
                         </div>
-                        <div class="module-description">Vendor payments management interface with NACHA file generation</div>
+                        <div class="module-description">Vendor payments management with NACHA file generation and batch processing</div>
                         <div class="module-path">./vendor-payments.html</div>
                         <div class="module-tags">
-                            <span class="module-tag">HTML</span>
+                            <span class="module-tag">Banking</span>
                             <span class="module-tag">Payments</span>
                         </div>
                     </div>
@@ -502,20 +639,47 @@
                         </div>
                     </div>
                     
-                    <div class="module-card css" data-category="css">
+                    <!-- Banking CSS Modules -->
+                    <div class="module-card css" data-category="css banking">
                         <div class="module-header">
-                            <span class="module-name">entity-hierarchy.css</span>
-                            <span class="module-lines">145 lines</span>
+                            <span class="module-name">bank-reconciliation.css</span>
+                            <span class="module-lines">210 lines</span>
                         </div>
-                        <div class="module-description">Styles for entity hierarchy visualization and interactive elements</div>
-                        <div class="module-path">./src/css/entity-hierarchy.css</div>
+                        <div class="module-description">Styles for reconciliation interface with drag-and-drop, split views, and status indicators</div>
+                        <div class="module-path">./src/css/bank-reconciliation.css</div>
                         <div class="module-tags">
                             <span class="module-tag">CSS</span>
-                            <span class="module-tag">Visualization</span>
+                            <span class="module-tag">Banking</span>
                         </div>
                     </div>
                     
-                    <div class="module-card css" data-category="css">
+                    <div class="module-card css" data-category="css banking">
+                        <div class="module-header">
+                            <span class="module-name">bank-deposits.css</span>
+                            <span class="module-lines">165 lines</span>
+                        </div>
+                        <div class="module-description">Styles for deposit management with deposit slip styling and print-friendly layouts</div>
+                        <div class="module-path">./src/css/bank-deposits.css</div>
+                        <div class="module-tags">
+                            <span class="module-tag">CSS</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card css" data-category="css banking">
+                        <div class="module-header">
+                            <span class="module-name">check-printing.css</span>
+                            <span class="module-lines">230 lines</span>
+                        </div>
+                        <div class="module-description">Styles for check printing with check templates, format editor, and print-specific CSS</div>
+                        <div class="module-path">./src/css/check-printing.css</div>
+                        <div class="module-tags">
+                            <span class="module-tag">CSS</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card css" data-category="css banking">
                         <div class="module-header">
                             <span class="module-name">vendor-payments.css</span>
                             <span class="module-lines">78 lines</span>
@@ -524,34 +688,22 @@
                         <div class="module-path">./src/css/vendor-payments.css</div>
                         <div class="module-tags">
                             <span class="module-tag">CSS</span>
-                            <span class="module-tag">Payments</span>
+                            <span class="module-tag">Banking</span>
                         </div>
                     </div>
                     
-                    <div class="module-card css" data-category="css">
-                        <div class="module-header">
-                            <span class="module-name">report-styles.css</span>
-                            <span class="module-lines">210 lines</span>
-                        </div>
-                        <div class="module-description">Styles for financial reports, tables, and printable documents</div>
-                        <div class="module-path">./src/css/report-styles.css</div>
-                        <div class="module-tags">
-                            <span class="module-tag">CSS</span>
-                            <span class="module-tag">Reports</span>
-                        </div>
-                    </div>
-                    
-                    <!-- JavaScript Modules -->
+                    <!-- JavaScript Core Modules -->
                     <div class="module-card js" data-category="js">
                         <div class="module-header">
                             <span class="module-name">app.js</span>
                             <span class="module-lines">680 lines</span>
                         </div>
-                        <div class="module-description">Main application controller with page routing and initialization</div>
+                        <div class="module-description">Main application controller with authentication, session management, and role-based access control</div>
                         <div class="module-path">./src/js/app.js</div>
                         <div class="module-tags">
                             <span class="module-tag">JavaScript</span>
                             <span class="module-tag">Core</span>
+                            <span class="module-tag">Auth</span>
                         </div>
                     </div>
                     
@@ -581,29 +733,82 @@
                         </div>
                     </div>
                     
-                    <div class="module-card js" data-category="js">
+                    <!-- JavaScript Banking Modules -->
+                    <div class="module-card js" data-category="js banking">
+                        <div class="module-header">
+                            <span class="module-name">bank-reconciliation-core.js</span>
+                            <span class="module-lines">420 lines</span>
+                        </div>
+                        <div class="module-description">Bank reconciliation functionality with auto-matching algorithms and transaction management</div>
+                        <div class="module-path">./src/js/bank-reconciliation-core.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js banking">
+                        <div class="module-header">
+                            <span class="module-name">bank-deposits.js</span>
+                            <span class="module-lines">380 lines</span>
+                        </div>
+                        <div class="module-description">Bank deposit management with deposit slip generation and workflow functionality</div>
+                        <div class="module-path">./src/js/bank-deposits.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js banking">
+                        <div class="module-header">
+                            <span class="module-name">check-printing-core.js</span>
+                            <span class="module-lines">480 lines</span>
+                        </div>
+                        <div class="module-description">Core check printing functionality with state management and API integration</div>
+                        <div class="module-path">./src/js/check-printing-core.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js banking">
+                        <div class="module-header">
+                            <span class="module-name">check-printing-forms.js</span>
+                            <span class="module-lines">320 lines</span>
+                        </div>
+                        <div class="module-description">Check form management with validation and amount-to-words conversion</div>
+                        <div class="module-path">./src/js/check-printing-forms.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js banking">
+                        <div class="module-header">
+                            <span class="module-name">check-printing-extras.js</span>
+                            <span class="module-lines">280 lines</span>
+                        </div>
+                        <div class="module-description">Print queue management, format management, and preview operations</div>
+                        <div class="module-path">./src/js/check-printing-extras.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">JavaScript</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card js" data-category="js banking">
                         <div class="module-header">
                             <span class="module-name">vendor-payments.js</span>
                             <span class="module-lines">392 lines</span>
                         </div>
-                        <div class="module-description">Vendor payment management and batch processing interface</div>
+                        <div class="module-description">Vendor payment management and NACHA file generation functionality</div>
                         <div class="module-path">./src/js/vendor-payments.js</div>
                         <div class="module-tags">
                             <span class="module-tag">JavaScript</span>
-                            <span class="module-tag">Payments</span>
-                        </div>
-                    </div>
-                    
-                    <div class="module-card js" data-category="js">
-                        <div class="module-header">
-                            <span class="module-name">journal.js</span>
-                            <span class="module-lines">310 lines</span>
-                        </div>
-                        <div class="module-description">Journal entry management and validation</div>
-                        <div class="module-path">./src/js/journal.js</div>
-                        <div class="module-tags">
-                            <span class="module-tag">JavaScript</span>
-                            <span class="module-tag">Accounting</span>
+                            <span class="module-tag">Banking</span>
                         </div>
                     </div>
                     
@@ -613,7 +818,7 @@
                             <span class="module-name">database-er-diagram.html</span>
                             <span class="module-lines">1535 lines</span>
                         </div>
-                        <div class="module-description">Interactive database entity-relationship diagram</div>
+                        <div class="module-description">Interactive database entity-relationship diagram with all banking tables</div>
                         <div class="module-path">./database-er-diagram.html</div>
                         <div class="module-tags">
                             <span class="module-tag">Documentation</span>
@@ -637,91 +842,165 @@
             </div>
         </section>
 
-        <!-- Sample Code Section -->
+        <!-- Authentication Flow Section -->
         <section class="section">
-            <h2 class="section-title">Frontend Code Samples</h2>
-            <p>Representative code samples from key frontend modules.</p>
+            <h2 class="section-title">Authentication & Role-Based Access Control</h2>
+            <p>The system now implements comprehensive authentication with session management and role-based access control.</p>
             
             <div class="section-content">
-                <h3>HTML Structure (index.html)</h3>
-                <div class="code-sample html">
-                    <pre>&lt;!DOCTYPE html&gt;
-&lt;html lang="en"&gt;
-&lt;head&gt;
-    &lt;meta charset="UTF-8"&gt;
-    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
-    &lt;title&gt;Mr. MoneyBags v1.x - Fund Accounting System&lt;/title&gt;
-    &lt;link rel="stylesheet" href="src/css/styles.css"&gt;
-&lt;/head&gt;
-&lt;body&gt;
-    &lt;div class="header"&gt;
-        &lt;!-- Header content --&gt;
-    &lt;/div&gt;
-    
-    &lt;div class="main-content"&gt;
-        &lt;!-- Dynamic content area --&gt;
-    &lt;/div&gt;
-    
-    &lt;script src="src/js/app.js"&gt;&lt;/script&gt;
-&lt;/body&gt;
-&lt;/html&gt;</pre>
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Login Flow -->
+                        <rect x="50" y="50" width="150" height="60" rx="5" fill="#f48fb1" />
+                        <text x="125" y="85" text-anchor="middle" fill="white" font-size="16">login.html</text>
+                        
+                        <rect x="300" y="50" width="150" height="60" rx="5" fill="#9b59b6" />
+                        <text x="375" y="85" text-anchor="middle" fill="white" font-size="16">/api/auth/login</text>
+                        
+                        <rect x="550" y="50" width="150" height="60" rx="5" fill="#8e44ad" />
+                        <text x="625" y="85" text-anchor="middle" fill="white" font-size="16">Session Store</text>
+                        
+                        <!-- Access Control -->
+                        <rect x="50" y="170" width="150" height="60" rx="5" fill="#3498db" />
+                        <text x="125" y="205" text-anchor="middle" fill="white" font-size="16">index.html</text>
+                        
+                        <rect x="300" y="170" width="150" height="60" rx="5" fill="#f39c12" />
+                        <text x="375" y="205" text-anchor="middle" fill="white" font-size="16">app.js</text>
+                        
+                        <rect x="550" y="170" width="150" height="60" rx="5" fill="#2ecc71" />
+                        <text x="625" y="205" text-anchor="middle" fill="white" font-size="16">Role-Based UI</text>
+                        
+                        <!-- Protected Resources -->
+                        <rect x="50" y="290" width="150" height="60" rx="5" fill="#64b5f6" />
+                        <text x="125" y="325" text-anchor="middle" fill="white" font-size="16">Banking Pages</text>
+                        
+                        <rect x="300" y="290" width="150" height="60" rx="5" fill="#9b59b6" />
+                        <text x="375" y="325" text-anchor="middle" fill="white" font-size="16">Protected APIs</text>
+                        
+                        <rect x="550" y="290" width="150" height="60" rx="5" fill="#e74c3c" />
+                        <text x="625" y="325" text-anchor="middle" fill="white" font-size="16">Admin-Only Areas</text>
+                        
+                        <!-- Flow Arrows -->
+                        <line x1="200" y1="80" x2="300" y2="80" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <line x1="450" y1="80" x2="550" y2="80" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        
+                        <line x1="625" y1="110" x2="625" y2="170" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <line x1="550" y1="200" x2="450" y2="200" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <line x1="300" y1="200" x2="200" y2="200" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        
+                        <line x1="125" y1="230" x2="125" y2="290" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <line x1="375" y1="230" x2="375" y2="290" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        <line x1="625" y1="230" x2="625" y2="290" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Arrowhead Marker -->
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+                            </marker>
+                        </defs>
+                        
+                        <!-- Labels -->
+                        <text x="250" y="60" text-anchor="middle" font-size="12">Credentials</text>
+                        <text x="500" y="60" text-anchor="middle" font-size="12">Create Session</text>
+                        <text x="650" y="140" text-anchor="middle" font-size="12">Session Cookie</text>
+                        <text x="500" y="180" text-anchor="middle" font-size="12">User Role</text>
+                        <text x="250" y="180" text-anchor="middle" font-size="12">Show/Hide UI</text>
+                        <text x="125" y="260" text-anchor="middle" font-size="12">Access</text>
+                        <text x="375" y="260" text-anchor="middle" font-size="12">credentials: 'include'</text>
+                        <text x="625" y="260" text-anchor="middle" font-size="12">Admin Only</text>
+                    </svg>
                 </div>
                 
-                <h3>CSS Styling (styles.css)</h3>
-                <div class="code-sample css">
-                    <pre>/* Main application styles */
-.header {
-    background-color: #2c3e50;
-    color: white;
-    padding: 1rem;
-}
+                <div style="margin-top: 2rem;">
+                    <h3>Authentication & Access Control Features</h3>
+                    <ul style="margin-left: 2rem; margin-top: 1rem;">
+                        <li>Secure login with bcrypt password hashing</li>
+                        <li>Session management with PostgreSQL session store</li>
+                        <li>Session persistence across all banking pages</li>
+                        <li>Role-based access control (admin vs. user roles)</li>
+                        <li>Admin-only Settings tab with automatic redirection</li>
+                        <li>Consistent credentials inclusion in all API calls</li>
+                        <li>Logout functionality with session destruction</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
 
-.main-nav {
-    display: flex;
-    background-color: #34495e;
-}
-
-.nav-item {
-    padding: 0.5rem 1rem;
-    color: white;
-    cursor: pointer;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .main-nav {
-        flex-direction: column;
-    }
-}</pre>
+        <!-- Banking Modules Section -->
+        <section class="section">
+            <h2 class="section-title">Banking Module Integration</h2>
+            <p>The system now includes comprehensive banking functionality with reconciliation, deposits, and check printing modules.</p>
+            
+            <div class="section-content">
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Dashboard -->
+                        <rect x="300" y="50" width="200" height="60" rx="5" fill="#3498db" />
+                        <text x="400" y="85" text-anchor="middle" fill="white" font-size="16">Dashboard</text>
+                        
+                        <!-- Banking Modules -->
+                        <rect x="50" y="170" width="200" height="60" rx="5" fill="#64b5f6" />
+                        <text x="150" y="205" text-anchor="middle" fill="white" font-size="16">Bank Reconciliation</text>
+                        
+                        <rect x="300" y="170" width="200" height="60" rx="5" fill="#64b5f6" />
+                        <text x="400" y="205" text-anchor="middle" fill="white" font-size="16">Bank Deposits</text>
+                        
+                        <rect x="550" y="170" width="200" height="60" rx="5" fill="#64b5f6" />
+                        <text x="650" y="205" text-anchor="middle" fill="white" font-size="16">Check Printing</text>
+                        
+                        <!-- Back to Dashboard Buttons -->
+                        <rect x="50" y="270" width="200" height="40" rx="5" fill="#4caf50" />
+                        <text x="150" y="295" text-anchor="middle" fill="white" font-size="14">Back to Dashboard</text>
+                        
+                        <rect x="300" y="270" width="200" height="40" rx="5" fill="#4caf50" />
+                        <text x="400" y="295" text-anchor="middle" fill="white" font-size="14">Back to Dashboard</text>
+                        
+                        <rect x="550" y="270" width="200" height="40" rx="5" fill="#4caf50" />
+                        <text x="650" y="295" text-anchor="middle" fill="white" font-size="14">Back to Dashboard</text>
+                        
+                        <!-- Navigation Arrows -->
+                        <line x1="400" y1="110" x2="150" y2="170" stroke="#333" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        <line x1="400" y1="110" x2="400" y2="170" stroke="#333" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        <line x1="400" y1="110" x2="650" y2="170" stroke="#333" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        
+                        <line x1="150" y1="270" x2="150" y2="230" stroke="#4caf50" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        <line x1="400" y1="270" x2="400" y2="230" stroke="#4caf50" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        <line x1="650" y1="270" x2="650" y2="230" stroke="#4caf50" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        
+                        <line x1="150" y1="310" x2="400" y2="350" stroke="#4caf50" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        <line x1="400" y1="310" x2="400" y2="350" stroke="#4caf50" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        <line x1="650" y1="310" x2="400" y2="350" stroke="#4caf50" stroke-width="2" marker-end="url(#arrowhead2)" />
+                        
+                        <rect x="300" y="350" width="200" height="40" rx="5" fill="#3498db" opacity="0.7" />
+                        <text x="400" y="375" text-anchor="middle" fill="white" font-size="14">Return to Dashboard</text>
+                        
+                        <!-- Arrowhead Marker -->
+                        <defs>
+                            <marker id="arrowhead2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+                            </marker>
+                        </defs>
+                        
+                        <!-- Labels -->
+                        <text x="250" y="140" text-anchor="middle" font-size="12">Navigate to Module</text>
+                        <text x="550" y="140" text-anchor="middle" font-size="12">Navigate to Module</text>
+                        <text x="400" y="140" text-anchor="middle" font-size="12">Navigate to Module</text>
+                        <text x="200" y="250" text-anchor="middle" font-size="12">Consistent Green Button</text>
+                        <text x="450" y="250" text-anchor="middle" font-size="12">Consistent Green Button</text>
+                        <text x="700" y="250" text-anchor="middle" font-size="12">Consistent Green Button</text>
+                    </svg>
                 </div>
                 
-                <h3>JavaScript Functionality (app.js)</h3>
-                <div class="code-sample js">
-                    <pre>// Main application controller
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize application
-    console.log('Mr. MoneyBags v1.x initializing...');
-    
-    // Set up navigation
-    setupNavigation();
-    
-    // Load initial data
-    loadEntityData()
-        .then(setupEntitySelector)
-        .catch(handleError);
-});
-
-function setupNavigation() {
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', function() {
-            const pageName = this.getAttribute('data-page');
-            if (pageName) {
-                showPage(pageName);
-            }
-        });
-    });
-}</pre>
+                <div style="margin-top: 2rem;">
+                    <h3>Banking Module Features</h3>
+                    <ul style="margin-left: 2rem; margin-top: 1rem;">
+                        <li>Consistent "Back to Dashboard" green buttons across all banking pages</li>
+                        <li>Bank Reconciliation with statement import, transaction matching, and reporting</li>
+                        <li>Bank Deposits with deposit slip generation and multi-item deposits</li>
+                        <li>Check Printing with format management, print queue, and check register</li>
+                        <li>Modular JavaScript architecture with split files to prevent truncation</li>
+                        <li>Session persistence across all banking pages with credentials inclusion</li>
+                    </ul>
                 </div>
             </div>
         </section>
@@ -729,51 +1008,63 @@ function setupNavigation() {
         <!-- Metrics and Benefits Section -->
         <section class="section">
             <h2 class="section-title">Frontend Code Metrics & Benefits</h2>
-            <p>Key metrics and benefits of the modular frontend architecture.</p>
+            <p>Key metrics and benefits of the modular frontend architecture with banking modules.</p>
             
             <div class="section-content">
                 <div class="metrics-container">
                     <div class="metric-card">
-                        <div class="metric-value">15+</div>
+                        <div class="metric-value">21+</div>
                         <div class="metric-label">Frontend Modules</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-value">4,500+</div>
+                        <div class="metric-value">6,800+</div>
                         <div class="metric-label">Total Lines of Code</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-value">10+</div>
+                        <div class="metric-value">15+</div>
                         <div class="metric-label">UI Components</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-value">12+</div>
+                        <div class="metric-value">25+</div>
                         <div class="metric-label">API Endpoints Used</div>
                     </div>
                 </div>
                 
                 <div class="benefits-list">
                     <div class="benefit-item">
-                        <div class="benefit-icon">🎨</div>
-                        <div class="benefit-title">Modular Design</div>
-                        <div class="benefit-description">Separation of concerns with modular CSS and JavaScript files makes the codebase easier to maintain and update.</div>
+                        <div class="benefit-icon">🔒</div>
+                        <div class="benefit-title">Authentication & Security</div>
+                        <div class="benefit-description">Comprehensive authentication with session management, bcrypt password hashing, and role-based access control.</div>
                     </div>
                     
                     <div class="benefit-item">
-                        <div class="benefit-icon">⚡</div>
-                        <div class="benefit-title">Performance</div>
-                        <div class="benefit-description">Single Page Application architecture with dynamic content loading provides a fast, responsive user experience.</div>
+                        <div class="benefit-icon">🏦</div>
+                        <div class="benefit-title">Banking Functionality</div>
+                        <div class="benefit-description">Complete banking modules for reconciliation, deposits, and check printing with consistent navigation.</div>
                     </div>
                     
                     <div class="benefit-item">
-                        <div class="benefit-icon">📱</div>
-                        <div class="benefit-title">Responsive Design</div>
-                        <div class="benefit-description">Fully responsive layout adapts to all screen sizes from desktop to mobile devices.</div>
+                        <div class="benefit-icon">🧩</div>
+                        <div class="benefit-title">Modular JavaScript</div>
+                        <div class="benefit-description">Split JavaScript files prevent truncation issues while maintaining clean separation of concerns.</div>
                     </div>
                     
                     <div class="benefit-item">
                         <div class="benefit-icon">🔄</div>
-                        <div class="benefit-title">API Integration</div>
-                        <div class="benefit-description">Seamless integration with backend API endpoints for real-time data updates and persistence.</div>
+                        <div class="benefit-title">Session Persistence</div>
+                        <div class="benefit-description">Consistent session management across all pages with credentials inclusion in all API calls.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🎯</div>
+                        <div class="benefit-title">Role-Based Access</div>
+                        <div class="benefit-description">Admin-only areas with automatic redirection for unauthorized users and case-insensitive role checking.</div>
+                    </div>
+                    
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🧭</div>
+                        <div class="benefit-title">Consistent Navigation</div>
+                        <div class="benefit-description">Standardized "Back to Dashboard" green buttons across all banking modules for intuitive user experience.</div>
                     </div>
                 </div>
             </div>
@@ -782,7 +1073,7 @@ function setupNavigation() {
         <!-- Frontend-Backend Integration Section -->
         <section class="section">
             <h2 class="section-title">Frontend-Backend Integration</h2>
-            <p>The frontend communicates with the backend through REST API endpoints, providing a seamless user experience with real-time data updates.</p>
+            <p>The frontend communicates with the backend through REST API endpoints with session persistence and authentication.</p>
             
             <div class="section-content">
                 <div class="integration-diagram">
@@ -796,32 +1087,37 @@ function setupNavigation() {
                         <text x="600" y="80" text-anchor="middle" font-weight="bold" font-size="18">Backend</text>
                         
                         <!-- Frontend Modules -->
-                        <rect x="100" y="120" width="200" height="40" rx="5" fill="#3498db" />
-                        <text x="200" y="145" text-anchor="middle" fill="white" font-size="14">HTML/CSS</text>
+                        <rect x="100" y="120" width="200" height="40" rx="5" fill="#f48fb1" />
+                        <text x="200" y="145" text-anchor="middle" fill="white" font-size="14">Authentication</text>
                         
-                        <rect x="100" y="180" width="200" height="40" rx="5" fill="#f39c12" />
-                        <text x="200" y="205" text-anchor="middle" fill="white" font-size="14">JavaScript Modules</text>
+                        <rect x="100" y="180" width="200" height="40" rx="5" fill="#64b5f6" />
+                        <text x="200" y="205" text-anchor="middle" fill="white" font-size="14">Banking Modules</text>
                         
-                        <rect x="100" y="240" width="200" height="40" rx="5" fill="#e74c3c" />
-                        <text x="200" y="265" text-anchor="middle" fill="white" font-size="14">API Client</text>
+                        <rect x="100" y="240" width="200" height="40" rx="5" fill="#f39c12" />
+                        <text x="200" y="265" text-anchor="middle" fill="white" font-size="14">API Client (credentials: 'include')</text>
                         
                         <!-- Backend Modules -->
                         <rect x="500" y="120" width="200" height="40" rx="5" fill="#9b59b6" />
-                        <text x="600" y="145" text-anchor="middle" fill="white" font-size="14">Express Server</text>
+                        <text x="600" y="145" text-anchor="middle" fill="white" font-size="14">Authentication Middleware</text>
                         
                         <rect x="500" y="180" width="200" height="40" rx="5" fill="#16a085" />
-                        <text x="600" y="205" text-anchor="middle" fill="white" font-size="14">API Routes</text>
+                        <text x="600" y="205" text-anchor="middle" fill="white" font-size="14">Banking API Routes</text>
                         
                         <rect x="500" y="240" width="200" height="40" rx="5" fill="#8e44ad" />
-                        <text x="600" y="265" text-anchor="middle" fill="white" font-size="14">Database</text>
+                        <text x="600" y="265" text-anchor="middle" fill="white" font-size="14">PostgreSQL Session Store</text>
                         
                         <!-- API Connection -->
-                        <line x1="300" y1="260" x2="500" y2="200" stroke="#e74c3c" stroke-width="3" stroke-dasharray="10,5" />
-                        <text x="400" y="210" text-anchor="middle" fill="#e74c3c" font-weight="bold">REST API</text>
+                        <line x1="300" y1="140" x2="500" y2="140" stroke="#f48fb1" stroke-width="3" stroke-dasharray="10,5" />
+                        <line x1="300" y1="200" x2="500" y2="200" stroke="#64b5f6" stroke-width="3" stroke-dasharray="10,5" />
+                        <line x1="300" y1="260" x2="500" y2="260" stroke="#f39c12" stroke-width="3" stroke-dasharray="10,5" />
+                        
+                        <text x="400" y="125" text-anchor="middle" fill="#f48fb1" font-weight="bold">Login/Logout</text>
+                        <text x="400" y="185" text-anchor="middle" fill="#64b5f6" font-weight="bold">Banking APIs</text>
+                        <text x="400" y="245" text-anchor="middle" fill="#f39c12" font-weight="bold">Session Cookies</text>
                         
                         <!-- API Endpoints -->
                         <text x="400" y="320" text-anchor="middle" font-size="14">Key API Endpoints:</text>
-                        <text x="400" y="350" text-anchor="middle" font-size="12">/api/entities, /api/accounts, /api/journal-entries, /api/reports</text>
+                        <text x="400" y="345" text-anchor="middle" font-size="12">/api/auth, /api/bank-reconciliation, /api/bank-deposits, /api/checks, /api/check-formats</text>
                     </svg>
                 </div>
             </div>
@@ -831,7 +1127,7 @@ function setupNavigation() {
     <footer>
         <div class="footer-content">
             <p>Mr-Moneybags-v1.x Frontend Architecture</p>
-            <p>Single Page Application with modular components and API integration</p>
+            <p>Modular frontend with authentication, banking modules, and role-based access control</p>
             <div class="footer-links">
                 <a href="database-er-diagram.html">Database Schema</a>
                 <a href="backend-architecture-diagram.html">Backend Architecture</a>
@@ -841,7 +1137,7 @@ function setupNavigation() {
     </footer>
 
     <script>
-        // Simple module filtering
+        // Module filtering
         document.addEventListener('DOMContentLoaded', function() {
             const filterButtons = document.querySelectorAll('.filter-button');
             const moduleCards = document.querySelectorAll('.module-card');
@@ -856,10 +1152,15 @@ function setupNavigation() {
                     const filter = this.getAttribute('data-filter');
                     
                     moduleCards.forEach(card => {
-                        if (filter === 'all' || card.getAttribute('data-category') === filter) {
+                        if (filter === 'all') {
                             card.style.display = 'block';
                         } else {
-                            card.style.display = 'none';
+                            const categories = card.getAttribute('data-category').split(' ');
+                            if (categories.includes(filter)) {
+                                card.style.display = 'block';
+                            } else {
+                                card.style.display = 'none';
+                            }
                         }
                     });
                 });

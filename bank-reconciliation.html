@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="src/js/override-entities.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Reconciliation - Mr. MoneyBags v1.x</title>
+    <!-- Main application styles -->
+    <link rel="stylesheet" href="src/css/styles.css?v=20250721170000">
+    <!-- Bank reconciliation specific styles -->
+    <link rel="stylesheet" href="src/css/bank-reconciliation.css?v=20250806150000">
+    <!-- Chart.js for reports visualization -->
+    <script id="chartjs-script"
+            src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+            defer
+            crossorigin="anonymous">
+    </script>
+</head>
+<body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Mr. MoneyBags v1.x</h1>
+            <div class="header-right-controls">
+                <div class="db-status-container">
+                    <span id="db-status-indicator" class="offline">DB Offline</span>
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                    <select id="entity-selector">
+                        <option value="">Loading Entities...</option>
+                    </select>
+                </div>
+                <div class="user-info"><span>User</span><button class="logout-button" id="btnLogout">Logout</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Single centered Back button -->
+        <div class="text-center mb-4">
+            <button
+                class="action-button"
+                onclick="window.location.href='index.html'">
+                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+            </button>
+        </div>
+
+        <div class="page-header">
+            <h2>Bank Reconciliation</h2>
+            <div class="page-actions">
+                <div class="bank-account-selector-container">
+                    <label for="bank-account-selector">Bank Account:</label>
+                    <select id="bank-account-selector" class="form-input">
+                        <option value="">Select Bank Account...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+    <!-- Main tabs navigation -->
+    <div class="tab-container reconciliation-tabs">
+        <div class="tab-menu">
+            <div class="tab-item active" data-tab="bank-statements-tab">Bank Statements</div>
+            <div class="tab-item" data-tab="reconciliation-workspace-tab">Reconciliation Workspace</div>
+            <div class="tab-item" data-tab="reconciliation-reports-tab">Reports</div>
+        </div>
+
+        <div class="tab-content">
+            <!-- ================= Bank Statements Tab ================= -->
+            <div id="bank-statements-tab" class="tab-panel active">
+                <div class="content-header">
+                    <h3>Bank Statements</h3>
+                    <button class="action-button" id="btn-upload-statement">Upload Statement</button>
+                </div>
+
+                <!-- Filter controls -->
+                <div class="filter-controls">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="statement-status-filter">Status:</label>
+                            <select id="statement-status-filter" class="form-input">
+                                <option value="">All Statuses</option>
+                                <option value="Uploaded">Uploaded</option>
+                                <option value="Processed">Processed</option>
+                                <option value="Reconciled">Reconciled</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="statement-date-from">From:</label>
+                            <input type="date" id="statement-date-from" class="form-input">
+                        </div>
+                        <div class="filter-group">
+                            <label for="statement-date-to">To:</label>
+                            <input type="date" id="statement-date-to" class="form-input">
+                        </div>
+                        <button class="btn-secondary" id="btn-filter-statements">Apply Filters</button>
+                        <button class="btn-secondary" id="btn-reset-statement-filters">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Bank statements table -->
+                <table class="data-table" id="bank-statements-table">
+                    <thead>
+                        <tr>
+                            <th>Statement Date</th>
+                            <th>Bank Account</th>
+                            <th>Period</th>
+                            <th>Opening Balance</th>
+                            <th>Closing Balance</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" class="empty-table-message">No bank statements found. Upload a statement to begin.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Pagination controls -->
+                <div class="pagination-controls" id="statements-pagination">
+                    <button class="pagination-btn" id="statements-prev-page" disabled>Previous</button>
+                    <span class="pagination-info">Page <span id="statements-current-page">1</span> of <span id="statements-total-pages">1</span></span>
+                    <button class="pagination-btn" id="statements-next-page" disabled>Next</button>
+                </div>
+
+                <!-- Statement details panel (shown when a statement is selected) -->
+                <div id="statement-details-panel" class="details-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h4>Statement Details</h4>
+                        <button class="close-panel-btn">&times;</button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="statement-info">
+                            <div class="info-row">
+                                <span class="info-label">Bank Account:</span>
+                                <span id="statement-detail-account" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Statement Date:</span>
+                                <span id="statement-detail-date" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Period:</span>
+                                <span id="statement-detail-period" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Opening Balance:</span>
+                                <span id="statement-detail-opening" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Closing Balance:</span>
+                                <span id="statement-detail-closing" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Status:</span>
+                                <span id="statement-detail-status" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">File:</span>
+                                <span id="statement-file-name" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Import Method:</span>
+                                <span id="statement-import-method" class="info-value"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Notes:</span>
+                                <span id="statement-detail-notes" class="info-value"></span>
+                            </div>
+                        </div>
+
+                        <h4>Transactions</h4>
+                        <table class="data-table" id="statement-transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="empty-table-message">No transactions found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="statement-actions">
+                            <button class="btn-secondary" id="btn-import-transactions">Import Transactions</button>
+                            <button class="btn-secondary" id="btn-edit-statement">Edit Statement</button>
+                            <button class="btn-danger" id="btn-delete-statement">Delete Statement</button>
+                            <button class="action-button" id="btn-start-reconciliation">Start Reconciliation</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= Reconciliation Workspace Tab ================= -->
+            <div id="reconciliation-workspace-tab" class="tab-panel">
+                <div class="content-header">
+                    <h3>Reconciliation Workspace</h3>
+                    <div class="reconciliation-controls">
+                        <select id="reconciliation-selector" class="form-input">
+                            <option value="">Select Reconciliation...</option>
+                        </select>
+                        <button class="action-button" id="btn-new-reconciliation">New Reconciliation</button>
+                    </div>
+                </div>
+
+                <!-- Reconciliation info panel -->
+                <div id="reconciliation-info-panel" class="info-panel">
+                    <div class="info-row">
+                        <div class="info-column">
+                            <span class="info-label">Bank Account:</span>
+                            <span id="workspace-bank-account" class="info-value">-</span>
+                        </div>
+                        <div class="info-column">
+                            <span class="info-label">Statement Date:</span>
+                            <span id="workspace-statement-date" class="info-value">-</span>
+                        </div>
+                        <div class="info-column">
+                            <span class="info-label">Status:</span>
+                            <span id="workspace-status" class="info-value">-</span>
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-column">
+                            <span class="info-label">Book Balance:</span>
+                            <span id="workspace-book-balance" class="info-value">$0.00</span>
+                        </div>
+                        <div class="info-column">
+                            <span class="info-label">Statement Balance:</span>
+                            <span id="workspace-statement-balance" class="info-value">$0.00</span>
+                        </div>
+                        <div class="info-column">
+                            <span class="info-label">Difference:</span>
+                            <span id="workspace-difference" class="info-value difference-amount">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reconciliation workspace -->
+                <div id="reconciliation-workspace" class="workspace-container">
+                    <!-- Auto-match controls -->
+                    <div class="auto-match-controls">
+                        <button class="btn-secondary" id="btn-auto-match">Auto-Match Transactions</button>
+                        <div class="auto-match-options">
+                            <label>
+                                <input type="checkbox" id="auto-match-description" checked>
+                                Match by description
+                            </label>
+                            <label>
+                                <input type="number" id="auto-match-date-tolerance" value="3" min="0" max="30" style="width: 50px;">
+                                Date tolerance (days)
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Split view for matching -->
+                    <div class="split-view">
+                        <!-- Unmatched bank transactions -->
+                        <div class="split-panel">
+                            <h4>Unmatched Bank Transactions</h4>
+                            <div class="panel-filter">
+                                <input type="text" id="bank-tx-filter" class="form-input" placeholder="Filter transactions...">
+                            </div>
+                            <div class="transaction-list" id="unmatched-bank-transactions">
+                                <div class="empty-list-message">No unmatched bank transactions.</div>
+                            </div>
+                        </div>
+
+                        <!-- Matched items -->
+                        <div class="split-panel matched-panel">
+                            <h4>Matched Items</h4>
+                            <div class="matched-items-container" id="matched-items">
+                                <div class="empty-list-message">No matched items. Drag items here to match.</div>
+                            </div>
+                        </div>
+
+                        <!-- Unmatched journal entries -->
+                        <div class="split-panel">
+                            <h4>Unmatched Journal Entries</h4>
+                            <div class="panel-filter">
+                                <input type="text" id="journal-entry-filter" class="form-input" placeholder="Filter journal entries...">
+                            </div>
+                            <div class="transaction-list" id="unmatched-journal-entries">
+                                <div class="empty-list-message">No unmatched journal entries.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Adjustments section -->
+                    <div class="adjustments-section">
+                        <h4>Adjustments</h4>
+                        <button class="btn-secondary" id="btn-add-adjustment">Add Adjustment</button>
+                        <div id="adjustments-list" class="adjustments-container">
+                            <div class="empty-message">No adjustments added.</div>
+                        </div>
+                    </div>
+
+                    <!-- Reconciliation actions -->
+                    <div class="reconciliation-actions">
+                        <button class="btn-secondary" id="btn-save-reconciliation">Save Progress</button>
+                        <button class="btn-secondary" id="btn-view-report">View Report</button>
+                        <button class="action-button" id="btn-complete-reconciliation">Complete Reconciliation</button>
+                    </div>
+                </div>
+
+                <!-- Empty state message -->
+                <div id="reconciliation-empty-state" class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <h3>No Active Reconciliation</h3>
+                    <p>Select an existing reconciliation or start a new one to begin.</p>
+                    <button class="action-button" id="btn-new-reconciliation-empty">New Reconciliation</button>
+                </div>
+            </div>
+
+            <!-- ================= Reconciliation Reports Tab ================= -->
+            <div id="reconciliation-reports-tab" class="tab-panel">
+                <div class="content-header">
+                    <h3>Reconciliation Reports</h3>
+                </div>
+
+                <!-- Filter controls -->
+                <div class="filter-controls">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="report-status-filter">Status:</label>
+                            <select id="report-status-filter" class="form-input">
+                                <option value="">All Statuses</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Approved">Approved</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="report-date-from">From:</label>
+                            <input type="date" id="report-date-from" class="form-input">
+                        </div>
+                        <div class="filter-group">
+                            <label for="report-date-to">To:</label>
+                            <input type="date" id="report-date-to" class="form-input">
+                        </div>
+                        <button class="btn-secondary" id="btn-filter-reports">Apply Filters</button>
+                        <button class="btn-secondary" id="btn-reset-report-filters">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Reconciliation reports table -->
+                <table class="data-table" id="reconciliation-reports-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Bank Account</th>
+                            <th>Statement Date</th>
+                            <th>Book Balance</th>
+                            <th>Statement Balance</th>
+                            <th>Difference</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" class="empty-table-message">No reconciliation reports found.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Pagination controls -->
+                <div class="pagination-controls" id="reports-pagination">
+                    <button class="pagination-btn" id="reports-prev-page" disabled>Previous</button>
+                    <span class="pagination-info">Page <span id="reports-current-page">1</span> of <span id="reports-total-pages">1</span></span>
+                    <button class="pagination-btn" id="reports-next-page" disabled>Next</button>
+                </div>
+
+                <!-- Report details panel -->
+                <div id="report-details-panel" class="details-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h4>Reconciliation Report</h4>
+                        <button class="close-panel-btn">&times;</button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="report-summary">
+                            <div class="info-row">
+                                <div class="info-column">
+                                    <span class="info-label">Bank Account:</span>
+                                    <span id="report-bank-account" class="info-value"></span>
+                                </div>
+                                <div class="info-column">
+                                    <span class="info-label">Reconciliation Date:</span>
+                                    <span id="report-reconciliation-date" class="info-value"></span>
+                                </div>
+                                <div class="info-column">
+                                    <span class="info-label">Status:</span>
+                                    <span id="report-status" class="info-value"></span>
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-column">
+                                    <span class="info-label">Book Balance:</span>
+                                    <span id="report-book-balance" class="info-value"></span>
+                                </div>
+                                <div class="info-column">
+                                    <span class="info-label">Statement Balance:</span>
+                                    <span id="report-statement-balance" class="info-value"></span>
+                                </div>
+                                <div class="info-column">
+                                    <span class="info-label">Difference:</span>
+                                    <span id="report-difference" class="info-value"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="report-statistics">
+                            <div class="stat-box">
+                                <div class="stat-value" id="report-matched-items">0</div>
+                                <div class="stat-label">Matched Items</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" id="report-bank-transactions">0</div>
+                                <div class="stat-label">Bank Transactions</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" id="report-journal-items">0</div>
+                                <div class="stat-label">Journal Items</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" id="report-adjustments">0</div>
+                                <div class="stat-label">Adjustments</div>
+                            </div>
+                        </div>
+
+                        <h4>Matched Transactions</h4>
+                        <table class="data-table" id="report-matched-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Bank Description</th>
+                                    <th>Journal Reference</th>
+                                    <th>Amount</th>
+                                    <th>Match Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="empty-table-message">No matched items.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Adjustments</h4>
+                        <table class="data-table" id="report-adjustments-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="empty-table-message">No adjustments.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="report-actions">
+                            <button class="btn-secondary" id="btn-print-report">Print Report</button>
+                            <button class="btn-secondary" id="btn-export-pdf">Export PDF</button>
+                            <button class="btn-secondary" id="btn-export-excel">Export Excel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- ================= Modals ================= -->
+
+    <!-- Upload Statement Modal -->
+    <div id="upload-statement-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Upload Bank Statement</h3>
+                <button class="modal-close-btn" data-modal-id="upload-statement-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="statement-upload-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label class="form-label" for="statement-bank-account">Bank Account *</label>
+                        <select id="statement-bank-account" class="form-input" required>
+                            <option value="">Select Bank Account...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="statement-date-input">Statement Date *</label>
+                                <input type="date" id="statement-date-input" class="form-input" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="statement-start-date">Start Date *</label>
+                                <input type="date" id="statement-start-date" class="form-input" required>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="statement-end-date">End Date *</label>
+                                <input type="date" id="statement-end-date" class="form-input" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="statement-opening-balance-input">Opening Balance *</label>
+                                <input type="number" id="statement-opening-balance-input" class="form-input" step="0.01" required>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="statement-closing-balance-input">Closing Balance *</label>
+                                <input type="number" id="statement-closing-balance-input" class="form-input" step="0.01" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="statement-file-input">Statement File</label>
+                        <input type="file" id="statement-file-input" class="form-input" accept=".csv,.ofx,.qfx">
+                        <small class="form-help">Upload CSV, OFX, or QFX file (optional)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="statement-import-method-select">Import Method</label>
+                        <select id="statement-import-method-select" class="form-input">
+                            <option value="Manual">Manual</option>
+                            <option value="CSV">CSV</option>
+                            <option value="OFX">OFX</option>
+                            <option value="API">API</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="statement-notes-textarea">Notes</label>
+                        <textarea id="statement-notes-textarea" class="form-input" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="upload-statement-modal">Cancel</button>
+                <button class="action-button" id="btn-save-statement">Upload Statement</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Reconciliation Modal -->
+    <div id="new-reconciliation-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">New Reconciliation</h3>
+                <button class="modal-close-btn" data-modal-id="new-reconciliation-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="new-reconciliation-form">
+                    <div class="form-group">
+                        <label class="form-label" for="reconciliation-bank-account">Bank Account *</label>
+                        <select id="reconciliation-bank-account" class="form-input" required>
+                            <option value="">Select Bank Account...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="reconciliation-statement">Bank Statement *</label>
+                        <select id="reconciliation-statement" class="form-input" required>
+                            <option value="">Select Statement...</option>
+                        </select>
+                        <small class="form-help">Only processed statements are available for reconciliation</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="reconciliation-date-input">Reconciliation Date *</label>
+                                <input type="date" id="reconciliation-date-input" class="form-input" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="reconciliation-book-balance">Book Balance *</label>
+                                <input type="number" id="reconciliation-book-balance" class="form-input" step="0.01" required>
+                                <small class="form-help">Current balance in accounting system</small>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="reconciliation-statement-balance">Statement Balance *</label>
+                                <input type="number" id="reconciliation-statement-balance" class="form-input" step="0.01" required>
+                                <small class="form-help">Ending balance from bank statement</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="reconciliation-notes-textarea">Notes</label>
+                        <textarea id="reconciliation-notes-textarea" class="form-input" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="new-reconciliation-modal">Cancel</button>
+                <button class="action-button" id="btn-create-reconciliation">Create Reconciliation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Adjustment Modal -->
+    <div id="add-adjustment-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Reconciliation Adjustment</h3>
+                <button class="modal-close-btn" data-modal-id="add-adjustment-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="adjustment-form">
+                    <input type="hidden" id="adjustment-id">
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="adjustment-date">Date *</label>
+                        <input type="date" id="adjustment-date" class="form-input" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="adjustment-description">Description *</label>
+                        <input type="text" id="adjustment-description" class="form-input" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="adjustment-type">Type *</label>
+                        <select id="adjustment-type" class="form-input" required>
+                            <option value="Bank Error">Bank Error</option>
+                            <option value="Timing Difference">Timing Difference</option>
+                            <option value="Uncategorized Deposit">Uncategorized Deposit</option>
+                            <option value="Uncategorized Withdrawal">Uncategorized Withdrawal</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="adjustment-amount">Amount *</label>
+                        <input type="number" id="adjustment-amount" class="form-input" step="0.01" required>
+                        <small class="form-help">Positive for additions, negative for subtractions</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="add-adjustment-modal">Cancel</button>
+                <button class="action-button" id="btn-save-adjustment">Save Adjustment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Reconciliation Modal -->
+    <div id="complete-reconciliation-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Complete Reconciliation</h3>
+                <button class="modal-close-btn" data-modal-id="complete-reconciliation-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="reconciliation-summary">
+                    <h4>Reconciliation Summary</h4>
+                    
+                    <div class="info-row">
+                        <div class="info-column">
+                            <span class="info-label">Bank Account:</span>
+                            <span id="summary-bank-account" class="info-value"></span>
+                        </div>
+                        <div class="info-column">
+                            <span class="info-label">Statement Date:</span>
+                            <span id="summary-statement-date" class="info-value"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="info-column">
+                            <span class="info-label">Book Balance:</span>
+                            <span id="summary-book-balance" class="info-value"></span>
+                        </div>
+                        <div class="info-column">
+                            <span class="info-label">Statement Balance:</span>
+                            <span id="summary-statement-balance" class="info-value"></span>
+                        </div>
+                        <div class="info-column">
+                            <span class="info-label">Difference:</span>
+                            <span id="summary-difference" class="info-value"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-statistics">
+                        <div class="stat-row">
+                            <span class="stat-label">Matched Items:</span>
+                            <span id="summary-matched-items" class="stat-value"></span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Adjustments:</span>
+                            <span id="summary-adjustments" class="stat-value"></span>
+                        </div>
+                    </div>
+                    
+                    <div id="difference-warning" class="warning-message" style="display: none;">
+                        <p><strong>Warning:</strong> There is still a difference between the book balance and statement balance. You should add adjustments to resolve this difference before completing the reconciliation.</p>
+                    </div>
+                    
+                    <div class="confirmation-message">
+                        <p>Completing this reconciliation will:</p>
+                        <ul>
+                            <li>Update the bank account's last reconciliation date</li>
+                            <li>Set the reconciled balance to the ending balance</li>
+                            <li>Mark the bank statement as reconciled</li>
+                        </ul>
+                        <p>This action cannot be undone. Are you sure you want to complete this reconciliation?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="complete-reconciliation-modal">Cancel</button>
+                <button class="action-button" id="btn-confirm-complete">Complete Reconciliation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirmation-title">Confirmation</h3>
+                <button class="modal-close-btn" data-modal-id="confirmation-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmation-message">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn" data-modal-id="confirmation-modal">Cancel</button>
+                <button class="btn-danger" id="btn-confirm-action">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Application scripts -->
+    <script src="src/js/app.js?v=20250806150000"></script>
+    <!-- Updated to use optimised core module -->
+    <script src="src/js/bank-reconciliation-core.js?v=20250806150000"></script>
+
+    <!-- Safety-net for any handlers that may be referenced before definition.
+         These stubs will be ignored if real implementations exist in the
+         loaded core script.  -->
+    <script>
+        (function () {
+            const noop = () => { /* intentionally empty */ };
+
+            window.handleEditAdjustmentClick  = window.handleEditAdjustmentClick  || noop;
+            window.handleDeleteAdjustmentClick = window.handleDeleteAdjustmentClick || noop;
+            window.handleReconciliationRowClick = window.handleReconciliationRowClick || noop;
+
+            /* Attach button listeners that exist in the markup but might not
+               have been wired by the core script in some edge build states. */
+            document.addEventListener('DOMContentLoaded', () => {
+                const bind = (id, fn) => {
+                    const el = document.getElementById(id);
+                    el && !el.__bound && (el.addEventListener('click', fn), (el.__bound = true));
+                };
+
+                bind('btn-edit-statement', window.handleEditStatementClick || noop);
+                bind('btn-delete-statement', window.handleDeleteStatementClick || noop);
+                bind('btn-import-transactions', window.handleImportTransactionsClick || noop);
+                bind('btn-add-adjustment', () => (window.handleAddAdjustmentClick || noop)());
+                bind('btn-save-adjustment', () => (window.handleSaveAdjustmentClick || noop)());
+                bind('btn-filter-reports', window.handleReportFilter || noop);
+                bind('btn-reset-report-filters', window.handleReportFilterReset || noop);
+            });
+        })();
+    </script>
+</body>
+</html>

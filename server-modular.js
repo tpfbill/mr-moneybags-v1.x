@@ -5,14 +5,20 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+// Session & authentication
+const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
+
 // Import database connection
 const { pool, testConnection } = require('./src/database/connection');
 
 // Import middleware
 const { errorHandler } = require('./src/middleware/error-handler');
 const { requestLogger } = require('./src/utils/helpers');
+const { getCurrentUser, requireAuth } = require('./src/middleware/auth');
 
 // Import route modules
+const authRoutes          = require('./src/routes/auth');
 const vendorsRoutes = require('./src/routes/vendors');
 const entitiesRoutes = require('./src/routes/entities');
 const accountsRoutes = require('./src/routes/accounts');
@@ -22,6 +28,9 @@ const nachaFilesRoutes   = require('./src/routes/nacha-files');
 const paymentBatchesRoutes = require('./src/routes/payment-batches');
 const journalEntriesRoutes = require('./src/routes/journal-entries');
 const bankAccountsRoutes   = require('./src/routes/bank-accounts');
+const bankDepositsRoutes   = require('./src/routes/bank-deposits'); // NEW
+const checkPrintingRoutes  = require('./src/routes/check-printing'); // NEW
+const checkFormatsRoutes   = require('./src/routes/check-formats'); // NEW
 const usersRoutes          = require('./src/routes/users');
 const reportsRoutes        = require('./src/routes/reports');
 const importRoutes         = require('./src/routes/import');
@@ -38,31 +47,77 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increase limit for large data uploads
 app.use(requestLogger); // Log all requests
 
+// ---------------------------------------------------------------------------
+// Session configuration (24-hour expiry, PostgreSQL store)
+// ---------------------------------------------------------------------------
+app.use(
+  session({
+    store: new PgSession({
+      pool,                         // Re-use existing PG pool
+      tableName: 'user_sessions',   // Session table
+      createTableIfMissing: true,   // Auto-create table
+      pruneSessionInterval: 60 * 60 // Cleanup every hour
+    }),
+    name: 'mmb.sid',
+    secret: process.env.SESSION_SECRET || 'ChangeMeInProduction',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    }
+  })
+);
+
+// Attach current user (if any) to every request
+app.use(getCurrentUser);
+
 // Register API routes
+// ---------------------------------------------------------------------------
+// Public routes (no auth required)
+// ---------------------------------------------------------------------------
+app.use('/api/auth', authRoutes);
+
+// ---------------------------------------------------------------------------
+// Protected API routes (require authentication)
+// ---------------------------------------------------------------------------
 // Core master-data first
-app.use('/api/entities', entitiesRoutes);
-app.use('/api/funds', fundsRoutes);
-app.use('/api/accounts', accountsRoutes);
+app.use('/api/entities', requireAuth, entitiesRoutes);
+app.use('/api/funds',    requireAuth, fundsRoutes);
+app.use('/api/accounts', requireAuth, accountsRoutes);
 
 // Configuration & processing
-app.use('/api/nacha-settings', nachaSettingsRoutes);
-app.use('/api/nacha-files',    nachaFilesRoutes);
-app.use('/api/payment-batches', paymentBatchesRoutes);
+app.use('/api/nacha-settings', requireAuth, nachaSettingsRoutes);
+app.use('/api/nacha-files',    requireAuth, nachaFilesRoutes);
+app.use('/api/payment-batches',requireAuth, paymentBatchesRoutes);
 
 console.log('Route registered: /api/nacha-files');
 
-app.use('/api/vendors', vendorsRoutes);
+app.use('/api/vendors', requireAuth, vendorsRoutes);
 
 // Financial transactions & balances
-app.use('/api/journal-entries', journalEntriesRoutes);
-app.use('/api/bank-accounts', bankAccountsRoutes);
+app.use('/api/journal-entries', requireAuth, journalEntriesRoutes);
+app.use('/api/bank-accounts',   requireAuth, bankAccountsRoutes);
+app.use('/api/bank-deposits',   requireAuth, bankDepositsRoutes); // NEW
+app.use('/api/checks',          requireAuth, checkPrintingRoutes); // NEW
+// Separate check formats endpoints to avoid UUID route conflicts
+app.use('/api/check-formats',   requireAuth, checkFormatsRoutes); // NEW
 
 // User management
-app.use('/api/users', usersRoutes);
+app.use('/api/users', requireAuth, usersRoutes);
 
 // Reporting & data import
-app.use('/api/reports', reportsRoutes);
-app.use('/api/import', importRoutes);
+app.use('/api/reports', requireAuth, reportsRoutes);
+app.use('/api/import',  requireAuth, importRoutes);
+
+// Bank reconciliation routes
+app.use(
+  '/api/bank-reconciliation',
+  requireAuth,
+  require('./src/routes/bank-reconciliation')
+);
 
 // Health Check endpoint
 app.get('/api/health', (req, res) => {

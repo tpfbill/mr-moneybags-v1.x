@@ -1,0 +1,1198 @@
+/* =============================================
+   Bank Reconciliation Styles
+   =============================================
+   Comprehensive styling for the bank reconciliation interface
+   Compatible with Mr. MoneyBags v1.x
+   ============================================= */
+
+/* =============================================
+   Variables & Base Styles
+   ============================================= */
+:root {
+  /* Primary colors (matching main application) */
+  --primary-color: #2c3e50;
+  --primary-light: #34495e;
+  --primary-dark: #1a252f;
+  
+  /* Secondary colors */
+  --secondary-color: #3498db;
+  --secondary-light: #5dade2;
+  --secondary-dark: #2980b9;
+  
+  /* Accent colors */
+  --accent-color: #e74c3c;
+  --accent-light: #ec7063;
+  --accent-dark: #c0392b;
+  
+  /* Neutral colors */
+  --light-gray: #f5f5f5;
+  --medium-gray: #ddd;
+  --dark-gray: #888;
+  --text-color: #333;
+  
+  /* Status colors */
+  --success-color: #27ae60;
+  --warning-color: #f39c12;
+  --danger-color: #e74c3c;
+  --info-color: #3498db;
+  
+  /* Dimensions */
+  --border-radius: 4px;
+  --panel-padding: 15px;
+  --header-height: 60px;
+  --nav-height: 50px;
+}
+
+/* ============================================================
+   Utility Classes (shared across pages)
+   ============================================================ */
+.text-center {
+  text-align: center;
+}
+
+.mb-4 {
+  margin-bottom: 1.5rem;
+}
+
+/* =============================================
+   Sub-Navigation Styling
+   ============================================= */
+.sub-nav {
+  background-color: var(--light-gray);
+  border-bottom: 1px solid var(--medium-gray);
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.sub-nav .nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.back-arrow {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--primary-color);
+}
+
+.bank-account-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bank-account-selector-container label {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.bank-account-selector-container select {
+  min-width: 200px;
+}
+
+/* =============================================
+   Tab Container & Panels
+   ============================================= */
+.reconciliation-tabs {
+  margin-top: 20px;
+}
+
+.reconciliation-tabs .tab-menu {
+  display: flex;
+  border-bottom: 2px solid var(--medium-gray);
+  margin-bottom: 20px;
+}
+
+.reconciliation-tabs .tab-item {
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--dark-gray);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.reconciliation-tabs .tab-item:hover {
+  color: var(--primary-color);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.reconciliation-tabs .tab-item.active {
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.reconciliation-tabs .tab-panel {
+  display: none;
+  padding: 0 20px;
+}
+
+.reconciliation-tabs .tab-panel.active {
+  display: block;
+}
+
+/* =============================================
+   Filter Controls
+   ============================================= */
+.filter-controls {
+  background-color: var(--light-gray);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  margin-bottom: 5px;
+  color: var(--primary-color);
+}
+
+.filter-group .form-input {
+  height: 36px;
+}
+
+/* =============================================
+   Data Table Enhancements
+   ============================================= */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.data-table th {
+  background-color: var(--primary-color);
+  color: white;
+  text-align: left;
+  padding: 12px 15px;
+  font-weight: 500;
+}
+
+.data-table th:first-child {
+  border-top-left-radius: var(--border-radius);
+}
+
+.data-table th:last-child {
+  border-top-right-radius: var(--border-radius);
+}
+
+.data-table td {
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--medium-gray);
+  vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.data-table .empty-table-message {
+  text-align: center;
+  padding: 30px;
+  color: var(--dark-gray);
+  font-style: italic;
+}
+
+/* Action buttons in tables */
+.data-table .action-cell {
+  display: flex;
+  gap: 5px;
+}
+
+.data-table .action-btn {
+  padding: 5px 10px;
+  border-radius: var(--border-radius);
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+
+.data-table .view-btn {
+  background-color: var(--info-color);
+  color: white;
+}
+
+.data-table .edit-btn {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.data-table .delete-btn {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+.data-table .action-btn:hover {
+  filter: brightness(90%);
+}
+
+/* Status badges in tables */
+.data-table .status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.data-table .status-uploaded {
+  background-color: var(--info-color);
+  color: white;
+}
+
+.data-table .status-processed {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.data-table .status-reconciled {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.data-table .status-in-progress {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.data-table .status-completed {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.data-table .status-approved {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+/* Amount formatting */
+.data-table .amount-positive {
+  color: var(--success-color);
+  font-weight: 500;
+}
+
+.data-table .amount-negative {
+  color: var(--danger-color);
+  font-weight: 500;
+}
+
+/* Pagination controls */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  gap: 15px;
+}
+
+.pagination-btn {
+  padding: 8px 15px;
+  border: 1px solid var(--medium-gray);
+  background-color: white;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: var(--light-gray);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  color: var(--dark-gray);
+}
+
+/* =============================================
+   Split View Workspace
+   ============================================= */
+.workspace-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.auto-match-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: var(--light-gray);
+  border-radius: var(--border-radius);
+}
+
+.auto-match-options {
+  display: flex;
+  gap: 20px;
+}
+
+.split-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  min-height: 400px;
+}
+
+.split-panel {
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--border-radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.split-panel h4 {
+  margin: 0;
+  padding: 10px 15px;
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 500;
+}
+
+.panel-filter {
+  padding: 10px;
+  background-color: var(--light-gray);
+  border-bottom: 1px solid var(--medium-gray);
+}
+
+.panel-filter input {
+  width: 100%;
+}
+
+.transaction-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  max-height: 400px;
+}
+
+.matched-panel {
+  background-color: rgba(39, 174, 96, 0.05);
+}
+
+.matched-items-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  max-height: 400px;
+}
+
+.empty-list-message {
+  padding: 20px;
+  text-align: center;
+  color: var(--dark-gray);
+  font-style: italic;
+}
+
+/* =============================================
+   Drag and Drop Styling
+   ============================================= */
+.transaction-item {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--medium-gray);
+  cursor: grab;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.transaction-item:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.transaction-item.dragging {
+  opacity: 0.5;
+  background-color: var(--light-gray);
+}
+
+.transaction-item.bank-transaction {
+  border-left: 3px solid var(--info-color);
+}
+
+.transaction-item.journal-entry {
+  border-left: 3px solid var(--warning-color);
+}
+
+.transaction-item .transaction-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.transaction-item .transaction-date {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.transaction-item .transaction-amount {
+  font-weight: 500;
+}
+
+.transaction-item .transaction-amount.positive {
+  color: var(--success-color);
+}
+
+.transaction-item .transaction-amount.negative {
+  color: var(--danger-color);
+}
+
+.transaction-item .transaction-description {
+  color: var(--text-color);
+  margin-bottom: 5px;
+}
+
+.transaction-item .transaction-reference {
+  font-size: 0.85rem;
+  color: var(--dark-gray);
+}
+
+.matched-item {
+  background-color: rgba(39, 174, 96, 0.1);
+  border: 1px solid rgba(39, 174, 96, 0.3);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.matched-item .match-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.matched-item .match-amount {
+  font-weight: 500;
+  color: var(--success-color);
+}
+
+.matched-item .match-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.matched-item .bank-side,
+.matched-item .journal-side {
+  padding: 10px;
+  border-radius: var(--border-radius);
+}
+
+.matched-item .bank-side {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.matched-item .journal-side {
+  background-color: rgba(243, 156, 18, 0.1);
+}
+
+.matched-item .side-header {
+  font-weight: 500;
+  margin-bottom: 5px;
+  color: var(--primary-color);
+}
+
+.matched-item .unmatch-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: var(--danger-color);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.matched-item .unmatch-btn:hover {
+  background-color: var(--accent-dark);
+}
+
+.drop-target {
+  background-color: rgba(39, 174, 96, 0.1);
+  border: 2px dashed rgba(39, 174, 96, 0.5);
+}
+
+/* =============================================
+   Details Panels
+   ============================================= */
+.details-panel {
+  background-color: white;
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--border-radius);
+  margin-top: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background-color: var(--primary-color);
+  color: white;
+  border-top-left-radius: var(--border-radius);
+  border-top-right-radius: var(--border-radius);
+}
+
+.panel-header h4 {
+  margin: 0;
+  font-weight: 500;
+}
+
+.close-panel-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.panel-content {
+  padding: 20px;
+}
+
+.statement-info,
+.report-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.info-column {
+  flex: 1;
+  min-width: 200px;
+}
+
+.info-label {
+  font-weight: 500;
+  color: var(--primary-color);
+  display: block;
+  margin-bottom: 5px;
+}
+
+.info-value {
+  color: var(--text-color);
+}
+
+.statement-actions,
+.report-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+/* =============================================
+   Modal Styling
+   ============================================= */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-dialog {
+  background-color: white;
+  border-radius: var(--border-radius);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  transform: translateY(-20px);
+  transition: transform 0.3s;
+}
+
+.modal-overlay.active .modal-dialog {
+  transform: translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border-top-left-radius: var(--border-radius);
+  border-top-right-radius: var(--border-radius);
+}
+
+.modal-title {
+  margin: 0;
+  font-weight: 500;
+  font-size: 1.2rem;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--medium-gray);
+}
+
+/* Reconciliation-specific modal styles */
+.reconciliation-summary {
+  background-color: var(--light-gray);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.summary-statistics {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid var(--medium-gray);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.stat-value {
+  font-weight: 500;
+}
+
+.confirmation-message {
+  margin-top: 20px;
+}
+
+.confirmation-message ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.confirmation-message li {
+  margin-bottom: 5px;
+}
+
+/* =============================================
+   Progress Indicators & Status Badges
+   ============================================= */
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-align: center;
+  min-width: 80px;
+}
+
+.status-uploaded {
+  background-color: var(--info-color);
+  color: white;
+}
+
+.status-processed {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.status-reconciled {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.status-in-progress {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.status-completed {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.status-approved {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.status-matched {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.status-unmatched {
+  background-color: var(--info-color);
+  color: white;
+}
+
+.status-ignored {
+  background-color: var(--dark-gray);
+  color: white;
+}
+
+/* Difference amount styling */
+.difference-amount {
+  font-weight: 500;
+}
+
+.difference-amount.positive {
+  color: var(--danger-color);
+}
+
+.difference-amount.negative {
+  color: var(--danger-color);
+}
+
+.difference-amount.zero {
+  color: var(--success-color);
+}
+
+/* Progress bar */
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: var(--light-gray);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--success-color);
+  transition: width 0.3s;
+}
+
+/* =============================================
+   Info Panels & Summary Statistics
+   ============================================= */
+.info-panel {
+  background-color: var(--light-gray);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.report-statistics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.stat-box {
+  background-color: white;
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  text-align: center;
+  flex: 1;
+  min-width: 120px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.stat-box .stat-value {
+  font-size: 1.8rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 5px;
+}
+
+.stat-box .stat-label {
+  color: var(--dark-gray);
+  font-size: 0.9rem;
+}
+
+/* =============================================
+   Warning & Success Messages
+   ============================================= */
+.warning-message {
+  background-color: rgba(243, 156, 18, 0.1);
+  border-left: 4px solid var(--warning-color);
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+}
+
+.success-message {
+  background-color: rgba(39, 174, 96, 0.1);
+  border-left: 4px solid var(--success-color);
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+}
+
+.error-message {
+  background-color: rgba(231, 76, 60, 0.1);
+  border-left: 4px solid var(--danger-color);
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+}
+
+/* Toast notifications */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1100;
+}
+
+.toast {
+  min-width: 250px;
+  margin-bottom: 10px;
+  padding: 15px;
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  animation: slideIn 0.3s, fadeOut 0.5s 2.5s forwards;
+  position: relative;
+}
+
+.toast-success {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.toast-error {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+.toast-warning {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.toast-info {
+  background-color: var(--info-color);
+  color: white;
+}
+
+.toast-icon {
+  margin-right: 10px;
+  font-size: 1.2rem;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.8;
+  margin-left: 10px;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* =============================================
+   Empty State
+   ============================================= */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  color: var(--dark-gray);
+}
+
+.empty-state h3 {
+  margin-bottom: 10px;
+  color: var(--primary-color);
+}
+
+.empty-state p {
+  color: var(--dark-gray);
+  margin-bottom: 20px;
+  max-width: 400px;
+}
+
+/* =============================================
+   Adjustments Section
+   ============================================= */
+.adjustments-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--medium-gray);
+}
+
+.adjustments-section h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+/* =============================================
+   Print-Friendly Styles
+   ============================================= */
+@media print {
+  /* Hide navigation and controls */
+  .header, 
+  .sub-nav, 
+  .tab-menu, 
+  .filter-controls, 
+  .pagination-controls,
+  .statement-actions,
+  .report-actions,
+  .modal-overlay,
+  #toast-container,
+  .btn-secondary {
+    display: none !important;
+  }
+  
+  /* Hide most in-page action buttons, but keep global buttons like
+     “Back to Dashboard” that are outside these containers */
+  .page-actions .action-button,
+  .statement-actions .action-button,
+  .reconciliation-actions .action-button {
+    display: none !important;
+  }
+  
+  /* Show all content */
+  .tab-panel {
+    display: block !important;
+  }
+  
+  /* Reset colors for better printing */
+  body {
+    background-color: white;
+    color: black;
+  }
+  
+  .data-table th {
+    background-color: #f0f0f0 !important;
+    color: black !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  .data-table td {
+    border: 1px solid #ddd !important;
+  }
+  
+  /* Adjust status badges for B&W printing */
+  .status-badge {
+    background-color: #f0f0f0 !important;
+    color: black !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  /* Format for page breaks */
+  .details-panel,
+  .report-statistics,
+  .data-table {
+    page-break-inside: avoid;
+  }
+  
+  h2, h3, h4 {
+    page-break-after: avoid;
+  }
+  
+  /* Add report title for printing */
+  .report-details-panel::before {
+    content: "Bank Reconciliation Report";
+    font-size: 18pt;
+    font-weight: bold;
+    display: block;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  /* Add page numbers */
+  @page {
+    margin: 0.5cm;
+  }
+  
+  /* Ensure white background */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* =============================================
+   Responsive Design
+   ============================================= */
+@media (max-width: 1200px) {
+  .split-view {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .matched-panel {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .sub-nav .nav-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+  }
+  
+  .sub-nav {
+    height: auto;
+  }
+  
+  .bank-account-selector-container {
+    width: 100%;
+  }
+  
+  .bank-account-selector-container select {
+    width: 100%;
+  }
+  
+  .filter-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .filter-group {
+    width: 100%;
+  }
+  
+  .split-view {
+    grid-template-columns: 1fr;
+  }
+  
+  .matched-panel {
+    grid-column: span 1;
+  }
+  
+  .info-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .report-statistics {
+    flex-direction: column;
+  }
+  
+  .stat-box {
+    width: 100%;
+  }
+  
+  .modal-dialog {
+    width: 95%;
+    max-height: 95vh;
+  }
+}

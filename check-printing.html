@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="src/js/override-entities.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Printing - Mr. MoneyBags v1.x</title>
+    <link rel="stylesheet" href="src/css/styles.css">
+    <link rel="stylesheet" href="src/css/check-printing.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Mr. MoneyBags v1.x</h1>
+            <div class="header-right-controls">
+                <div class="db-status-container">
+                    <span id="db-status-indicator" class="offline">DB Offline</span>
+                </div>
+                <div class="consolidated-view-container">
+                    <label for="consolidated-view-toggle">Consolidated View:</label>
+                    <input type="checkbox" id="consolidated-view-toggle">
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                    <select id="entity-selector">
+                        <option value="">Loading Entities...</option>
+                    </select>
+                </div>
+                <div class="user-info"><span>User</span><button class="logout-button" id="btnLogout">Logout</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Single centered Back button -->
+        <div class="text-center mb-4">
+            <button
+                class="action-button"
+                onclick="window.location.href='index.html'">
+                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+            </button>
+        </div>
+        <div class="page-header">
+            <h2>Check Printing</h2>
+            <div class="page-actions">
+                <button id="refresh-checks-btn" class="action-button">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+                <button id="new-check-btn" class="action-button primary">
+                    <i class="bi bi-plus-circle"></i> New Check
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <div class="tab-item active" data-tab="check-register">Check Register</div>
+            <div class="tab-item" data-tab="new-check">New Check</div>
+            <div class="tab-item" data-tab="print-queue">Print Queue</div>
+            <div class="tab-item" data-tab="check-formats">Check Formats</div>
+        </div>
+
+        <!-- Check Register Tab -->
+        <div id="check-register" class="tab-panel active">
+            <div class="filter-section">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="filter-status">Status:</label>
+                        <select id="filter-status" class="filter-control">
+                            <option value="">All Statuses</option>
+                            <option value="Draft">Draft</option>
+                            <option value="Printed">Printed</option>
+                            <option value="Cleared">Cleared</option>
+                            <option value="Voided">Voided</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-bank-account">Bank Account:</label>
+                        <select id="filter-bank-account" class="filter-control">
+                            <option value="">All Bank Accounts</option>
+                            <!-- Bank accounts will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-payee">Payee:</label>
+                        <input type="text" id="filter-payee" class="filter-control" placeholder="Search payee...">
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="filter-date-start">Date Range:</label>
+                        <div class="date-range-container">
+                            <input type="date" id="filter-date-start" class="filter-control date-input">
+                            <span>to</span>
+                            <input type="date" id="filter-date-end" class="filter-control date-input">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-amount-min">Amount Range:</label>
+                        <div class="date-range-container">
+                            <input type="number" id="filter-amount-min" class="filter-control" placeholder="Min" step="0.01">
+                            <span>to</span>
+                            <input type="number" id="filter-amount-max" class="filter-control" placeholder="Max" step="0.01">
+                        </div>
+                    </div>
+                    <div class="filter-group filter-buttons">
+                        <button id="apply-filters-btn" class="action-button">Apply Filters</button>
+                        <button id="clear-filters-btn" class="action-button">Clear Filters</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="checks-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Check #</th>
+                            <th>Date</th>
+                            <th>Bank Account</th>
+                            <th>Payee</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Checks will be populated by JavaScript -->
+                        <tr class="loading-row">
+                            <td colspan="7" class="text-center">Loading checks...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Showing <span id="pagination-start">0</span> to <span id="pagination-end">0</span> of <span id="pagination-total">0</span> checks
+                </div>
+                <div class="pagination-controls">
+                    <button id="pagination-prev" class="pagination-button" disabled>Previous</button>
+                    <div id="pagination-pages" class="pagination-pages">
+                        <!-- Page numbers will be populated by JavaScript -->
+                    </div>
+                    <button id="pagination-next" class="pagination-button" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Check Tab -->
+        <div id="new-check" class="tab-panel">
+            <div class="check-form">
+                <div class="form-section">
+                    <h3>Check Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="check-bank-account">Bank Account <span class="required">*</span></label>
+                            <select id="check-bank-account" class="form-control" required>
+                                <option value="">Select Bank Account</option>
+                                <!-- Bank accounts will be populated by JavaScript -->
+                            </select>
+                            <div class="invalid-feedback">Please select a bank account</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="check-number">Check Number <span class="required">*</span></label>
+                            <div class="input-with-button">
+                                <input type="text" id="check-number" class="form-control" required>
+                                <button id="get-next-check-number" class="input-button" title="Get Next Available Number">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback">Please enter a check number</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="check-date">Check Date <span class="required">*</span></label>
+                            <input type="date" id="check-date" class="form-control" required>
+                            <div class="invalid-feedback">Please enter a valid date</div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="check-payee">Payee <span class="required">*</span></label>
+                            <input type="text" id="check-payee" class="form-control" required maxlength="255">
+                            <div class="invalid-feedback">Please enter a payee name</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="check-vendor">Vendor (Optional)</label>
+                            <select id="check-vendor" class="form-control">
+                                <option value="">Select Vendor</option>
+                                <!-- Vendors will be populated by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="check-amount">Amount <span class="required">*</span></label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">$</span>
+                                <input type="number" id="check-amount" class="form-control" required min="0.01" step="0.01">
+                            </div>
+                            <div class="invalid-feedback">Please enter a valid amount greater than zero</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="check-amount-words">Amount in Words</label>
+                            <input type="text" id="check-amount-words" class="form-control" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="check-memo">Memo</label>
+                            <input type="text" id="check-memo" class="form-control" maxlength="255">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Accounting Information (Optional)</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="check-journal-entry">Link to Journal Entry</label>
+                            <select id="check-journal-entry" class="form-control">
+                                <option value="">Select Journal Entry</option>
+                                <!-- Journal entries will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="check-format">Check Format</label>
+                            <select id="check-format" class="form-control">
+                                <option value="">Default Format</option>
+                                <!-- Check formats will be populated by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button id="save-draft-btn" class="action-button">Save as Draft</button>
+                    <button id="print-now-btn" class="action-button primary">Print Now</button>
+                    <button id="cancel-check-btn" class="action-button secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Print Queue Tab -->
+        <div id="print-queue" class="tab-panel">
+            <div class="print-queue-controls">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="print-queue-bank-account">Filter by Bank Account:</label>
+                        <select id="print-queue-bank-account" class="form-control">
+                            <option value="">All Bank Accounts</option>
+                            <!-- Bank accounts will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="print-queue-format">Check Format:</label>
+                        <select id="print-queue-format" class="form-control">
+                            <option value="">Default Format</option>
+                            <!-- Check formats will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="form-group print-queue-actions">
+                        <button id="print-selected-btn" class="action-button primary" disabled>
+                            <i class="bi bi-printer"></i> Print Selected
+                        </button>
+                        <button id="print-all-btn" class="action-button">
+                            <i class="bi bi-printer"></i> Print All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="print-queue-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="select-all-checks">
+                            </th>
+                            <th>Check #</th>
+                            <th>Date</th>
+                            <th>Bank Account</th>
+                            <th>Payee</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Print queue will be populated by JavaScript -->
+                        <tr class="empty-row">
+                            <td colspan="8" class="text-center">No checks in print queue. Create a new check or add existing checks to the queue.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="print-preview-container">
+                <h3>Print Preview</h3>
+                <div id="print-preview" class="print-preview">
+                    <div class="print-preview-placeholder">
+                        <p>Select a check to preview</p>
+                    </div>
+                    <div id="check-preview" class="check-preview hidden">
+                        <!-- Check preview will be populated by JavaScript -->
+                        <div class="check-template">
+                            <div class="check-header">
+                                <div class="bank-info">
+                                    <span id="preview-bank-name">BANK NAME</span>
+                                </div>
+                                <div class="check-number">
+                                    <span id="preview-check-number">0000</span>
+                                </div>
+                            </div>
+                            <div class="check-date">
+                                <span>Date: </span>
+                                <span id="preview-date">MM/DD/YYYY</span>
+                            </div>
+                            <div class="check-payee">
+                                <span>Pay to the order of: </span>
+                                <span id="preview-payee">PAYEE NAME</span>
+                            </div>
+                            <div class="check-amount-box">
+                                <span>$</span>
+                                <span id="preview-amount">0.00</span>
+                            </div>
+                            <div class="check-amount-words">
+                                <span id="preview-amount-words">Zero dollars and 00/100</span>
+                                <span>DOLLARS</span>
+                            </div>
+                            <div class="check-memo">
+                                <span>Memo: </span>
+                                <span id="preview-memo"></span>
+                            </div>
+                            <div class="check-signature">
+                                <div class="signature-line"></div>
+                                <div class="signature-label">Authorized Signature</div>
+                            </div>
+                            <div class="check-account">
+                                <span id="preview-routing">000000000</span>
+                                <span id="preview-account">00000000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Check Formats Tab -->
+        <div id="check-formats" class="tab-panel">
+            <div class="formats-header">
+                <h3>Check Format Templates</h3>
+                <button id="add-format-btn" class="action-button">
+                    <i class="bi bi-plus-circle"></i> Add Format
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table id="formats-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Format Name</th>
+                            <th>Description</th>
+                            <th>Dimensions</th>
+                            <th>Default</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="formats-table-body">
+                        <!-- Check formats will be populated by JavaScript -->
+                        <tr class="loading-row">
+                            <td colspan="5" class="text-center">Loading check formats...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="format-editor-container">
+                <h3 id="format-editor-title">Format Editor</h3>
+                <div class="format-editor">
+                    <div class="format-form">
+                        <div class="form-section">
+                            <h4>Basic Information</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-name">Format Name <span class="required">*</span></label>
+                                    <input type="text" id="format-name" class="form-control" required>
+                                    <div class="invalid-feedback">Please enter a format name</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-description">Description</label>
+                                    <input type="text" id="format-description" class="form-control">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-width">Check Width (inches) <span class="required">*</span></label>
+                                    <input type="number" id="format-width" class="form-control" required min="1" step="0.01">
+                                    <div class="invalid-feedback">Please enter a valid width</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-height">Check Height (inches) <span class="required">*</span></label>
+                                    <input type="number" id="format-height" class="form-control" required min="1" step="0.01">
+                                    <div class="invalid-feedback">Please enter a valid height</div>
+                                </div>
+                                <div class="form-group checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="format-is-default">
+                                        Set as Default Format
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Element Positions (inches from top-left)</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-payee-x">Payee X <span class="required">*</span></label>
+                                    <input type="number" id="format-payee-x" class="form-control" required min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-payee-y">Payee Y <span class="required">*</span></label>
+                                    <input type="number" id="format-payee-y" class="form-control" required min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-date-x">Date X <span class="required">*</span></label>
+                                    <input type="number" id="format-date-x" class="form-control" required min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-date-y">Date Y <span class="required">*</span></label>
+                                    <input type="number" id="format-date-y" class="form-control" required min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-amount-x">Amount X <span class="required">*</span></label>
+                                    <input type="number" id="format-amount-x" class="form-control" required min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-amount-y">Amount Y <span class="required">*</span></label>
+                                    <input type="number" id="format-amount-y" class="form-control" required min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-amount-words-x">Amount Words X <span class="required">*</span></label>
+                                    <input type="number" id="format-amount-words-x" class="form-control" required min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-amount-words-y">Amount Words Y <span class="required">*</span></label>
+                                    <input type="number" id="format-amount-words-y" class="form-control" required min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-memo-x">Memo X <span class="required">*</span></label>
+                                    <input type="number" id="format-memo-x" class="form-control" required min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-memo-y">Memo Y <span class="required">*</span></label>
+                                    <input type="number" id="format-memo-y" class="form-control" required min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-signature-x">Signature X <span class="required">*</span></label>
+                                    <input type="number" id="format-signature-x" class="form-control" required min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-signature-y">Signature Y <span class="required">*</span></label>
+                                    <input type="number" id="format-signature-y" class="form-control" required min="0" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Font Settings</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="format-font-name">Font Name</label>
+                                    <select id="format-font-name" class="form-control">
+                                        <option value="Arial">Arial</option>
+                                        <option value="Helvetica">Helvetica</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                        <option value="Courier New">Courier New</option>
+                                        <option value="Verdana">Verdana</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-font-size-normal">Normal Text Size (pt)</label>
+                                    <input type="number" id="format-font-size-normal" class="form-control" min="6" max="16" step="0.5" value="10">
+                                </div>
+                                <div class="form-group">
+                                    <label for="format-font-size-amount">Amount Text Size (pt)</label>
+                                    <input type="number" id="format-font-size-amount" class="form-control" min="6" max="16" step="0.5" value="12">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button id="save-format-btn" class="action-button primary">Save Format</button>
+                            <button id="cancel-format-btn" class="action-button secondary">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="format-preview">
+                        <h4>Format Preview</h4>
+                        <div id="format-preview-container" class="format-preview-container">
+                            <div class="format-preview-check">
+                                <!-- Format preview will be updated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Check Modal -->
+    <div id="view-check-modal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>View Check</h3>
+                <button class="modal-close-btn" data-modal-id="view-check-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="check-details">
+                    <div class="details-section">
+                        <h4>Check Information</h4>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Bank Account:</span>
+                                <span id="view-bank-account" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Check Number:</span>
+                                <span id="view-check-number" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Check Date:</span>
+                                <span id="view-check-date" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Payee:</span>
+                                <span id="view-payee" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Amount:</span>
+                                <span id="view-amount" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Status:</span>
+                                <span id="view-status" class="detail-value">--</span>
+                            </div>
+                        </div>
+                        <div class="detail-item full-width">
+                            <span class="detail-label">Memo:</span>
+                            <span id="view-memo" class="detail-value">--</span>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <h4>Related Information</h4>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Vendor:</span>
+                                <span id="view-vendor" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Journal Entry:</span>
+                                <span id="view-journal-entry" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Check Format:</span>
+                                <span id="view-format" class="detail-value">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <h4>Audit Information</h4>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Created By:</span>
+                                <span id="view-created-by" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Created Date:</span>
+                                <span id="view-created-date" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Printed By:</span>
+                                <span id="view-printed-by" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Printed Date:</span>
+                                <span id="view-printed-date" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Cleared By:</span>
+                                <span id="view-cleared-by" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Cleared Date:</span>
+                                <span id="view-cleared-date" class="detail-value">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="view-print-btn" class="action-button">Print Check</button>
+                <button id="view-edit-btn" class="action-button">Edit</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="view-check-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Void Check Modal -->
+    <div id="void-check-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Void Check</h3>
+                <button class="modal-close-btn" data-modal-id="void-check-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to void check #<span id="void-check-number">0000</span> for <span id="void-check-amount">$0.00</span> to <span id="void-check-payee">Payee</span>.</p>
+                <p>This action cannot be undone. Voided checks cannot be used for payments.</p>
+                
+                <form id="void-check-form">
+                    <input type="hidden" id="void-check-id">
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="void-reason">Reason for Voiding <span class="required">*</span></label>
+                            <textarea id="void-reason" class="form-control" required rows="3"></textarea>
+                            <div class="invalid-feedback">Please provide a reason for voiding this check</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-void-btn" class="action-button danger">Void Check</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="void-check-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Check Modal -->
+    <div id="clear-check-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Clear Check</h3>
+                <button class="modal-close-btn" data-modal-id="clear-check-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to mark check #<span id="clear-check-number">0000</span> for <span id="clear-check-amount">$0.00</span> as cleared by the bank.</p>
+                <p>This indicates that the check has been processed by the bank and the funds have been withdrawn from your account.</p>
+                
+                <form id="clear-check-form">
+                    <input type="hidden" id="clear-check-id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="clearing-date">Clearing Date <span class="required">*</span></label>
+                            <input type="date" id="clearing-date" class="form-control" required>
+                            <div class="invalid-feedback">Please enter a valid clearing date</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-clear-btn" class="action-button primary">Mark as Cleared</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="clear-check-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-confirm-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Delete</h3>
+                <button class="modal-close-btn" data-modal-id="delete-confirm-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this check? This action cannot be undone.</p>
+                <div id="delete-check-details">
+                    <p><strong>Check #:</strong> <span id="delete-check-number"></span></p>
+                    <p><strong>Date:</strong> <span id="delete-date"></span></p>
+                    <p><strong>Payee:</strong> <span id="delete-payee"></span></p>
+                    <p><strong>Amount:</strong> <span id="delete-amount"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-delete-btn" class="action-button danger">Delete</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="delete-confirm-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Confirmation Modal -->
+    <div id="print-confirm-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Print Confirmation</h3>
+                <button class="modal-close-btn" data-modal-id="print-confirm-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="single-print-content">
+                    <p>You are about to print check #<span id="print-check-number">0000</span> for <span id="print-check-amount">$0.00</span> to <span id="print-check-payee">Payee</span>.</p>
+                </div>
+                <div id="batch-print-content" class="hidden">
+                    <p>You are about to print <span id="print-batch-count">0</span> checks.</p>
+                    <div class="table-container">
+                        <table id="print-batch-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Check #</th>
+                                    <th>Payee</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Batch checks will be populated by JavaScript -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2" class="text-right"><strong>Total:</strong></td>
+                                    <td id="print-batch-total">$0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="print-instructions">
+                    <h4>Printing Instructions</h4>
+                    <ol>
+                        <li>Load check stock in your printer</li>
+                        <li>Verify printer settings (no scaling, actual size)</li>
+                        <li>Click "Print" to proceed</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-print-btn" class="action-button primary">Print</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="print-confirm-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Set Default Format Confirmation Modal -->
+    <div id="default-format-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Set Default Format</h3>
+                <button class="modal-close-btn" data-modal-id="default-format-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to set "<span id="default-format-name">Format Name</span>" as the default check format?</p>
+                <p>This format will be used for all new checks unless another format is specifically selected.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-default-format-btn" class="action-button primary">Set as Default</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="default-format-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container">
+        <!-- Toasts will be added here by JavaScript -->
+    </div>
+
+    <!-- JavaScript -->
+    <script src="src/js/app.js"></script>
+    <script src="src/js/check-printing-core.js"></script>
+    <script src="src/js/check-printing-forms.js"></script>
+    <script src="src/js/check-printing-extras.js"></script>
+</body>
+</html>

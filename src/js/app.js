@@ -35,6 +35,124 @@ const appState = {
     }
 };
 
+/* ================================================================
+ * Authentication Helpers
+ * ================================================================*/
+
+/**
+ * Check if the user is authenticated.
+ * If not, redirect to the login page.
+ * @returns {Promise<boolean>} true if authenticated; otherwise false.
+ */
+async function ensureAuthenticated() {
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/user`, {
+            credentials: 'include'
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.authenticated) {
+            // Attach current user to appState for global access
+            appState.currentUser = data.user;
+            return true;
+        }
+
+        // Not authenticated – redirect
+        window.location.href = '/login.html';
+        return false;
+    } catch (err) {
+        console.error('[Auth] ensureAuthenticated() error:', err);
+        window.location.href = '/login.html';
+        return false;
+    }
+}
+
+/**
+ * Load current user information and display it in the header.
+ */
+async function loadCurrentUser() {
+    const userInfoEl = document.querySelector('.user-info span');
+    if (!userInfoEl) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/user`, {
+            credentials: 'include'
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.authenticated && data.user) {
+            appState.currentUser = data.user;
+            userInfoEl.textContent = data.user.name || data.user.username;
+
+            // Apply role-based access control to navigation
+            applyRoleBasedAccess(data.user);
+        } else {
+            userInfoEl.textContent = 'Guest';
+        }
+    } catch (err) {
+        console.error('[Auth] loadCurrentUser() error:', err);
+        userInfoEl.textContent = 'Guest';
+    }
+}
+
+/**
+ * Apply role-based access control (RBAC) to the UI
+ * Only Admin users may access / see the Settings page.
+ * @param {Object} user - Current authenticated user object
+ */
+function applyRoleBasedAccess(user) {
+    console.log('[RBAC] Applying role-based access control for user:', user);
+
+    const settingsNav  = document.querySelector('.nav-item[data-page="settings"]');
+    const settingsPage = document.getElementById('settings-page');
+
+    if (!settingsNav) {
+        console.warn('[RBAC] Settings navigation element not found');
+        return; // nothing to do if nav item missing
+    }
+
+    const isAdmin = user && user.role && user.role.toLowerCase() === 'admin';
+
+    if (isAdmin) {
+        console.log('[RBAC] User is admin – showing Settings tab');
+        // Ensure settings nav is visible for admins
+        settingsNav.style.display = '';
+    } else {
+        console.log('[RBAC] User is NOT admin – hiding Settings tab. Role:', user?.role);
+        // Hide settings for non-admin roles
+        settingsNav.style.display = 'none';
+
+        // If a non-admin somehow is on the settings page, push them to dashboard
+        if (settingsPage && settingsPage.classList.contains('active')) {
+            console.log('[RBAC] Redirecting non-admin user away from Settings page');
+            const dashboardNav = document.querySelector('.nav-item[data-page="dashboard"]');
+            if (dashboardNav) dashboardNav.click();
+        }
+    }
+}
+
+/**
+ * Logout the current user, destroy the session, and redirect to login.
+ */
+async function logoutUser() {
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            throw new Error(`Logout failed: ${res.status}`);
+        }
+    } catch (err) {
+        console.error('[Auth] logoutUser() error:', err);
+    } finally {
+        // Redirect regardless of API result to ensure session cleared client-side
+        window.location.href = '/login.html';
+    }
+}
+
 // Utility Functions
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-US', {
@@ -65,7 +183,9 @@ async function fetchData(endpoint) {
         console.log(`Fetching data from /api/${endpoint}...`);
         /* Use absolute URL pointing at the backend API (port 3000) to avoid
          * accidental requests to the static-file server on port 8080. */
-        const response = await fetch(`${API_BASE}/api/${endpoint}`);
+        const response = await fetch(`${API_BASE}/api/${endpoint}`, {
+            credentials: 'include' // include cookies for session authentication
+        });
         if (!response.ok) {
             throw new Error(`API Error: ${response.status}`);
         }
@@ -85,6 +205,7 @@ async function saveData(endpoint, data, method = 'POST') {
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include', // include cookies for session authentication
             body: JSON.stringify(data)
         });
         if (!response.ok) {
@@ -2179,11 +2300,33 @@ function initializeNavigation() {
             }
         });
     }
+
+    /* ------------------------------------------------------------------
+     * Logout button – terminate the session and redirect to login page
+     * ------------------------------------------------------------------ */
+    const btnLogout = document.getElementById('btnLogout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async () => {
+            try {
+                await logoutUser();
+            } catch (err) {
+                console.error('[Auth] Logout failed:', err);
+                alert('Failed to logout. Please try again.');
+            }
+        });
+    }
 }
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('[Init] Application initializing...');
+
+    // Ensure we are authenticated before loading any protected data/pages
+    const isAuth = await ensureAuthenticated();
+    if (!isAuth) return; // ensureAuthenticated() already redirected
+
+    // Load current user info for header display
+    loadCurrentUser();
 
     initializeNavigation();
     await checkDatabaseConnection();

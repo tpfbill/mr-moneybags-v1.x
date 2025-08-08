@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="src/js/override-entities.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Deposits - Mr. MoneyBags v1.x</title>
+    <link rel="stylesheet" href="src/css/styles.css">
+    <link rel="stylesheet" href="src/css/bank-deposits.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Mr. MoneyBags v1.x</h1>
+            <div class="header-right-controls">
+                <div class="db-status-container">
+                    <span id="db-status-indicator" class="offline">DB Offline</span>
+                </div>
+                <div class="consolidated-view-container">
+                    <label for="consolidated-view-toggle">Consolidated View:</label>
+                    <input type="checkbox" id="consolidated-view-toggle">
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                    <select id="entity-selector">
+                        <option value="">Loading Entities...</option>
+                    </select>
+                </div>
+                <div class="user-info"><span>User</span><button class="logout-button" id="btnLogout">Logout</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Single centered Back button -->
+        <div class="text-center mb-4">
+            <button
+                class="action-button"
+                onclick="window.location.href='index.html'">
+                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+            </button>
+        </div>
+
+        <div class="page-header">
+            <h2>Bank Deposits</h2>
+            <div class="page-actions">
+                <button id="refresh-deposits-btn" class="action-button">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+                <button id="new-deposit-btn" class="action-button primary">
+                    <i class="bi bi-plus-circle"></i> New Deposit
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <div class="tab-item active" data-tab="deposits-list">Deposits List</div>
+            <div class="tab-item" data-tab="new-deposit">New Deposit</div>
+            <div class="tab-item" data-tab="deposit-slip">Deposit Slip</div>
+        </div>
+
+        <!-- Deposits List Tab -->
+        <div id="deposits-list" class="tab-panel active">
+            <div class="filter-section">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="filter-status">Status:</label>
+                        <select id="filter-status" class="filter-control">
+                            <option value="">All Statuses</option>
+                            <option value="Draft">Draft</option>
+                            <option value="Submitted">Submitted</option>
+                            <option value="Cleared">Cleared</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-bank-account">Bank Account:</label>
+                        <select id="filter-bank-account" class="filter-control">
+                            <option value="">All Bank Accounts</option>
+                            <!-- Bank accounts will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-deposit-type">Deposit Type:</label>
+                        <select id="filter-deposit-type" class="filter-control">
+                            <option value="">All Types</option>
+                            <option value="Regular">Regular Deposit</option>
+                            <option value="ATM">ATM Deposit</option>
+                            <option value="Mobile">Mobile Deposit</option>
+                            <option value="Wire">Wire Transfer</option>
+                            <option value="ACH">ACH Transfer</option>
+                            <option value="Cash">Cash Deposit</option>
+                            <option value="Mixed">Mixed Deposit</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="filter-date-start">Date Range:</label>
+                        <div class="date-range-container">
+                            <input type="date" id="filter-date-start" class="filter-control date-input">
+                            <span>to</span>
+                            <input type="date" id="filter-date-end" class="filter-control date-input">
+                        </div>
+                    </div>
+                    <div class="filter-group filter-buttons">
+                        <button id="apply-filters-btn" class="action-button">Apply Filters</button>
+                        <button id="clear-filters-btn" class="action-button">Clear Filters</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="deposits-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Bank Account</th>
+                            <th>Reference</th>
+                            <th>Description</th>
+                            <th>Items</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Deposits will be populated by JavaScript -->
+                        <tr class="loading-row">
+                            <td colspan="9" class="text-center">Loading deposits...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Showing <span id="pagination-start">0</span> to <span id="pagination-end">0</span> of <span id="pagination-total">0</span> deposits
+                </div>
+                <div class="pagination-controls">
+                    <button id="pagination-prev" class="pagination-button" disabled>Previous</button>
+                    <div id="pagination-pages" class="pagination-pages">
+                        <!-- Page numbers will be populated by JavaScript -->
+                    </div>
+                    <button id="pagination-next" class="pagination-button" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Deposit Tab -->
+        <div id="new-deposit" class="tab-panel">
+            <div class="deposit-form">
+                <div class="form-section">
+                    <h3>Deposit Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="deposit-bank-account">Bank Account <span class="required">*</span></label>
+                            <select id="deposit-bank-account" class="form-control" required>
+                                <option value="">Select Bank Account</option>
+                                <!-- Bank accounts will be populated by JavaScript -->
+                            </select>
+                            <div class="invalid-feedback">Please select a bank account</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="deposit-date">Deposit Date <span class="required">*</span></label>
+                            <input type="date" id="deposit-date" class="form-control" required>
+                            <div class="invalid-feedback">Please enter a valid date</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="deposit-type">Deposit Type <span class="required">*</span></label>
+                            <select id="deposit-type" class="form-control" required>
+                                <option value="">Select Type</option>
+                                <option value="Regular">Regular Deposit</option>
+                                <option value="ATM">ATM Deposit</option>
+                                <option value="Mobile">Mobile Deposit</option>
+                                <option value="Wire">Wire Transfer</option>
+                                <option value="ACH">ACH Transfer</option>
+                                <option value="Cash">Cash Deposit</option>
+                                <option value="Mixed">Mixed Deposit</option>
+                            </select>
+                            <div class="invalid-feedback">Please select a deposit type</div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="deposit-reference">Reference Number</label>
+                            <input type="text" id="deposit-reference" class="form-control" maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="deposit-description">Description</label>
+                            <input type="text" id="deposit-description" class="form-control" maxlength="255">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="deposit-memo">Memo</label>
+                            <textarea id="deposit-memo" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3>Deposit Items</h3>
+                        <button id="add-item-btn" class="action-button">
+                            <i class="bi bi-plus-circle"></i> Add Item
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table id="deposit-items-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Check #</th>
+                                    <th>Check Date</th>
+                                    <th>Payer</th>
+                                    <th>GL Account</th>
+                                    <th>Description</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="empty-row">
+                                    <td colspan="8" class="text-center">No items added. Click "Add Item" to begin.</td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="1" class="text-right"><strong>Total:</strong></td>
+                                    <td id="deposit-total" class="deposit-total">$0.00</td>
+                                    <td colspan="6"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button id="save-draft-btn" class="action-button">Save as Draft</button>
+                    <button id="submit-deposit-btn" class="action-button primary">Submit Deposit</button>
+                    <button id="cancel-deposit-btn" class="action-button secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deposit Slip Tab -->
+        <div id="deposit-slip" class="tab-panel">
+            <div class="deposit-slip-controls">
+                <div class="form-group">
+                    <label for="deposit-slip-select">Select Deposit:</label>
+                    <select id="deposit-slip-select" class="form-control">
+                        <option value="">Select a deposit to view slip</option>
+                        <!-- Deposits will be populated by JavaScript -->
+                    </select>
+                </div>
+                <button id="print-deposit-slip-btn" class="action-button" disabled>
+                    <i class="bi bi-printer"></i> Print Deposit Slip
+                </button>
+            </div>
+
+            <div id="deposit-slip-container" class="deposit-slip-container">
+                <div class="deposit-slip">
+                    <div class="deposit-slip-header">
+                        <h2>BANK DEPOSIT SLIP</h2>
+                        <div class="deposit-slip-date">
+                            <span>DATE: </span>
+                            <span id="slip-date">MM/DD/YYYY</span>
+                        </div>
+                    </div>
+
+                    <div class="deposit-slip-account">
+                        <div class="account-info">
+                            <div><strong>Account Name:</strong> <span id="slip-account-name">--</span></div>
+                            <div><strong>Account Number:</strong> <span id="slip-account-number">--</span></div>
+                            <div><strong>Bank Name:</strong> <span id="slip-bank-name">--</span></div>
+                        </div>
+                        <div class="organization-info">
+                            <div><strong>Organization:</strong> <span id="slip-organization">--</span></div>
+                            <div><strong>Reference:</strong> <span id="slip-reference">--</span></div>
+                        </div>
+                    </div>
+
+                    <div class="deposit-slip-content">
+                        <div class="currency-section">
+                            <h3>CURRENCY</h3>
+                            <div class="currency-total">
+                                <span>Total Cash:</span>
+                                <span id="slip-cash-total">$0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="checks-section">
+                            <h3>CHECKS</h3>
+                            <table class="checks-table">
+                                <thead>
+                                    <tr>
+                                        <th>Check #</th>
+                                        <th>Date</th>
+                                        <th>Payer</th>
+                                        <th>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="slip-checks-body">
+                                    <!-- Check items will be populated by JavaScript -->
+                                    <tr>
+                                        <td colspan="4" class="text-center">No checks in this deposit</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-right"><strong>Total Checks:</strong></td>
+                                        <td id="slip-checks-total">$0.00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="deposit-summary">
+                            <div class="summary-row">
+                                <span>Total Cash:</span>
+                                <span id="slip-summary-cash">$0.00</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Total Checks:</span>
+                                <span id="slip-summary-checks">$0.00</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Other Items:</span>
+                                <span id="slip-summary-other">$0.00</span>
+                            </div>
+                            <div class="summary-row total">
+                                <span>TOTAL DEPOSIT:</span>
+                                <span id="slip-summary-total">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="deposit-slip-footer">
+                        <div class="signature-line">
+                            <div class="line"></div>
+                            <div class="label">Authorized Signature</div>
+                        </div>
+                        <div class="prepared-by">
+                            <div><strong>Prepared By:</strong> <span id="slip-prepared-by">--</span></div>
+                            <div><strong>Date Prepared:</strong> <span id="slip-prepared-date">--</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div id="add-item-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Deposit Item</h3>
+                <button class="modal-close-btn" data-modal-id="add-item-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-item-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-type">Item Type <span class="required">*</span></label>
+                            <select id="item-type" class="form-control" required>
+                                <option value="">Select Type</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Check">Check</option>
+                                <option value="Electronic">Electronic Transfer</option>
+                                <option value="Money Order">Money Order</option>
+                                <option value="Cashier Check">Cashier's Check</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <div class="invalid-feedback">Please select an item type</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="item-amount">Amount <span class="required">*</span></label>
+                            <input type="number" id="item-amount" class="form-control" min="0.01" step="0.01" required>
+                            <div class="invalid-feedback">Please enter a valid amount greater than zero</div>
+                        </div>
+                    </div>
+
+                    <div id="check-fields" class="form-row hidden">
+                        <div class="form-group">
+                            <label for="item-check-number">Check Number <span class="required">*</span></label>
+                            <input type="text" id="item-check-number" class="form-control">
+                            <div class="invalid-feedback">Please enter a check number</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="item-check-date">Check Date</label>
+                            <input type="date" id="item-check-date" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-payer">Payer/Source</label>
+                            <input type="text" id="item-payer" class="form-control" maxlength="255">
+                        </div>
+                        <div class="form-group">
+                            <label for="item-gl-account">GL Account <span class="required">*</span></label>
+                            <select id="item-gl-account" class="form-control" required>
+                                <option value="">Select GL Account</option>
+                                <!-- GL accounts will be populated by JavaScript -->
+                            </select>
+                            <div class="invalid-feedback">Please select a GL account</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="item-description">Description</label>
+                            <input type="text" id="item-description" class="form-control" maxlength="255">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="add-item-submit-btn" class="action-button primary">Add Item</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="add-item-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Deposit Modal -->
+    <div id="view-deposit-modal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>View Deposit</h3>
+                <button class="modal-close-btn" data-modal-id="view-deposit-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="deposit-details">
+                    <div class="details-section">
+                        <h4>Deposit Information</h4>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Bank Account:</span>
+                                <span id="view-bank-account" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Deposit Date:</span>
+                                <span id="view-deposit-date" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Deposit Type:</span>
+                                <span id="view-deposit-type" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Reference:</span>
+                                <span id="view-reference" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Status:</span>
+                                <span id="view-status" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total Amount:</span>
+                                <span id="view-total-amount" class="detail-value">--</span>
+                            </div>
+                        </div>
+                        <div class="detail-item full-width">
+                            <span class="detail-label">Description:</span>
+                            <span id="view-description" class="detail-value">--</span>
+                        </div>
+                        <div class="detail-item full-width">
+                            <span class="detail-label">Memo:</span>
+                            <span id="view-memo" class="detail-value">--</span>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <h4>Deposit Items</h4>
+                        <div class="table-container">
+                            <table id="view-items-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Check #</th>
+                                        <th>Check Date</th>
+                                        <th>Payer</th>
+                                        <th>GL Account</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Items will be populated by JavaScript -->
+                                    <tr class="empty-row">
+                                        <td colspan="7" class="text-center">No items in this deposit</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="1" class="text-right"><strong>Total:</strong></td>
+                                        <td id="view-deposit-total" class="deposit-total">$0.00</td>
+                                        <td colspan="5"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <h4>Audit Information</h4>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Created By:</span>
+                                <span id="view-created-by" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Created Date:</span>
+                                <span id="view-created-date" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Submitted By:</span>
+                                <span id="view-submitted-by" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Submitted Date:</span>
+                                <span id="view-submitted-date" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Cleared By:</span>
+                                <span id="view-cleared-by" class="detail-value">--</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Cleared Date:</span>
+                                <span id="view-cleared-date" class="detail-value">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="view-print-slip-btn" class="action-button">Print Deposit Slip</button>
+                <button id="view-edit-btn" class="action-button">Edit</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="view-deposit-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Deposit Modal -->
+    <div id="clear-deposit-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Clear Deposit</h3>
+                <button class="modal-close-btn" data-modal-id="clear-deposit-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to mark this deposit as cleared in the bank. This action indicates that the deposit has been processed by the bank and the funds are available.</p>
+                
+                <form id="clear-deposit-form">
+                    <input type="hidden" id="clear-deposit-id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="clearing-date">Clearing Date <span class="required">*</span></label>
+                            <input type="date" id="clearing-date" class="form-control" required>
+                            <div class="invalid-feedback">Please enter a valid clearing date</div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="clearing-reference">Bank Reference (optional)</label>
+                            <input type="text" id="clearing-reference" class="form-control" maxlength="100">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-clear-btn" class="action-button primary">Mark as Cleared</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="clear-deposit-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-confirm-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Delete</h3>
+                <button class="modal-close-btn" data-modal-id="delete-confirm-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this deposit? This action cannot be undone.</p>
+                <div id="delete-deposit-details">
+                    <p><strong>Date:</strong> <span id="delete-date"></span></p>
+                    <p><strong>Reference:</strong> <span id="delete-reference"></span></p>
+                    <p><strong>Amount:</strong> <span id="delete-amount"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-delete-btn" class="action-button danger">Delete</button>
+                <button class="action-button secondary modal-close-btn" data-modal-id="delete-confirm-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container">
+        <!-- Toasts will be added here by JavaScript -->
+    </div>
+
+    <!-- JavaScript -->
+    <script src="src/js/app.js"></script>
+    <script src="src/js/bank-deposits.js"></script>
+</body>
+</html>

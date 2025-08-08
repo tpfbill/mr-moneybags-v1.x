@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
+const bcrypt = require('bcrypt');
 
 /**
  * GET /api/users
@@ -11,7 +12,7 @@ const { asyncHandler } = require('../utils/helpers');
 router.get('/', asyncHandler(async (req, res) => {
     const { status, role } = req.query;
     
-    let query = 'SELECT * FROM users WHERE 1=1';
+    let query = 'SELECT *, CONCAT(first_name, \' \', last_name) AS name FROM users WHERE 1=1';
     const params = [];
     let paramIndex = 1;
     
@@ -25,7 +26,7 @@ router.get('/', asyncHandler(async (req, res) => {
         params.push(role);
     }
     
-    query += ' ORDER BY name';
+    query += ' ORDER BY first_name, last_name';
     
     const { rows } = await pool.query(query, params);
     res.json(rows);
@@ -38,13 +39,18 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    const { rows } = await pool.query(
+        'SELECT *, CONCAT(first_name, \' \', last_name) AS name FROM users WHERE id = $1', 
+        [id]
+    );
     
     if (rows.length === 0) {
         return res.status(404).json({ error: 'User not found' });
     }
     
-    res.json(rows[0]);
+    // Remove password hash from response
+    const { password_hash, ...userWithoutPassword } = rows[0];
+    res.json(userWithoutPassword);
 }));
 
 /**
@@ -52,15 +58,23 @@ router.get('/:id', asyncHandler(async (req, res) => {
  * Creates a new user
  */
 router.post('/', asyncHandler(async (req, res) => {
-    const { name, email, role, status } = req.body;
+    const { first_name, last_name, username, email, password, role, status } = req.body;
     
     // Validate required fields
-    if (!name) {
-        return res.status(400).json({ error: 'Name is required' });
+    if (!first_name || !last_name) {
+        return res.status(400).json({ error: 'First name and last name are required' });
     }
     
     if (!email) {
         return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+    
+    if (!password) {
+        return res.status(400).json({ error: 'Password is required' });
     }
     
     // Check if email already exists
@@ -72,12 +86,33 @@ router.post('/', asyncHandler(async (req, res) => {
         });
     }
     
+    // Check if username already exists
+    const usernameCheck = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (usernameCheck.rows.length > 0) {
+        return res.status(409).json({ 
+            error: 'Username already exists',
+            details: 'A user with this username already exists in the system'
+        });
+    }
+    
+    // Hash the password
+    const saltRounds = 10;
+    const password_hash = await bcrypt.hash(password, saltRounds);
+    
     const { rows } = await pool.query(
-        'INSERT INTO users (name, email, role, status) VALUES ($1, $2, $3, $4) RETURNING *',
-        [name, email, role || 'User', status || 'Active']
+        `INSERT INTO users (
+            username, password_hash, email, first_name, last_name, role, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [username, password_hash, email, first_name, last_name, role || 'user', status || 'active']
     );
     
-    res.status(201).json(rows[0]);
+    // Remove password hash from response
+    const { password_hash: _, ...newUser } = rows[0];
+    
+    // Add display name
+    newUser.name = `${newUser.first_name} ${newUser.last_name}`.trim();
+    
+    res.status(201).json(newUser);
 }));
 
 /**
@@ -86,16 +121,7 @@ router.post('/', asyncHandler(async (req, res) => {
  */
 router.put('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, email, role, status } = req.body;
-    
-    // Validate required fields
-    if (!name) {
-        return res.status(400).json({ error: 'Name is required' });
-    }
-    
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required' });
-    }
+    const { first_name, last_name, email, username, password, role, status } = req.body;
     
     // Check if user exists
     const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [id]);
@@ -104,20 +130,96 @@ router.put('/:id', asyncHandler(async (req, res) => {
     }
     
     // Check if email already exists (for another user)
-    const emailCheck = await pool.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, id]);
-    if (emailCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Email already exists',
-            details: 'Another user with this email address already exists in the system'
-        });
+    if (email) {
+        const emailCheck = await pool.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, id]);
+        if (emailCheck.rows.length > 0) {
+            return res.status(409).json({ 
+                error: 'Email already exists',
+                details: 'Another user with this email address already exists in the system'
+            });
+        }
     }
     
+    // Check if username already exists (for another user)
+    if (username) {
+        const usernameCheck = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [username, id]);
+        if (usernameCheck.rows.length > 0) {
+            return res.status(409).json({ 
+                error: 'Username already exists',
+                details: 'Another user with this username already exists in the system'
+            });
+        }
+    }
+    
+    // Build update query dynamically
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+    
+    if (first_name !== undefined) {
+        updates.push(`first_name = $${paramIndex++}`);
+        params.push(first_name);
+    }
+    
+    if (last_name !== undefined) {
+        updates.push(`last_name = $${paramIndex++}`);
+        params.push(last_name);
+    }
+    
+    if (email !== undefined) {
+        updates.push(`email = $${paramIndex++}`);
+        params.push(email);
+    }
+    
+    if (username !== undefined) {
+        updates.push(`username = $${paramIndex++}`);
+        params.push(username);
+    }
+    
+    if (password !== undefined) {
+        // Hash the new password
+        const saltRounds = 10;
+        const password_hash = await bcrypt.hash(password, saltRounds);
+        updates.push(`password_hash = $${paramIndex++}`);
+        params.push(password_hash);
+    }
+    
+    if (role !== undefined) {
+        updates.push(`role = $${paramIndex++}`);
+        params.push(role);
+    }
+    
+    if (status !== undefined) {
+        updates.push(`status = $${paramIndex++}`);
+        params.push(status);
+    }
+    
+    // Add updated_at timestamp
+    updates.push(`updated_at = NOW()`);
+    
+    // If no fields to update, return the existing user
+    if (updates.length === 1) { // Only updated_at
+        const { rows } = await pool.query(
+            'SELECT *, CONCAT(first_name, \' \', last_name) AS name FROM users WHERE id = $1',
+            [id]
+        );
+        const { password_hash, ...userWithoutPassword } = rows[0];
+        return res.json(userWithoutPassword);
+    }
+    
+    // Add ID as the last parameter
+    params.push(id);
+    
     const { rows } = await pool.query(
-        'UPDATE users SET name = $1, email = $2, role = $3, status = $4, updated_at = NOW() WHERE id = $5 RETURNING *',
-        [name, email, role, status, id]
+        `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex} 
+         RETURNING *, CONCAT(first_name, ' ', last_name) AS name`,
+        params
     );
     
-    res.json(rows[0]);
+    // Remove password hash from response
+    const { password_hash, ...updatedUser } = rows[0];
+    
+    res.json(updatedUser);
 }));
 
 /**
@@ -134,10 +236,10 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     }
     
     // Check if this is the last admin user
-    const adminCheck = await pool.query('SELECT COUNT(*) as count FROM users WHERE role = $1', ['Admin']);
+    const adminCheck = await pool.query('SELECT COUNT(*) as count FROM users WHERE role = $1', ['admin']);
     if (adminCheck.rows[0].count <= 1) {
         const userRole = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
-        if (userRole.rows[0].role === 'Admin') {
+        if (userRole.rows[0].role === 'admin') {
             return res.status(409).json({ 
                 error: 'Cannot delete last admin user',
                 details: 'At least one admin user must remain in the system'

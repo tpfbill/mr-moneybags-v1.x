@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Mr. MoneyBags</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="src/css/styles.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            max-width: 400px;
+            width: 100%;
+            padding: 2rem;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .login-logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .login-logo h1 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        .login-logo .logo-accent {
+            color: #3498db;
+        }
+        .form-control:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
+        }
+        .btn-primary {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+        .btn-primary:hover, .btn-primary:focus {
+            background-color: #2980b9;
+            border-color: #2980b9;
+        }
+        .login-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.875rem;
+            color: #7f8c8d;
+        }
+        .spinner-border {
+            width: 1.2rem;
+            height: 1.2rem;
+            margin-right: 0.5rem;
+        }
+        .alert {
+            display: none;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-logo">
+            <h1>Mr. <span class="logo-accent">MoneyBags</span></h1>
+            <p class="text-muted">Nonprofit Fund Accounting</p>
+        </div>
+        
+        <div class="alert alert-danger" id="error-message" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span id="error-text"></span>
+        </div>
+        
+        <form id="login-form">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" class="form-control" id="username" name="username" required autofocus>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                    <button class="btn btn-outline-secondary" type="button" id="toggle-password">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="remember-me" name="remember-me">
+                <label class="form-check-label" for="remember-me">Remember me</label>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary" id="login-button">
+                    <span id="spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <span id="button-text">Log In</span>
+                </button>
+            </div>
+        </form>
+        
+        <div class="login-footer">
+            <p>&copy; 2025 Mr. MoneyBags - Nonprofit Fund Accounting</p>
+        </div>
+    </div>
+    
+    <!-- Toast container for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast-notification" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong class="me-auto" id="toast-title">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toast-message">
+                Message goes here
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const loginForm = document.getElementById('login-form');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const rememberMeCheckbox = document.getElementById('remember-me');
+            const loginButton = document.getElementById('login-button');
+            const spinner = document.getElementById('spinner');
+            const buttonText = document.getElementById('button-text');
+            const errorMessage = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            const togglePasswordButton = document.getElementById('toggle-password');
+            
+            // Toast elements
+            const toastElement = document.getElementById('toast-notification');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMessage = document.getElementById('toast-message');
+            const toast = new bootstrap.Toast(toastElement);
+            
+            // Check if user is already logged in
+            checkAuthStatus();
+            
+            // Remember me functionality
+            if (localStorage.getItem('remember-me') === 'true') {
+                const savedUsername = localStorage.getItem('username');
+                if (savedUsername) {
+                    usernameInput.value = savedUsername;
+                    rememberMeCheckbox.checked = true;
+                }
+            }
+            
+            // Toggle password visibility
+            togglePasswordButton.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                togglePasswordButton.querySelector('i').classList.toggle('bi-eye');
+                togglePasswordButton.querySelector('i').classList.toggle('bi-eye-slash');
+            });
+            
+            // Form submission
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Validate form
+                if (!loginForm.checkValidity()) {
+                    loginForm.classList.add('was-validated');
+                    return;
+                }
+                
+                // Show loading state
+                setLoading(true);
+                hideError();
+                
+                // Get form data
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+                const rememberMe = rememberMeCheckbox.checked;
+                
+                try {
+                    // Call login API
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include' // Include cookies for session
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Login failed. Please try again.');
+                    }
+                    
+                    // Handle remember me
+                    if (rememberMe) {
+                        localStorage.setItem('remember-me', 'true');
+                        localStorage.setItem('username', username);
+                    } else {
+                        localStorage.removeItem('remember-me');
+                        localStorage.removeItem('username');
+                    }
+                    
+                    // Show success message
+                    showToast('Success', 'Login successful. Redirecting...', 'success');
+                    
+                    // Redirect to dashboard after a short delay
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showError(error.message);
+                    setLoading(false);
+                }
+            });
+            
+            // Helper functions
+            function setLoading(isLoading) {
+                if (isLoading) {
+                    spinner.classList.remove('d-none');
+                    buttonText.textContent = 'Logging in...';
+                    loginButton.disabled = true;
+                } else {
+                    spinner.classList.add('d-none');
+                    buttonText.textContent = 'Log In';
+                    loginButton.disabled = false;
+                }
+            }
+            
+            function showError(message) {
+                errorText.textContent = message;
+                errorMessage.style.display = 'block';
+            }
+            
+            function hideError() {
+                errorMessage.style.display = 'none';
+            }
+            
+            function showToast(title, message, type = 'info') {
+                toastTitle.textContent = title;
+                toastMessage.textContent = message;
+                
+                // Remove existing color classes
+                toastElement.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-white');
+                
+                // Add appropriate color class
+                if (type === 'success') {
+                    toastElement.classList.add('bg-success', 'text-white');
+                } else if (type === 'error') {
+                    toastElement.classList.add('bg-danger', 'text-white');
+                } else if (type === 'warning') {
+                    toastElement.classList.add('bg-warning');
+                } else {
+                    toastElement.classList.add('bg-info', 'text-white');
+                }
+                
+                toast.show();
+            }
+            
+            async function checkAuthStatus() {
+                try {
+                    const response = await fetch('/api/auth/user', {
+                        credentials: 'include' // Include cookies for session
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.authenticated) {
+                        // User is already logged in, redirect to dashboard
+                        window.location.href = '/index.html';
+                    }
+                } catch (error) {
+                    console.error('Auth check error:', error);
+                    // Continue with login page if there's an error
+                }
+            }
+        });
+    </script>
+</body>
+</html>
