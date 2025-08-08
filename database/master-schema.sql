@@ -33,15 +33,10 @@ $$;
 -- DATABASE CREATION AND EXTENSIONS
 -- -----------------------------------------------------------------------------
 
--- Create database if it doesn't exist
--- Note: This must be run as a PostgreSQL superuser
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'fund_accounting_db') THEN
-        CREATE DATABASE fund_accounting_db;
-    END IF;
-END
-$$;
+-- Create the application database (must be executed by a PostgreSQL super-user).
+-- If the database already exists, PostgreSQL will raise an error; you can ignore
+-- the “database already exists” message when re-running this script.
+CREATE DATABASE fund_accounting_db;
 
 -- Connect to the database
 \c fund_accounting_db
