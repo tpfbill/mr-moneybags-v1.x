@@ -193,56 +193,60 @@ rehash_passwords() {
 # Test the database connection
 test_connection() {
     section "Testing Database Connection"
-    
+
     info "Testing connection to $DB_NAME as $DB_USER..."
-    
-    # Create a temporary connection test script
-    local TEMP_SCRIPT=$(mktemp)
-    cat > "$TEMP_SCRIPT" <<EOF
+
+    # Temporary script path (inside project root so node can resolve modules)
+    local TEMP_SCRIPT="$PROJECT_ROOT/test-connection.js"
+
+    # Write the test script
+    cat > "$TEMP_SCRIPT" <<'EOF'
 const { Pool } = require('pg');
+
 const pool = new Pool({
-  host: '$DB_HOST',
-  port: $DB_PORT,
-  database: '$DB_NAME',
-  user: '$DB_USER',
-  password: '$DB_PASS'
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS
 });
 
-async function testConnection() {
+async function main() {
   try {
     const client = await pool.connect();
-    const result = await client.query('SELECT COUNT(*) FROM users');
-    console.log(\`Connection successful! Found \${result.rows[0].count} users.\`);
-    
-    const tables = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
-    console.log(\`Database contains \${tables.rowCount} tables.\`);
-    
+    const { rows } = await client.query('SELECT COUNT(*) AS cnt FROM users');
+    console.log(`✅ Connection successful! Found ${rows[0].cnt} users.`);
+
+    const tbls = await client.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
+    );
+    console.log(`ℹ Database contains ${tbls.rowCount} tables.`);
+
     client.release();
     await pool.end();
-    return true;
+    process.exit(0);
   } catch (err) {
-    console.error('Connection error:', err.message);
-    return false;
+    console.error('✗ Connection error:', err.message);
+    process.exit(1);
   }
 }
 
-testConnection()
-  .then(success => process.exit(success ? 0 : 1))
-  .catch(err => {
-    console.error('Unhandled error:', err);
-    process.exit(1);
-  });
+main();
 EOF
-    
-    # Run the test script
-    if node "$TEMP_SCRIPT"; then
+
+    # Export vars so the script can read them
+    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+    DB_USER="$DB_USER" DB_PASS="$DB_PASS" \
+    node "$TEMP_SCRIPT"
+
+    if [ $? -eq 0 ]; then
         success "Database connection test passed!"
     else
         error "Database connection test failed."
     fi
-    
-    # Clean up the temporary script
-    rm "$TEMP_SCRIPT"
+
+    # Remove temp script
+    rm -f "$TEMP_SCRIPT"
 }
 
 # Display final instructions
