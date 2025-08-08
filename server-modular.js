@@ -43,7 +43,23 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configure middleware
-app.use(cors());
+// ---------------------------------------------------------------------------
+// CORS configuration
+// ---------------------------------------------------------------------------
+// Front-end runs on port 8080 while the API runs on port 3000, so we must
+// allow cross-origin requests *with credentials*.  Wildcard origins ("*")
+// cannot be used when `credentials: true`, therefore we explicitly list
+// the development origins we expect.
+app.use(
+  cors({
+    origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Disposition'] // allow file downloads, etc.
+  })
+);
+
 app.use(express.json({ limit: '50mb' })); // Increase limit for large data uploads
 app.use(requestLogger); // Log all requests
 
