@@ -166,7 +166,7 @@ sudo -u postgres psql -d fund_accounting_db -f database/load-sample-data.sql
 ## 7 Authentication & Security Configuration  
 
 1. **Password Hashing** – handled automatically via `bcrypt`.  
-2. **Sessions** – stored in DB (`session` table) by `express-session` + `connect-pg-simple`.  
+2. **Sessions** – stored in DB (`user_sessions` table) by `express-session` + `connect-pg-simple`.  
 3. **Role-Based Access** – default roles: `admin`, `user`.  
    * Non-admin users cannot access Settings tab.  
 4. **Adjust session settings** (`src/middleware/auth.js`) if you need different TTL.  
