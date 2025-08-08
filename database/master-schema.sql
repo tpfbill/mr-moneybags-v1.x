@@ -35,7 +35,7 @@ $$;
 
 -- Create the application database (must be executed by a PostgreSQL super-user).
 -- If the database already exists, PostgreSQL will raise an error; you can ignore
--- the “database already exists” message when re-running this script.
+-- the "database already exists" message when re-running this script.
 CREATE DATABASE fund_accounting_db;
 
 -- Connect to the database
@@ -727,7 +727,7 @@ BEGIN
         (v_city_utils, 'City Utilities Operating', '021000021', '111122223333', 'checking', TRUE,  'active'),
         (v_abc_props,  'ABC Prop Main',            '026009593', '444455556666', 'checking', TRUE,  'active'),
         (v_supplies,   'Office Supplies Plus',     '031100209', '777788889999', 'checking', TRUE,  'active')
-    ON CONFLICT ON CONSTRAINT idx_vendor_bank_vendor DO NOTHING;
+    ON CONFLICT (vendor_id, account_name) DO NOTHING;
 END $$;
 
 /* Insert organisation-wide NACHA company settings (one default) */
@@ -744,13 +744,13 @@ BEGIN
     VALUES (ent_main, 'The Principle Foundation', '1234567890',
             '021000021', '123456789', 'JPMORGAN CHASE', 'TPF MAIN OPS',
             'REF001', '220', 'VENDOR PAY', TRUE)
-    ON CONFLICT (entity_id, company_id) DO NOTHING;
+    ON CONFLICT (entity_id, company_name) DO NOTHING;
 END $$;
 
 /* -------------------------------------------------------------------------
    Insert a small payment cycle:
-      • 1 batch “approved”
-      • 1 batch “draft”
+      • 1 batch "approved"
+      • 1 batch "draft"
       • corresponding items & generated nacha file
 ---------------------------------------------------------------------------*/
 DO $$
@@ -763,42 +763,57 @@ DECLARE
     vb_sup     UUID;
     batch1     UUID;
     batch2     UUID;
+    v_util001  UUID;
+    v_rent001  UUID;
+    v_supp001  UUID;
 BEGIN
     SELECT id      INTO ent_main   FROM entities              WHERE code = 'TPF_MAIN';
     SELECT id      INTO fund_gen   FROM funds                 WHERE code = 'GEN_OP';
     SELECT id      INTO default_ns FROM company_nacha_settings WHERE entity_id = ent_main AND is_default;
-    SELECT id      INTO vb_city    FROM vendor_bank_accounts  WHERE account_name ILIKE '%City Utilities%';
-    SELECT id      INTO vb_abc     FROM vendor_bank_accounts  WHERE account_name ILIKE '%ABC Prop%';
-    SELECT id      INTO vb_sup     FROM vendor_bank_accounts  WHERE account_name ILIKE '%Supplies%';
+    SELECT id      INTO vb_city    FROM vendor_bank_accounts  WHERE account_name ILIKE '%City Utilities%' LIMIT 1;
+    SELECT id      INTO vb_abc     FROM vendor_bank_accounts  WHERE account_name ILIKE '%ABC Prop%' LIMIT 1;
+    SELECT id      INTO vb_sup     FROM vendor_bank_accounts  WHERE account_name ILIKE '%Supplies%' LIMIT 1;
+    SELECT id      INTO v_util001  FROM vendors WHERE vendor_code = 'UTIL001';
+    SELECT id      INTO v_rent001  FROM vendors WHERE vendor_code = 'RENT001';
+    SELECT id      INTO v_supp001  FROM vendors WHERE vendor_code = 'SUPP001';
 
-    /* Two payment batches */
+    /* First payment batch */
     INSERT INTO payment_batches
         (entity_id, fund_id, nacha_settings_id, batch_number, batch_date,
          description, total_amount, status)
     VALUES
         (ent_main, fund_gen, default_ns, 'BATCH-001', CURRENT_DATE - 7,
-         'Monthly utilities / rent', 4100.00, 'Approved'),
+         'Monthly utilities / rent', 4100.00, 'Approved')
+    RETURNING id INTO batch1;
+    
+    /* Second payment batch */
+    INSERT INTO payment_batches
+        (entity_id, fund_id, nacha_settings_id, batch_number, batch_date,
+         description, total_amount, status)
+    VALUES
         (ent_main, fund_gen, default_ns, 'BATCH-002', CURRENT_DATE,
-         'Office supplies & misc.',   850.00,  'Draft')
-    RETURNING id, batch_number INTO batch1, batch2;
+         'Office supplies & misc.', 850.00, 'Draft')
+    RETURNING id INTO batch2;
 
     /* Items for first batch */
     INSERT INTO payment_items
         (payment_batch_id, vendor_id, vendor_bank_account_id,
          amount, memo, invoice_number, invoice_date, due_date, status)
-    SELECT batch1, v.id, vb_city, 2100.00, 'Electric + Water', 'INV-EU-2305', CURRENT_DATE-30, CURRENT_DATE-5, 'approved'
-      FROM vendors v WHERE v.vendor_code = 'UTIL001'
-    UNION ALL
-    SELECT batch1, v.id, vb_abc, 2000.00, 'Office rent', 'INV-RENT-0523', CURRENT_DATE-28, CURRENT_DATE-3, 'approved'
-      FROM vendors v WHERE v.vendor_code = 'RENT001';
+    VALUES
+        (batch1, v_util001, vb_city, 2100.00, 'Electric + Water', 'INV-EU-2305', CURRENT_DATE-30, CURRENT_DATE-5, 'approved');
+        
+    INSERT INTO payment_items
+        (payment_batch_id, vendor_id, vendor_bank_account_id,
+         amount, memo, invoice_number, invoice_date, due_date, status)
+    VALUES
+        (batch1, v_rent001, vb_abc, 2000.00, 'Office rent', 'INV-RENT-0523', CURRENT_DATE-28, CURRENT_DATE-3, 'approved');
 
     /* Items for second (draft) batch */
     INSERT INTO payment_items
         (payment_batch_id, vendor_id, vendor_bank_account_id,
          amount, memo, invoice_number, invoice_date, due_date, status)
-    SELECT batch2, v.id, vb_sup, 850.00, 'Printer toner & paper',
-           'INV-SUP-789', CURRENT_DATE-2, CURRENT_DATE+28, 'pending'
-      FROM vendors v WHERE v.vendor_code = 'SUPP001';
+    VALUES
+        (batch2, v_supp001, vb_sup, 850.00, 'Printer toner & paper', 'INV-SUP-789', CURRENT_DATE-2, CURRENT_DATE+28, 'pending');
 
     /* Generate sample nacha file record for first batch */
     INSERT INTO nacha_files
@@ -863,23 +878,27 @@ DECLARE
     op_acct      UUID;   -- Operating checking account
     user_admin   UUID;
     stmt1        UUID;
-    stmt2        UUID;
     recon1       UUID;
-    recon_item   UUID;
 BEGIN
     SELECT id INTO op_acct    FROM bank_accounts WHERE account_name = 'Operating Account';
     SELECT id INTO user_admin FROM users WHERE username = 'admin';
 
-    /* Two monthly statements */
+    /* First monthly statement */
     INSERT INTO bank_statements
         (bank_account_id, statement_date, beginning_balance, ending_balance,
          status, created_by)
     VALUES
         (op_acct, date_trunc('month', CURRENT_DATE) - INTERVAL '1 month',
-         300000.00, 310300.00, 'Reconciled', user_admin),
+         300000.00, 310300.00, 'Reconciled', user_admin)
+    RETURNING id INTO stmt1;
+
+    /* Second monthly statement */
+    INSERT INTO bank_statements
+        (bank_account_id, statement_date, beginning_balance, ending_balance,
+         status, created_by)
+    VALUES
         (op_acct, date_trunc('month', CURRENT_DATE),
-         310300.00, 312000.00, 'In Progress', user_admin)
-    RETURNING id INTO stmt1, stmt2;
+         310300.00, 312000.00, 'In Progress', user_admin);
 
     /* Statement transactions for first statement (6 items) */
     INSERT INTO bank_statement_transactions
@@ -933,22 +952,37 @@ DO $$
 DECLARE
     op_acct UUID;
     fund_gen UUID;
-    ent_main UUID;
+    user_admin UUID;
     dep1 UUID;
 BEGIN
     SELECT id INTO op_acct FROM bank_accounts WHERE account_name = 'Operating Account';
     SELECT id INTO fund_gen FROM funds WHERE code = 'GEN_OP';
-    SELECT id INTO ent_main FROM entities WHERE code = 'TPF_MAIN';
+    SELECT id INTO user_admin FROM users WHERE username = 'admin';
 
-    /* Three deposits */
+    /* First deposit */
     INSERT INTO bank_deposits
         (bank_account_id, deposit_date, deposit_number, description,
          total_amount, status, deposit_method, created_by)
     VALUES
-        (op_acct, CURRENT_DATE - 8, 'DEP-001', 'Weekly checks batch', 1400.00, 'Cleared','Check', ent_main),
-        (op_acct, CURRENT_DATE - 3, 'DEP-002', 'Cash fundraiser',     600.00,  'Submitted','Cash', ent_main),
-        (op_acct, CURRENT_DATE - 1, 'DEP-003', 'ACH contribution',    750.00,  'Draft','ACH', ent_main)
+        (op_acct, CURRENT_DATE - 8, 'DEP-001', 'Weekly checks batch', 
+         1400.00, 'Cleared', 'Check', user_admin)
     RETURNING id INTO dep1;
+    
+    /* Second deposit */
+    INSERT INTO bank_deposits
+        (bank_account_id, deposit_date, deposit_number, description,
+         total_amount, status, deposit_method, created_by)
+    VALUES
+        (op_acct, CURRENT_DATE - 3, 'DEP-002', 'Cash fundraiser',
+         600.00, 'Submitted', 'Cash', user_admin);
+         
+    /* Third deposit */
+    INSERT INTO bank_deposits
+        (bank_account_id, deposit_date, deposit_number, description,
+         total_amount, status, deposit_method, created_by)
+    VALUES
+        (op_acct, CURRENT_DATE - 1, 'DEP-003', 'ACH contribution',
+         750.00, 'Draft', 'ACH', user_admin);
 
     /* Items for first deposit */
     INSERT INTO bank_deposit_items
@@ -958,8 +992,7 @@ BEGIN
         (dep1, CURRENT_DATE - 9, 'Check #1001 – Donation',  800.00,'Check',
          'Jane Donor', fund_gen),
         (dep1, CURRENT_DATE - 9, 'Check #1002 – Donation',  600.00,'Check',
-         'John Donor', fund_gen)
-    ON CONFLICT DO NOTHING;
+         'John Donor', fund_gen);
 END $$;
 
 -- ---------------------------------------------------------------------------
@@ -972,26 +1005,28 @@ DECLARE
     vend_util UUID;
     vend_rent UUID;
     fmt_default UUID;
+    user_admin UUID;
 BEGIN
-    SELECT id INTO op_acct   FROM bank_accounts WHERE account_name = 'Operating Account';
+    SELECT id INTO op_acct FROM bank_accounts WHERE account_name = 'Operating Account';
     SELECT id INTO vend_util FROM vendors WHERE vendor_code = 'UTIL001';
     SELECT id INTO vend_rent FROM vendors WHERE vendor_code = 'RENT001';
     SELECT id INTO fmt_default FROM check_formats WHERE is_default = TRUE;
+    SELECT id INTO user_admin FROM users WHERE username = 'admin';
 
     INSERT INTO printed_checks
         (bank_account_id, vendor_id, check_number, check_date,
          payee_name, amount, memo, status, format_id, print_count,
-         last_printed_at)
+         last_printed_at, created_by)
     VALUES
         (op_acct, vend_util, '50001', CURRENT_DATE - 20,
          'City Utilities', 2100.00, 'Electric & Water', 'Cleared',
-         fmt_default, 1, CURRENT_TIMESTAMP - INTERVAL '20 days'),
+         fmt_default, 1, CURRENT_TIMESTAMP - INTERVAL '20 days', user_admin),
         (op_acct, vend_rent, '50002', CURRENT_DATE - 18,
          'ABC Properties', 2000.00, 'Office Rent', 'Printed',
-         fmt_default, 1, CURRENT_TIMESTAMP - INTERVAL '18 days'),
+         fmt_default, 1, CURRENT_TIMESTAMP - INTERVAL '18 days', user_admin),
         (op_acct, vend_util, '50003', CURRENT_DATE - 2,
          'City Utilities',  50.00,  'Gas Top-Up', 'Draft',
-         fmt_default, 0, NULL)
+         fmt_default, 0, NULL, user_admin)
     ON CONFLICT DO NOTHING;
 END $$;
 
@@ -1010,7 +1045,7 @@ VALUES
      'Lists ending balances for each fund',
      '{"type":"fund_balance","as_of":"today"}',
      'System')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- -----------------------------------------------------------------------------
 -- PERMISSIONS SETUP
