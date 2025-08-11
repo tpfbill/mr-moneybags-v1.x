@@ -152,6 +152,8 @@ CREATE TABLE IF NOT EXISTS journal_entries (
     status VARCHAR(20) DEFAULT 'Draft',
     is_recurring BOOLEAN DEFAULT FALSE,
     is_inter_entity BOOLEAN DEFAULT FALSE,
+    -- For inter-entity transfers, target entity affected by this entry
+    target_entity_id UUID REFERENCES entities(id) ON DELETE SET NULL,
     total_amount DECIMAL(15,2) DEFAULT 0.00,
     created_by VARCHAR(255),
     import_id UUID,
@@ -163,6 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_journal_entries_entity ON journal_entries(entity_
 CREATE INDEX IF NOT EXISTS idx_journal_entries_date ON journal_entries(entry_date);
 CREATE INDEX IF NOT EXISTS idx_journal_entries_status ON journal_entries(status);
 CREATE INDEX IF NOT EXISTS idx_journal_entries_import_id ON journal_entries(import_id);
+CREATE INDEX IF NOT EXISTS idx_journal_entries_target_entity ON journal_entries(target_entity_id);
 COMMENT ON TABLE journal_entries IS 'Journal entries for recording financial transactions';
 
 -- Journal Entry Lines table
