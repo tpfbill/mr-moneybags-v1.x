@@ -314,7 +314,9 @@ function calculateDifference(statementBalance, bookBalance) {
  */
 async function fetchBankAccounts() {
     try {
-        const response = await fetch('/api/bank-accounts');
+        const response = await fetch('/api/bank-accounts', {
+            credentials: 'include'
+        });
         
         if (!response.ok) {
             throw new Error(`Failed to fetch bank accounts: ${response.status}`);
@@ -356,7 +358,9 @@ async function fetchBankStatements(filters = {}, page = 1) {
             url += `&end_date=${end_date}`;
         }
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            credentials: 'include'
+        });
         
         if (!response.ok) {
             throw new Error(`Failed to fetch bank statements: ${response.status}`);
@@ -377,7 +381,9 @@ async function fetchBankStatements(filters = {}, page = 1) {
  */
 async function fetchBankStatement(id) {
     try {
-        const response = await fetch(`/api/bank-reconciliation/statements/${id}`);
+        const response = await fetch(`/api/bank-reconciliation/statements/${id}`, {
+            credentials: 'include'
+        });
         
         if (!response.ok) {
             throw new Error(`Failed to fetch bank statement: ${response.status}`);
@@ -398,7 +404,9 @@ async function fetchBankStatement(id) {
  */
 async function fetchStatementTransactions(statementId) {
     try {
-        const response = await fetch(`/api/bank-reconciliation/statements/${statementId}/transactions`);
+        const response = await fetch(`/api/bank-reconciliation/statements/${statementId}/transactions`, {
+            credentials: 'include'
+        });
         
         if (!response.ok) {
             throw new Error(`Failed to fetch statement transactions: ${response.status}`);
@@ -422,7 +430,8 @@ async function createBankStatement(formData) {
     try {
         const response = await fetch('/api/bank-reconciliation/statements', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -450,7 +459,8 @@ async function importTransactions(statementId, formData) {
         
         const response = await fetch('/api/bank-reconciliation/transactions/import', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -494,7 +504,9 @@ async function fetchReconciliations(filters = {}, page = 1) {
             url += `&end_date=${end_date}`;
         }
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            credentials: 'include'
+        });
         
         if (!response.ok) {
             throw new Error(`Failed to fetch reconciliations: ${response.status}`);
@@ -520,7 +532,8 @@ async function createReconciliation(data) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -555,7 +568,9 @@ async function fetchUnmatchedTransactions(bankAccountId, startDate, endDate) {
             url += startDate ? `&end_date=${endDate}` : `?end_date=${endDate}`;
         }
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            credentials: 'include'
+        });
         
         if (!response.ok) {
             throw new Error(`Failed to fetch unmatched transactions: ${response.status}`);
@@ -588,7 +603,8 @@ async function autoMatchTransactions(reconciliationId, options = {}) {
                 bank_reconciliation_id: reconciliationId,
                 description_match,
                 date_tolerance
-            })
+            }),
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -624,7 +640,8 @@ async function manualMatchTransactions(reconciliationId, bankTransactionId, jour
                 bank_statement_transaction_id: bankTransactionId,
                 journal_entry_item_id: journalEntryItemId,
                 notes
-            })
+            }),
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -648,7 +665,8 @@ async function manualMatchTransactions(reconciliationId, bankTransactionId, jour
 async function unmatchTransactions(matchId) {
     try {
         const response = await fetch(`/api/bank-reconciliation/match/${matchId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -1989,7 +2007,9 @@ async function handleUnmatchClick(id) {
  */
 async function fetchReconciliation(id) {
     try {
-        const response = await fetch(`/api/bank-reconciliation/reconciliations/${id}`);
+        const response = await fetch(`/api/bank-reconciliation/reconciliations/${id}`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             throw new Error(`Failed: ${response.status}`);
         }
@@ -2156,4 +2176,4 @@ function initBankReconciliationPage() {
 }
 
 // Initialize on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', initBankReconciliationPage);
+document.addEventListener('DOMContentLoade

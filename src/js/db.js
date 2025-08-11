@@ -95,6 +95,10 @@
         try {
             const response = await fetch(url, {
                 ...options,
+                // Always include credentials so that session cookies are sent
+                // with every API request, unless the caller explicitly overrides
+                // this value in the options they pass in.
+                credentials: options.credentials || 'include',
                 signal: controller.signal
             });
             

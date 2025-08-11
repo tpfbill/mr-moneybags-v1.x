@@ -16,6 +16,26 @@
 // =============================================
 // Application State
 // =============================================
+
+// ---------------------------------------------------------------------------
+//  GLOBAL FETCH WRAPPER  – ensure session cookie is sent automatically
+// ---------------------------------------------------------------------------
+(() => {
+    /*  Patch window.fetch so every request includes `credentials: 'include'`
+        unless the caller explicitly sets another value.
+        This guarantees that all API calls made from this module (and any other
+        script loaded afterwards) will carry the session cookie required for
+        authentication without having to modify each individual fetch() call. */
+    const _origFetch = window.fetch;
+    window.fetch = (resource, init = {}) => {
+        // Respect explicit credentials if already provided
+        if (!init.credentials) {
+            init = { ...init, credentials: 'include' };
+        }
+        return _origFetch(resource, init);
+    };
+})();
+
 const reconciliationState = {
     // Selected bank account
     selectedBankAccountId: null,
