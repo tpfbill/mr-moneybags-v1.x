@@ -78,7 +78,9 @@ function getStatusBadgeClass(status) {
 async function fetchEntities() {
     try {
         console.log('Fetching entities from API...');
-        const response = await fetch(`${API_BASE_URL}/api/entities`);
+        const response = await fetch(`${API_BASE_URL}/api/entities`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -121,7 +123,7 @@ async function fetchFunds(entityId = null) {
     try {
         console.log('Fetching funds from API...');
         const url = entityId ? `${API_BASE_URL}/api/funds?entityId=${entityId}` : `${API_BASE_URL}/api/funds`;
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) {
             if (response.status === 404) {
                 console.info('[fetchFunds] /api/funds endpoint not yet implemented - skipping');
@@ -162,7 +164,9 @@ async function fetchFunds(entityId = null) {
 async function fetchBankAccounts() {
     try {
         console.log('Fetching bank accounts from API...');
-        const response = await fetch(`${API_BASE_URL}/api/bank-accounts`);
+        const response = await fetch(`${API_BASE_URL}/api/bank-accounts`, {
+            credentials: 'include'
+        });
 
         if (!response.ok) {
             if (response.status === 404) {
@@ -207,7 +211,9 @@ async function fetchVendors() {
     try {
         console.log('Fetching vendors from API...');
         showLoading();
-        const response = await fetch(`${API_BASE_URL}/api/vendors`);
+        const response = await fetch(`${API_BASE_URL}/api/vendors`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             if (response.status === 404) {
                 console.info('[fetchVendors] /api/vendors endpoint not yet implemented - skipping');
@@ -253,7 +259,9 @@ async function fetchVendors() {
 
 async function fetchVendorBankAccounts(vendorId, targetSelect) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/vendors/${vendorId}/bank-accounts`);
+        const response = await fetch(`${API_BASE_URL}/api/vendors/${vendorId}/bank-accounts`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -284,7 +292,9 @@ async function fetchVendorBankAccounts(vendorId, targetSelect) {
 async function fetchNachaSettings() {
     try {
         console.log('Fetching NACHA settings from API...');
-        const response = await fetch(`${API_BASE_URL}/api/nacha-settings`);
+        const response = await fetch(`${API_BASE_URL}/api/nacha-settings`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             if (response.status === 404) {
                 console.info('[fetchNachaSettings] /api/nacha-settings endpoint not yet implemented - skipping');
@@ -329,7 +339,7 @@ async function fetchBatches() {
         showLoading();
         const statusFilter = document.getElementById('batchStatusFilter')?.value;
         const url = statusFilter ? `${API_BASE_URL}/api/payment-batches?status=${statusFilter}` : `${API_BASE_URL}/api/payment-batches`;
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) {
             if (response.status === 404) {
                 console.info('[fetchBatches] /api/payment-batches endpoint not yet implemented - skipping');
@@ -353,7 +363,9 @@ async function fetchNachaFiles() {
     try {
         console.log('Fetching NACHA files from API...');
         showLoading();
-        const response = await fetch(`${API_BASE_URL}/api/nacha-files`);
+        const response = await fetch(`${API_BASE_URL}/api/nacha-files`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             if (response.status === 404) {
                 console.info('[fetchNachaFiles] /api/nacha-files endpoint not yet implemented - skipping');
@@ -583,6 +595,7 @@ async function createPaymentBatch(batchData) {
         const res = await fetch(`${API_BASE_URL}/api/payment-batches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify(batchData)
         });
 
