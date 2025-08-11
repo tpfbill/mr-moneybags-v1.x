@@ -10,7 +10,9 @@ async function forceLoadEntityData() {
   
   try {
     // Fetch all entities directly from the API
-    const entitiesResponse = await fetch('/api/entities');
+    const entitiesResponse = await fetch('/api/entities', {
+      credentials: 'include'
+    });
     if (!entitiesResponse.ok) {
       throw new Error(`API error: ${entitiesResponse.status}`);
     }
@@ -19,7 +21,9 @@ async function forceLoadEntityData() {
     console.log(`Force Display: Fetched ${entities.length} entities`);
     
     // Fetch all funds
-    const fundsResponse = await fetch('/api/funds');
+    const fundsResponse = await fetch('/api/funds', {
+      credentials: 'include'
+    });
     if (!fundsResponse.ok) {
       throw new Error(`API error: ${fundsResponse.status}`);
     }

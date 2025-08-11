@@ -27,7 +27,9 @@ async function checkDbConnection() {
             method: 'GET',
             headers: {
                 'Accept': 'application/json'
-            }
+            },
+            // Always send browser cookies (session) with this request
+            credentials: 'include'
         });
         
         if (response.ok) {
