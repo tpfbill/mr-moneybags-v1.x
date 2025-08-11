@@ -124,7 +124,8 @@ COMMENT ON TABLE funds IS 'Accounting funds for tracking restricted and unrestri
 -- Accounts table (chart of accounts)
 CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(50) UNIQUE NOT NULL,
+    entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+    code VARCHAR(50) NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     type VARCHAR(50) NOT NULL,
@@ -135,10 +136,12 @@ CREATE TABLE IF NOT EXISTS accounts (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT chk_account_type CHECK (type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
-    CONSTRAINT chk_account_status CHECK (status IN ('active', 'inactive', 'archived'))
+    CONSTRAINT chk_account_status CHECK (status IN ('active', 'inactive', 'archived')),
+    CONSTRAINT unique_account_code_entity UNIQUE(entity_id, code)
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_code ON accounts(code);
 CREATE INDEX IF NOT EXISTS idx_accounts_type ON accounts(type);
+CREATE INDEX IF NOT EXISTS idx_accounts_entity ON accounts(entity_id);
 COMMENT ON TABLE accounts IS 'Chart of accounts for the accounting system';
 
 -- Journal Entries table
@@ -168,23 +171,22 @@ CREATE INDEX IF NOT EXISTS idx_journal_entries_import_id ON journal_entries(impo
 CREATE INDEX IF NOT EXISTS idx_journal_entries_target_entity ON journal_entries(target_entity_id);
 COMMENT ON TABLE journal_entries IS 'Journal entries for recording financial transactions';
 
--- Journal Entry Lines table
-CREATE TABLE IF NOT EXISTS journal_entry_lines (
+-- Journal Entry Items table
+CREATE TABLE IF NOT EXISTS journal_entry_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     journal_entry_id UUID NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
     account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
-    fund_id UUID NOT NULL REFERENCES funds(id) ON DELETE RESTRICT,
+    fund_id UUID REFERENCES funds(id) ON DELETE RESTRICT,
     description TEXT,
-    debit_amount DECIMAL(15,2) DEFAULT 0.00,
-    credit_amount DECIMAL(15,2) DEFAULT 0.00,
-    memo TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    debit DECIMAL(15,4)  DEFAULT 0,
+    credit DECIMAL(15,4) DEFAULT 0,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_journal_entry_lines_je ON journal_entry_lines(journal_entry_id);
-CREATE INDEX IF NOT EXISTS idx_journal_entry_lines_account ON journal_entry_lines(account_id);
-CREATE INDEX IF NOT EXISTS idx_journal_entry_lines_fund ON journal_entry_lines(fund_id);
-COMMENT ON TABLE journal_entry_lines IS 'Line items for journal entries with fund and account assignments';
+CREATE INDEX IF NOT EXISTS idx_journal_entry_items_je      ON journal_entry_items(journal_entry_id);
+CREATE INDEX IF NOT EXISTS idx_journal_entry_items_account ON journal_entry_items(account_id);
+CREATE INDEX IF NOT EXISTS idx_journal_entry_items_fund    ON journal_entry_items(fund_id);
+COMMENT ON TABLE journal_entry_items IS 'Individual line items for journal entries';
 
 -- Custom Report Definitions table
 CREATE TABLE IF NOT EXISTS custom_report_definitions (
