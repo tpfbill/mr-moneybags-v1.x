@@ -643,27 +643,50 @@ BEGIN
     END;
 END $$;
 
--- Insert default chart of accounts
-INSERT INTO accounts (code, name, type, description, balance, status)
-VALUES 
-    ('1000', 'Cash - Operating', 'Asset', 'Primary operating cash account', 325000.00, 'active'),
-    ('1100', 'Cash - Savings', 'Asset', 'Savings account', 750000.00, 'active'),
-    ('1200', 'Accounts Receivable', 'Asset', 'Amounts owed to the organization', 15000.00, 'active'),
-    ('1500', 'Fixed Assets', 'Asset', 'Property and equipment', 500000.00, 'active'),
-    ('2000', 'Accounts Payable', 'Liability', 'Amounts owed by the organization', 12500.00, 'active'),
-    ('2100', 'Accrued Expenses', 'Liability', 'Expenses incurred but not yet paid', 7500.00, 'active'),
-    ('3000', 'Unrestricted Net Assets', 'Equity', 'Unrestricted fund balance', 500000.00, 'active'),
-    ('3100', 'Temporarily Restricted Net Assets', 'Equity', 'Temporarily restricted fund balance', 75000.00, 'active'),
-    ('3200', 'Permanently Restricted Net Assets', 'Equity', 'Permanently restricted fund balance', 1000000.00, 'active'),
-    ('4000', 'Contribution Revenue', 'Revenue', 'Donations and contributions', 0.00, 'active'),
-    ('4100', 'Grant Revenue', 'Revenue', 'Foundation and government grants', 0.00, 'active'),
-    ('4200', 'Program Service Revenue', 'Revenue', 'Fees for services', 0.00, 'active'),
-    ('5000', 'Salaries Expense', 'Expense', 'Staff salaries', 0.00, 'active'),
-    ('5100', 'Benefits Expense', 'Expense', 'Employee benefits', 0.00, 'active'),
-    ('5200', 'Rent Expense', 'Expense', 'Office rent', 0.00, 'active'),
-    ('5300', 'Utilities Expense', 'Expense', 'Utilities for facilities', 0.00, 'active'),
-    ('5400', 'Program Expense', 'Expense', 'Direct program expenses', 0.00, 'active')
-ON CONFLICT (code) DO NOTHING;
+DO $$
+DECLARE
+    main_entity_id UUID;
+BEGIN
+    SELECT id INTO main_entity_id FROM entities WHERE code = 'TPF_MAIN';
+
+    INSERT INTO accounts (entity_id, code, name, type, description, balance, status)
+    VALUES 
+        (main_entity_id, '1000', 'Cash - Operating', 'Asset',
+         'Primary operating cash account', 325000.00, 'active'),
+        (main_entity_id, '1100', 'Cash - Savings', 'Asset',
+         'Savings account', 750000.00, 'active'),
+        (main_entity_id, '1200', 'Accounts Receivable', 'Asset',
+         'Amounts owed to the organization', 15000.00, 'active'),
+        (main_entity_id, '1500', 'Fixed Assets', 'Asset',
+         'Property and equipment', 500000.00, 'active'),
+        (main_entity_id, '2000', 'Accounts Payable', 'Liability',
+         'Amounts owed by the organization', 12500.00, 'active'),
+        (main_entity_id, '2100', 'Accrued Expenses', 'Liability',
+         'Expenses incurred but not yet paid', 7500.00, 'active'),
+        (main_entity_id, '3000', 'Unrestricted Net Assets', 'Equity',
+         'Unrestricted fund balance', 500000.00, 'active'),
+        (main_entity_id, '3100', 'Temporarily Restricted Net Assets', 'Equity',
+         'Temporarily restricted fund balance', 75000.00, 'active'),
+        (main_entity_id, '3200', 'Permanently Restricted Net Assets', 'Equity',
+         'Permanently restricted fund balance', 1000000.00, 'active'),
+        (main_entity_id, '4000', 'Contribution Revenue', 'Revenue',
+         'Donations and contributions', 0.00, 'active'),
+        (main_entity_id, '4100', 'Grant Revenue', 'Revenue',
+         'Foundation and government grants', 0.00, 'active'),
+        (main_entity_id, '4200', 'Program Service Revenue', 'Revenue',
+         'Fees for services', 0.00, 'active'),
+        (main_entity_id, '5000', 'Salaries Expense', 'Expense',
+         'Staff salaries', 0.00, 'active'),
+        (main_entity_id, '5100', 'Benefits Expense', 'Expense',
+         'Employee benefits', 0.00, 'active'),
+        (main_entity_id, '5200', 'Rent Expense', 'Expense',
+         'Office rent', 0.00, 'active'),
+        (main_entity_id, '5300', 'Utilities Expense', 'Expense',
+         'Utilities for facilities', 0.00, 'active'),
+        (main_entity_id, '5400', 'Program Expense', 'Expense',
+         'Direct program expenses', 0.00, 'active')
+    ON CONFLICT (entity_id, code) DO NOTHING;
+END $$;
 
 -- Insert default bank account
 DO $$
