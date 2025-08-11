@@ -82,7 +82,12 @@ app.use(
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
+      // In development we serve the site over plain HTTP, therefore the
+      // session cookie MUST NOT be marked secure or the browser will
+      // refuse to send it back.  Force secure=false here; for production
+      // deployments, override by setting NODE_ENV=production and using a
+      // reverse-proxy/HTTPS terminator in front of Node.
+      secure: false
     }
   })
 );

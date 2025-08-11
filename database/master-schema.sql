@@ -1056,3 +1056,25 @@ VALUES
 --     EXECUTE 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user';
 -- END
 -- $$;
+
+-- ---------------------------------------------------------------------------
+-- PERMISSIONS – GRANT EVERYTHING TO npfadmin
+-- ---------------------------------------------------------------------------
+-- 1) Grant ownership-like privileges on *existing* objects
+GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA public TO npfadmin;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO npfadmin;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO npfadmin;
+
+-- 2) Ensure the application role can INSERT/SELECT/UPDATE/DELETE sessions
+GRANT ALL PRIVILEGES ON TABLE user_sessions TO npfadmin;
+
+-- 3) Grant default privileges for *future* objects created in this schema
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT ALL ON TABLES    TO npfadmin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT ALL ON SEQUENCES TO npfadmin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT ALL ON FUNCTIONS TO npfadmin;
+
+COMMENT ON SCHEMA public IS
+    'Default schema. Full privileges granted to application role npfadmin';

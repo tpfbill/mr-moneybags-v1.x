@@ -1,7 +1,7 @@
 // src/database/connection.js
 const { Pool } = require('pg');
 // Go up to project root then into src/db for DB configuration
-const { getDbConfig } = require('../../src/db/db-config');
+const { getDbConfig } = require('../db/db-config');
 
 // Initialize database connection pool
 const pool = new Pool(getDbConfig());
