@@ -854,8 +854,8 @@ BEGIN
     VALUES (ent_main, CURRENT_DATE - 15, 'JE-0001', 'Cash donation received', 'Posted', 5000.00)
     RETURNING id INTO je1;
 
-    INSERT INTO journal_entry_lines
-        (journal_entry_id, account_id, fund_id, description, debit_amount, credit_amount)
+    INSERT INTO journal_entry_items
+        (journal_entry_id, account_id, fund_id, description, debit, credit)
     VALUES
         (je1, acc_cash, fund_gen, 'Cash in', 5000.00, 0.00),
         (je1, acc_rev, fund_gen, 'Donation revenue', 0.00, 5000.00);
@@ -866,8 +866,8 @@ BEGIN
     VALUES (ent_main, CURRENT_DATE - 10, 'JE-0002', 'Bi-weekly payroll', 'Posted', -3200.00)
     RETURNING id INTO je1;
 
-    INSERT INTO journal_entry_lines
-        (journal_entry_id, account_id, fund_id, description, debit_amount, credit_amount)
+    INSERT INTO journal_entry_items
+        (journal_entry_id, account_id, fund_id, description, debit, credit)
     VALUES
         (je1, acc_exp,  fund_gen, 'Gross payroll', 3200.00, 0.00),
         (je1, acc_cash, fund_gen, 'Cash out',      0.00, 3200.00);
