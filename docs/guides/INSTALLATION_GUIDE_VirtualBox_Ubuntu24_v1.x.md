@@ -5,7 +5,7 @@
 
 ---
 
-## 0 Document Scope & Audience  
+## 0 Document Scope & Audience  
 This guide walks you through a **clean, reproducible installation** of the **Mr-MoneyBags v1.x** fund-accounting system in an **Ubuntu 24.04 LTS** virtual machine running under **Oracle VM VirtualBox** on a Windows / macOS host.  
 It reflects every feature delivered through July 2025, including:  
 
@@ -17,12 +17,12 @@ It reflects every feature delivered through July 2025, including:
 
 ---
 
-## 1 System Overview (v1.x)  
+## 1 System Overview (v1.x)  
 | Layer | Key Components | Notes |
 |-------|----------------|-------|
 | Front-end | Modular HTML 5, CSS 3, **ES Modules** | Split per feature → faster load, avoids truncation |
 | Back-end | Node 18, Express 5, REST API | server-modular.js autoloads routes |
-| Database | PostgreSQL 16 | master-schema.sql covers **24 tables** |
+| Database | PostgreSQL 16 | `schema-only.sql` + `sample-data-part1.sql` + `sample-data-part2.sql` |
 | Banking Modules | Bank Reconciliation (5 tables), Bank Deposits (2), Check Printing (2) | full CRUD & workflows |
 | Security | bcrypt, express-session, connect-pg-simple | sessions stored in DB |
 | Utilities | multer, csv-parser | file uploads (statements, checks) |
@@ -30,7 +30,7 @@ It reflects every feature delivered through July 2025, including:
 
 ---
 
-## 2 Prerequisites & Host Requirements  
+## 2 Prerequisites & Host Requirements  
 
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
@@ -47,7 +47,7 @@ New runtime packages pulled inside the guest:
 
 ---
 
-## 3 Create the VirtualBox VM  
+## 3 Create the VirtualBox VM  
 
 1. Download  
    • VirtualBox 7+: <https://www.virtualbox.org/wiki/Downloads>  
@@ -69,7 +69,7 @@ New runtime packages pulled inside the guest:
 
 ---
 
-## 4 Install Runtime Dependencies (Guest)  
+## 4 Install Runtime Dependencies (Guest)  
 
 ```bash
 # Essential tools
@@ -91,9 +91,9 @@ Verify: `node -v` → 18.x, `npm -v` 10+, `psql -V` 16.x.
 
 ---
 
-## 5 Application Installation  
+## 5 Application Installation  
 
-### 5.1 Clone Repository  
+### 5.1 Clone Repository  
 
 ```bash
 sudo mkdir -p /opt && cd /opt
@@ -102,7 +102,7 @@ sudo chown -R $USER:$USER mr-moneybags-v1.x
 cd mr-moneybags-v1.x
 ```
 
-### 5.2 Create `.env`  
+### 5.2 Create `.env`  
 
 ```bash
 cat > .env <<'EOF'
@@ -120,7 +120,7 @@ EOF
 chmod 600 .env
 ```
 
-### 5.3 Install Node Dependencies  
+### 5.3 Install Node Dependencies  
 
 ```bash
 npm ci
@@ -131,39 +131,29 @@ Key packages now included:
 
 ---
 
-## 6 Database Setup – **Master Schema**  
+## 6 Database Setup – **Master Schema**  
 
-### 6.1 Automated (recommended)  
-
-```bash
-scripts/setup-ubuntu-database.sh
-```
-
-The script:  
-1. Starts PostgreSQL service.  
-2. Creates role **npfadmin / npfa123**.  
-3. Creates DB **fund_accounting_db**.  
-4. Runs **database/master-schema.sql** (24 tables, constraints, indexes).  
-5. Runs **database/load-sample-data.sql** (complete demo dataset).  
-6. Seeds admin / user accounts (bcrypt hashed).  
-7. Verifies connectivity using psql.
-
-### 6.2 Manual  
+### 6.1 Database Setup Commands  
 
 ```bash
-# 1. Role & DB
+# Run the manual setup commands:
 sudo -u postgres psql -f database/create-role-and-db.sql
-
-# 2. Schema
-sudo -u postgres psql -d fund_accounting_db -f database/master-schema.sql
-
-# 3. Sample data
-sudo -u postgres psql -d fund_accounting_db -f database/load-sample-data.sql
+sudo -u postgres psql -d fund_accounting_db -f database/schema-only.sql
+sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part1.sql
+sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part2.sql
 ```
+
+These commands:  
+1. Create role **npfadmin / npfa123** and database **fund_accounting_db**.  
+2. Set up the complete schema (24 tables with all constraints and indexes).  
+3. Load comprehensive sample data in two passes to avoid SQL-size limits:  
+   * First pass: core users, entities, funds, first half of accounts  
+   * Second pass: remaining accounts, journal entries, vendors & banking fixtures  
+4. Seed admin / user accounts with bcrypt-hashed passwords.
 
 ---
 
-## 7 Authentication & Security Configuration  
+## 7 Authentication & Security Configuration  
 
 1. **Password Hashing** – handled automatically via `bcrypt`.  
 2. **Sessions** – stored in DB (`user_sessions` table) by `express-session` + `connect-pg-simple`.  
@@ -173,7 +163,7 @@ sudo -u postgres psql -d fund_accounting_db -f database/load-sample-data.sql
 
 ---
 
-## 8 Banking Modules Configuration  
+## 8 Banking Modules Configuration  
 
 | Module | API Mount | Front-end File | Key Extras |
 |--------|-----------|---------------|------------|
@@ -186,7 +176,7 @@ If you change mount paths, update corresponding JS modules in `src/js/`.
 
 ---
 
-## 9 Run the Application  
+## 9 Run the Application  
 
 ```bash
 # Terminal 1 – API (port 3000)
@@ -203,7 +193,7 @@ Login with seeded credentials:
 
 ---
 
-## 10 Comprehensive Verification Checklist  
+## 10 Comprehensive Verification Checklist  
 
 | # | Area | Steps | Expected |
 |---|------|-------|----------|
@@ -222,11 +212,11 @@ For full 295-case matrix see **Verification Procedure v1.x (Part 1 & 2)**.
 
 ---
 
-## 11 Troubleshooting  
+## 11 Troubleshooting  
 
 | Symptom | Remedy |
 |---------|--------|
-| *“Failed to fetch reconciliations”* | Check fetch URLs include `credentials: 'include'`; verify session cookie not blocked. |
+| *"Failed to fetch reconciliations"* | Check fetch URLs include `credentials: 'include'`; verify session cookie not blocked. |
 | 404 on `/api/check-formats` | Ensure **check-formats.js** route registered **before** `/api/checks/:id` in server-modular.js |
 | Blank dropdowns (entities / funds) | Rerun **load-sample-data.sql**; restart API |
 | `bcrypt` install fails | `sudo apt install -y build-essential python3` then `npm ci` |
@@ -235,7 +225,7 @@ For full 295-case matrix see **Verification Procedure v1.x (Part 1 & 2)**.
 
 ---
 
-## 12 Performance Optimisation  
+## 12 Performance Optimisation  
 
 1. VM → enable **Nested Paging**, **KVM** paravirtualisation.  
 2. PostgreSQL tuning (`/etc/postgresql/16/main/postgresql.conf`):  
@@ -250,7 +240,7 @@ For full 295-case matrix see **Verification Procedure v1.x (Part 1 & 2)**.
 
 ---
 
-## 13 Security Hardening  
+## 13 Security Hardening  
 
 * Change default passwords, regenerate **SESSION_SECRET**.  
 * Enforce HTTPS (reverse-proxy) for production.  
@@ -265,7 +255,7 @@ For full 295-case matrix see **Verification Procedure v1.x (Part 1 & 2)**.
 
 ---
 
-## 14 Appendix A – Useful Commands  
+## 14 Appendix A – Useful Commands  
 
 ```bash
 # Stop services

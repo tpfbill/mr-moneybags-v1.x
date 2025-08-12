@@ -275,37 +275,30 @@ chmod 600 .env</code></pre>
     <hr>
 
     <h2>6 Database Setup</h2>
-    <h3>Option A (one-line, interactive)</h3>
-    <p>Run the hardened Ubuntu helper script (idempotent):</p>
-    <pre><code>scripts/setup-ubuntu-database.sh</code></pre>
+    <h3>Database Setup Commands</h3>
+    <pre><code># Run the manual setup commands:
+sudo -u postgres psql -f database/create-role-and-db.sql
+sudo -u postgres psql -d fund_accounting_db -f database/schema-only.sql
+sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part1.sql
+sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part2.sql</code></pre>
 
     <blockquote>
         <p><strong>Note</strong> All schema and data-load files live in the repository's<br>
-        top-level <code>database/</code> directory (e.g. <code>database/db-init.sql</code>).<br>
-        The helper script already points there, but if you customise it ensure you <strong>do not</strong> prefix<br>
-        the path with <code>scripts/</code>.</p>
+        top-level <code>database/</code> directory.</p>
     </blockquote>
 
-    <p>The script:</p>
+    <p>These commands:</p>
     <ol>
-        <li>Ensures PostgreSQL service is running.</li>
-        <li>Creates role <strong>npfadmin / npfa123</strong>.</li>
-        <li>Creates database <strong>fund_accounting_db</strong> owned by <code>npfadmin</code>.</li>
-        <li>Executes <strong><code>database/db-init.sql</code></strong> which creates <strong>all 15 tables, constraints, indexes</strong>.</li>
-        <li>Loads full sample data (vendors, NACHA settings, payment batches, etc.) via<br>
-        <strong><code>database/insert-complete-nacha-data.sql</code></strong>.</li>
-        <li>Writes/updates the <code>.env</code> file and verifies connectivity.</li>
+        <li>Create role <strong>npfadmin / npfa123</strong> and database <strong>fund_accounting_db</strong>.</li>
+        <li>Set up the complete schema (24 tables with all constraints and indexes).</li>
+        <li>Load <em>comprehensive</em> sample data in two passes to avoid SQL-size limits:
+            <ul>
+                <li><strong><code>database/sample-data-part1.sql</code></strong> – core users, entities, funds, first half of accounts</li>
+                <li><strong><code>database/sample-data-part2.sql</code></strong> – remaining accounts, journal entries, vendors & banking fixtures</li>
+            </ul>
+        </li>
+        <li>Seed admin / user accounts with bcrypt-hashed passwords.</li>
     </ol>
-
-    <h3>Option B (manual)</h3>
-    <pre><code># 1. Create role & DB (cross-platform SQL)
-sudo -u postgres psql -f database/setup-database-cross-platform.sql
-
-# 2. Consolidated schema  (creates every table & constraint)
-sudo -u postgres psql -d fund_accounting_db -f database/db-init.sql
-
-# 3. Sample data (optional / idempotent)
-sudo -u postgres psql -d fund_accounting_db -f database/insert-complete-nacha-data.sql</code></pre>
 
     <hr>
 
@@ -365,7 +358,7 @@ npm start        # backend only (server-modular.js)</code></pre>
             <tr>
                 <td>DB inspection</td>
                 <td><code>psql -d fund_accounting_db -c '\dt'</code></td>
-                <td>15 tables incl. <code>payment_batches</code>, <code>nacha_files</code></td>
+                <td>24 tables including banking modules</td>
             </tr>
         </tbody>
     </table>
@@ -391,19 +384,11 @@ npm start        # backend only (server-modular.js)</code></pre>
             </tr>
             <tr>
                 <td>Empty dropdowns (batch modal)</td>
-                <td>Re-run step 6.3 (NACHA schema) & restart API</td>
-            </tr>
-            <tr>
-                <td>Empty dropdowns (batch modal)</td>
-                <td>Run <code>database/insert-complete-nacha-data.sql</code> & restart API</td>
+                <td>Re-run schema and sample data scripts & restart API</td>
             </tr>
             <tr>
                 <td>CSS not updating</td>
                 <td>Hard-refresh (Ctrl-F5) or <code>--no-cache</code> flag</td>
-            </tr>
-            <tr>
-                <td>Script permission denied</td>
-                <td><code>chmod +x scripts/setup-ubuntu-database.sh</code></td>
             </tr>
         </tbody>
     </table>
@@ -448,8 +433,9 @@ sudo -u postgres pg_dump -Fc fund_accounting_db > fundacct_$(date +%F).dump
 sudo -u postgres pg_restore -d fund_accounting_db -c fundacct_2025-07-22.dump
 
 # Refresh schema and sample data
-psql -U npfadmin -d fund_accounting_db -f database/db-init.sql
-psql -U npfadmin -d fund_accounting_db -f database/insert-complete-nacha-data.sql</code></pre>
+psql -U npfadmin -d fund_accounting_db -f database/schema-only.sql
+psql -U npfadmin -d fund_accounting_db -f database/sample-data-part1.sql
+psql -U npfadmin -d fund_accounting_db -f database/sample-data-part2.sql</code></pre>
 
     <hr>
 
@@ -459,7 +445,7 @@ psql -U npfadmin -d fund_accounting_db -f database/insert-complete-nacha-data.sq
     <div style="text-align: center; margin-top: 50px; font-size: 10pt; color: #777;">
         <p>Mr. MoneyBags v1.x Documentation<br>
         © 2025 The Principle Foundation<br>
-        Last updated: August 6, 2025</p>
+        Last updated: August 12, 2025</p>
     </div>
 </body>
 </html>
