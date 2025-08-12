@@ -33,6 +33,11 @@ database/backups/
 database/dumps/
 !database/db-init.sql
 !database/insert-complete-nacha-data.sql
+!database/setup-database-cross-platform.sql
+!database/master-schema.sql
+!database/schema-only.sql
+!database/sample-data-part1.sql
+!database/sample-data-part2.sql
 
 # Log files
 logs/
