@@ -176,6 +176,43 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /api/bank-deposits/types
+ * Returns available deposit types
+ */
+router.get('/types', asyncHandler(async (req, res) => {
+    // Return predefined deposit types
+    const depositTypes = [
+        { id: 'Regular',   name: 'Regular Deposit' },
+        { id: 'ATM',       name: 'ATM Deposit' },
+        { id: 'Mobile',    name: 'Mobile Deposit' },
+        { id: 'Wire',      name: 'Wire Transfer' },
+        { id: 'ACH',       name: 'ACH Transfer' },
+        { id: 'Cash',      name: 'Cash Deposit' },
+        { id: 'Mixed',     name: 'Mixed Deposit' }
+    ];
+
+    res.json(depositTypes);
+}));
+
+/**
+ * GET /api/bank-deposits/item-types
+ * Returns available deposit item types
+ */
+router.get('/item-types', asyncHandler(async (req, res) => {
+    // Return predefined deposit item types
+    const itemTypes = [
+        { id: 'Cash',          name: 'Cash' },
+        { id: 'Check',         name: 'Check' },
+        { id: 'Electronic',    name: 'Electronic Transfer' },
+        { id: 'Money Order',   name: 'Money Order' },
+        { id: 'Cashier Check', name: 'Cashier\'s Check' },
+        { id: 'Other',         name: 'Other' }
+    ];
+
+    res.json(itemTypes);
+}));
+
+/**
  * GET /api/bank-deposits/:id
  * Returns a specific bank deposit with its items
  */
@@ -859,43 +896,6 @@ router.get('/slip/:id', asyncHandler(async (req, res) => {
     };
     
     res.json(depositSlip);
-}));
-
-/**
- * GET /api/bank-deposits/types
- * Returns available deposit types
- */
-router.get('/types', asyncHandler(async (req, res) => {
-    // Return predefined deposit types
-    const depositTypes = [
-        { id: 'Regular', name: 'Regular Deposit' },
-        { id: 'ATM', name: 'ATM Deposit' },
-        { id: 'Mobile', name: 'Mobile Deposit' },
-        { id: 'Wire', name: 'Wire Transfer' },
-        { id: 'ACH', name: 'ACH Transfer' },
-        { id: 'Cash', name: 'Cash Deposit' },
-        { id: 'Mixed', name: 'Mixed Deposit' }
-    ];
-    
-    res.json(depositTypes);
-}));
-
-/**
- * GET /api/bank-deposits/item-types
- * Returns available deposit item types
- */
-router.get('/item-types', asyncHandler(async (req, res) => {
-    // Return predefined deposit item types
-    const itemTypes = [
-        { id: 'Cash', name: 'Cash' },
-        { id: 'Check', name: 'Check' },
-        { id: 'Electronic', name: 'Electronic Transfer' },
-        { id: 'Money Order', name: 'Money Order' },
-        { id: 'Cashier Check', name: 'Cashier\'s Check' },
-        { id: 'Other', name: 'Other' }
-    ];
-    
-    res.json(itemTypes);
 }));
 
 module.exports = router;
