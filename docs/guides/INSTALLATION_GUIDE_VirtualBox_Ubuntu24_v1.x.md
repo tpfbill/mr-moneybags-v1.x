@@ -137,7 +137,7 @@ Key packages now included:
 
 ```bash
 # Run the manual setup commands:
-sudo -u postgres psql -f database/create-role-and-db.sql
+sudo -u postgres psql -f database/setup-database-cross-platform.sql
 sudo -u postgres psql -d fund_accounting_db -f database/schema-only.sql
 sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part1.sql
 sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part2.sql

@@ -277,7 +277,7 @@ chmod 600 .env</code></pre>
     <h2>6 Database Setup</h2>
     <h3>Database Setup Commands</h3>
     <pre><code># Run the manual setup commands:
-sudo -u postgres psql -f database/create-role-and-db.sql
+sudo -u postgres psql -f database/setup-database-cross-platform.sql
 sudo -u postgres psql -d fund_accounting_db -f database/schema-only.sql
 sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part1.sql
 sudo -u postgres psql -d fund_accounting_db -f database/sample-data-part2.sql</code></pre>
