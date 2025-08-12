@@ -273,7 +273,7 @@ router.post('/', asyncHandler(async (req, res) => {
  * GET /api/check-formats
  * Returns all check formats
  */
-router.get('/check-formats', asyncHandler(async (req, res) => {
+// DISABLED: router.get('/check-formats', asyncHandler(async (req, res) => {
     const { rows } = await pool.query(`
         SELECT * FROM check_formats
         ORDER BY is_default DESC, format_name ASC
