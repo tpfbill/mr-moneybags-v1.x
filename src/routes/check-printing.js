@@ -647,6 +647,36 @@ router.post('/formats/:id/set-default', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /api/checks/next-number/:bankAccountId
+ * Get next available check number for a bank account
+ */
+router.get('/next-number/:bankAccountId', asyncHandler(async (req, res) => {
+    const { bankAccountId } = req.params;
+    
+    // Validate bank account exists
+    const bankAccountCheck = await pool.query('SELECT id FROM bank_accounts WHERE id = $1', [bankAccountId]);
+    if (bankAccountCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Bank account not found' });
+    }
+    
+    // Get highest check number for the bank account
+    const { rows } = await pool.query(`
+        SELECT MAX(CAST(check_number AS INTEGER)) as max_number
+        FROM printed_checks
+        WHERE bank_account_id = $1
+        AND check_number ~ '^[0-9]+$'
+    `, [bankAccountId]);
+    
+    let nextNumber = 10001; // Default starting number
+    
+    if (rows[0].max_number) {
+        nextNumber = parseInt(rows[0].max_number) + 1;
+    }
+    
+    res.json({ next_number: nextNumber.toString() });
+}));
+
+/**
  * GET /api/checks/:id
  * Returns a specific check
  */
@@ -994,36 +1024,6 @@ router.post('/:id/clear', asyncHandler(async (req, res) => {
 // ========================================================
 // Check Number Management Routes
 // ========================================================
-
-/**
- * GET /api/checks/next-number/:bankAccountId
- * Get next available check number for a bank account
- */
-router.get('/next-number/:bankAccountId', asyncHandler(async (req, res) => {
-    const { bankAccountId } = req.params;
-    
-    // Validate bank account exists
-    const bankAccountCheck = await pool.query('SELECT id FROM bank_accounts WHERE id = $1', [bankAccountId]);
-    if (bankAccountCheck.rows.length === 0) {
-        return res.status(404).json({ error: 'Bank account not found' });
-    }
-    
-    // Get highest check number for the bank account
-    const { rows } = await pool.query(`
-        SELECT MAX(CAST(check_number AS INTEGER)) as max_number
-        FROM printed_checks
-        WHERE bank_account_id = $1
-        AND check_number ~ '^[0-9]+$'
-    `, [bankAccountId]);
-    
-    let nextNumber = 10001; // Default starting number
-    
-    if (rows[0].max_number) {
-        nextNumber = parseInt(rows[0].max_number) + 1;
-    }
-    
-    res.json({ next_number: nextNumber.toString() });
-}));
 
 /**
  * POST /api/checks/validate-number
