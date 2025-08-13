@@ -57,7 +57,10 @@ export async function fetchData(endpoint) {
             credentials: 'include' // include cookies for session authentication
         });
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
+            // Preserve HTTP status for callers that need granular handling
+            const err = new Error(`API Error: ${response.status}`);
+            err.status = response.status;
+            throw err;
         }
         const data = await response.json();
         console.log(`Received ${Array.isArray(data) ? data.length : 1} item(s) from /api/${endpoint}`);
@@ -86,7 +89,9 @@ export async function saveData(endpoint, data, method = 'POST') {
             body: JSON.stringify(data)
         });
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
+            const err = new Error(`API Error: ${response.status}`);
+            err.status = response.status;
+            throw err;
         }
         return await response.json();
     } catch (error) {
