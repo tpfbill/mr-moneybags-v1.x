@@ -1007,13 +1007,25 @@ export async function saveUser(event) {
     // Validate form
     if (!validateForm(form)) return;
     
-    // Get form data
+    // Derive first_name and last_name from the single \"Full Name\" field
+    const fullName   = form.elements['user-name'].value.trim();
+    let firstName    = fullName;
+    let lastName     = '';
+
+    if (fullName.includes(' ')) {
+        const parts  = fullName.split(/\s+/);
+        lastName     = parts.pop();
+        firstName    = parts.join(' ');
+    }
+
+    // Build payload expected by the backend
     const data = {
-        name: form.elements['user-name'].value,
-        email: form.elements['user-email'].value,
-        username: form.elements['user-username'].value,
-        role: form.elements['user-role'].value,
-        status: form.elements['user-status'].value
+        first_name : firstName,
+        last_name  : lastName,
+        email      : form.elements['user-email'].value,
+        username   : form.elements['user-username'].value,
+        role       : form.elements['user-role'].value,
+        status     : form.elements['user-status'].value
     };
     
     // Add password if provided
