@@ -146,6 +146,7 @@ function renderReconciliations(recs){
       <td>${formatDate(rec.statement_date)}</td>
       <td>${formatCurrency(rec.statement_balance)}</td>
       <td>${formatCurrency(rec.book_balance)}</td>
+      <td>${formatCurrency(rec.statement_balance - rec.book_balance)}</td>
       <td>${getStatusBadgeHtml(rec.status)}</td>
       <td><button class="action-btn view-btn" data-id="${rec.id}">View</button></td>`;
     tr.querySelector('.view-btn').addEventListener('click',()=>handleReconciliationRowClick(rec.id));
