@@ -16,6 +16,7 @@ SET client_min_messages TO WARNING;
 
 -- Set password encryption method (if available)
 DO $$
+BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'npfadmin') THEN
         CREATE ROLE npfadmin LOGIN PASSWORD 'npfa123';
         RAISE NOTICE 'Created role: npfadmin';
