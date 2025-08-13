@@ -13,6 +13,10 @@ APP_DIR="/opt/mr-moneybags"  # Application installation directory
 SERVICE_NAME="mr-moneybags"  # Systemd service name
 RUN_USER="mrmb"  # System user to run the application
 
+# HTTP / TLS behaviour
+# Set to "true" via CLI flag --http-only to skip certbot and serve plain HTTP.
+HTTP_ONLY="false"
+
 # ---------------------------------------------------------------------------
 # Database-related defaults (override via CLI or .env)
 # ---------------------------------------------------------------------------
@@ -46,6 +50,7 @@ Options:
   --app-dir=PATH         Install directory (default: $APP_DIR)
   --user=USERNAME        System user to run service (default: $RUN_USER)
   --db=MODE              Database setup mode (skip|create|schema|full|macdump|principle)
+  --http-only           Configure Nginx for HTTP only (no SSL/certbot)
   -h, --help             Show this help and exit
 
 Database modes:
@@ -70,6 +75,7 @@ for arg in "$@"; do
     --app-dir=*)     APP_DIR="${arg#*=}"      ;;
     --user=*)        RUN_USER="${arg#*=}"     ;;
     --db=*)          DB_MODE="${arg#*=}"      ;;
+    --http-only)     HTTP_ONLY="true"         ;;
     -h|--help)       usage                    ;;
     *)               echo "Unknown option: $arg"; usage ;;
   esac
@@ -343,30 +349,71 @@ systemctl enable "$SERVICE_NAME"
 systemctl start "$SERVICE_NAME"
 success "Systemd service enabled and started"
 
+# If running HTTP-only we must ensure cookies are not marked “secure”
+if [[ "$HTTP_ONLY" == "true" ]]; then
+  sed -i "s|Environment=NODE_ENV=production|Environment=NODE_ENV=development|g" "$SYSTEMD_FILE" || true
+  systemctl daemon-reload
+  systemctl restart "$SERVICE_NAME"
+  success "Adjusted service to NODE_ENV=development for HTTP-only (non-secure cookies)"
+fi
+
 section "Setting Up Nginx"
-# Create webroot for Let's Encrypt
-mkdir -p /var/www/letsencrypt
-chown -R www-data:www-data /var/www/letsencrypt
-
-# Install certbot
-apt-get install -y certbot python3-certbot-nginx
-
-# Copy and configure Nginx site
 NGINX_CONF="/etc/nginx/sites-available/$SERVICE_NAME.conf"
+# -------------------------------------------------------------------------
+# HTTPS (default) vs HTTP-only configuration
+# -------------------------------------------------------------------------
+if [[ "$HTTP_ONLY" != "true" ]]; then
+  # --------------------------  HTTPS  ------------------------------------
+  # Create webroot for Let's Encrypt challenges
+  mkdir -p /var/www/letsencrypt
+  chown -R www-data:www-data /var/www/letsencrypt
 
-if [[ -f deployment/ubuntu24/nginx/mr-moneybags.conf ]]; then
-  cp deployment/ubuntu24/nginx/mr-moneybags.conf "$NGINX_CONF"
-  
-  # Update domain and root if they differ from defaults
-  sed -i "s|accounting.example.org|$DOMAIN|g" "$NGINX_CONF"
-  
-  if [[ "$APP_DIR" != "/opt/mr-moneybags" ]]; then
-    sed -i "s|root /opt/mr-moneybags;|root $APP_DIR;|g" "$NGINX_CONF"
+  # Install certbot & its nginx plugin
+  apt-get install -y certbot python3-certbot-nginx
+
+  if [[ -f deployment/ubuntu24/nginx/mr-moneybags.conf ]]; then
+    cp deployment/ubuntu24/nginx/mr-moneybags.conf "$NGINX_CONF"
+    # Replace domain & root path tokens
+    sed -i "s|accounting.example.org|$DOMAIN|g" "$NGINX_CONF"
+    if [[ "$APP_DIR" != "/opt/mr-moneybags" ]]; then
+      sed -i "s|root /opt/mr-moneybags;|root $APP_DIR;|g" "$NGINX_CONF"
+    fi
+    success "Created HTTPS Nginx configuration: $NGINX_CONF"
+  else
+    error "Nginx configuration template not found at deployment/ubuntu24/nginx/mr-moneybags.conf"
   fi
-  
-  success "Created Nginx configuration: $NGINX_CONF"
 else
-  error "Nginx configuration template not found at deployment/ubuntu24/nginx/mr-moneybags.conf"
+  # --------------------------  HTTP-only  ---------------------------------
+  cat > "$NGINX_CONF" <<HTTP_ONLY_CONF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+
+    root $APP_DIR;
+    index index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+HTTP_ONLY_CONF
+  success "Created HTTP-only Nginx configuration: $NGINX_CONF"
 fi
 
 # Enable site
@@ -379,15 +426,29 @@ nginx -t
 systemctl reload nginx
 success "Nginx configuration applied"
 
-section "Obtaining SSL Certificate"
-echo "To obtain an SSL certificate, run the following command:"
-echo -e "${YELLOW}  certbot --nginx -d $DOMAIN${RESET}"
-echo "Or for non-interactive mode:"
-echo -e "${YELLOW}  certbot --nginx --non-interactive --agree-tos --email your-email@example.com -d $DOMAIN${RESET}"
+# ---------------------------------------------------------------------------
+# SSL certificate instructions (only when HTTPS mode)
+# ---------------------------------------------------------------------------
+if [[ "$HTTP_ONLY" != "true" ]]; then
+  section "Obtaining SSL Certificate"
+  echo "To obtain an SSL certificate, run the following command:"
+  echo -e "${YELLOW}  certbot --nginx -d $DOMAIN${RESET}"
+  echo "Or for non-interactive mode:"
+  echo -e "${YELLOW}  certbot --nginx --non-interactive --agree-tos --email your-email@example.com -d $DOMAIN${RESET}"
+else
+  section "Running in HTTP-only mode"
+  echo "This installation is configured for plain HTTP.  To enable HTTPS later:"
+  echo -e "${YELLOW}  sudo apt-get install -y certbot python3-certbot-nginx${RESET}"
+  echo -e "${YELLOW}  sudo certbot --nginx -d $DOMAIN --redirect${RESET}"
+fi
 
 section "Configuring Firewall"
 ufw allow OpenSSH
-ufw allow 'Nginx Full'
+if [[ "$HTTP_ONLY" == "true" ]]; then
+  ufw allow 'Nginx HTTP'
+else
+  ufw allow 'Nginx Full'
+fi
 
 if ! ufw status | grep -q "Status: active"; then
   echo "Enabling UFW firewall..."
@@ -400,13 +461,21 @@ fi
 section "Installation Complete"
 echo "Mr. MoneyBags has been installed and configured!"
 echo -e "Service status: ${BOLD}systemctl status $SERVICE_NAME${RESET}"
-echo -e "Check API health: ${BOLD}curl -k https://$DOMAIN/api/health${RESET}"
+# Show correct health-check URL for the chosen protocol
+if [[ "$HTTP_ONLY" == "true" ]]; then
+  echo -e "Check API health: ${BOLD}curl http://$DOMAIN/api/health${RESET}"
+else
+  echo -e "Check API health: ${BOLD}curl -k https://$DOMAIN/api/health${RESET}"
+fi
 echo -e "View logs: ${BOLD}journalctl -u $SERVICE_NAME -f${RESET}"
 echo ""
 echo -e "${YELLOW}IMPORTANT:${RESET} Remember to:"
 echo "1. Edit your .env file with proper database credentials"
 echo "2. Obtain SSL certificate using certbot command above"
 echo "3. Update your DNS records to point $DOMAIN to this server's IP address"
+if [[ "$HTTP_ONLY" == "true" ]]; then
+  echo "   (Running in HTTP-only mode. You can enable HTTPS later with certbot.)"
+fi
 echo ""
 echo "DB setup mode used: $DB_MODE (override with --db=skip|create|schema|full|macdump|principle)"
 echo ""
