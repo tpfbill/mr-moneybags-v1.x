@@ -788,8 +788,14 @@
 
     <!-- Application scripts -->
     <script src="src/js/app.js?v=20250806150000"></script>
-    <!-- Updated to use optimised core module -->
-    <script src="src/js/bank-reconciliation-core.js?v=20250806150000"></script>
+
+    <!-- Bank-reconciliation modular bundle -->
+    <script src="src/js/bank-reconciliation-shared.js"></script>
+    <script src="src/js/bank-reconciliation-api.js"></script>
+    <script src="src/js/bank-reconciliation-render.js"></script>
+    <script src="src/js/bank-reconciliation-dnd.js"></script>
+    <script src="src/js/bank-reconciliation-handlers.js"></script>
+    <script src="src/js/bank-reconciliation-init.js"></script>
 
     <!-- Fallback initializer to ensure workspace loads even if core listener is truncated -->
     <script src="src/js/bank-reconciliation-init-fallback.js"></script>
