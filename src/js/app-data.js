@@ -23,6 +23,7 @@ let updateDashboardUnpostedEntries;
 let updateEntityHierarchyVisualization;
 let initializeDashboardCharts;
 let updateFundReportsFilters; // <-- Fund Reports dropdown updater
+let updateBankAccountsTable; // <-- Bank Accounts table updater
 
 /**
  * Set UI update functions - called from app-main.js to connect the data layer with UI updates
@@ -43,6 +44,7 @@ export function setUIUpdaters(uiUpdaters) {
     updateEntityHierarchyVisualization = uiUpdaters.updateEntityHierarchyVisualization;
     initializeDashboardCharts = uiUpdaters.initializeDashboardCharts;
     updateFundReportsFilters = uiUpdaters.updateFundReportsFilters;
+    updateBankAccountsTable = uiUpdaters.updateBankAccountsTable;
 }
 
 /**
@@ -255,6 +257,56 @@ export async function loadJournalEntryData() {
 }
 
 /**
+ * Load bank account data and update UI
+ * @returns {Promise<Array>} - Loaded bank accounts
+ */
+export async function loadBankAccountData() {
+    try {
+        const bankAccounts = await fetchData('bank-accounts');
+        appState.bankAccounts = bankAccounts;
+        
+        // Update bank accounts table if UI updater is available
+        if (typeof updateBankAccountsTable === 'function') {
+            updateBankAccountsTable();
+        }
+        
+        return bankAccounts;
+    } catch (error) {
+        console.error('Error loading bank account data:', error);
+        return [];
+    }
+}
+
+/**
+ * Sync all bank accounts with external systems
+ * @returns {Promise<Array>} - Updated bank accounts
+ */
+export async function syncBankAccounts() {
+    try {
+        console.log('Syncing bank accounts...');
+        
+        // Use Promise.all to sync all accounts in parallel
+        await Promise.all(appState.bankAccounts.map(async (account) => {
+            try {
+                await fetch(`${API_BASE}/api/bank-accounts/${account.id}/sync`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                console.log(`Synced bank account: ${account.account_name}`);
+            } catch (error) {
+                console.error(`Error syncing bank account ${account.account_name}:`, error);
+            }
+        }));
+        
+        // Reload bank account data to get updated sync timestamps
+        return await loadBankAccountData();
+    } catch (error) {
+        console.error('Error syncing bank accounts:', error);
+        return [];
+    }
+}
+
+/**
  * Load user data and update UI
  * @returns {Promise<Array>} - Loaded users
  */
@@ -326,7 +378,8 @@ export async function loadAllCoreData() {
             loadFundData(),
             loadAccountData(),
             loadJournalEntryData(),
-            loadUserData()
+            loadUserData(),
+            loadBankAccountData() // Add bank accounts to core data loading
         ]);
         
         // Update entity hierarchy visualization after all data is loaded

@@ -18,6 +18,7 @@ let loadAccountData;
 let loadJournalEntryData;
 let loadUserData;
 let loadDashboardData;
+let loadBankAccountData; // <-- NEW
 
 /**
  * Set data loading functions - called from app-main.js to connect modals with data refresh
@@ -30,6 +31,7 @@ export function setDataLoaders(dataLoaders) {
     loadJournalEntryData = dataLoaders.loadJournalEntryData;
     loadUserData = dataLoaders.loadUserData;
     loadDashboardData = dataLoaders.loadDashboardData;
+    loadBankAccountData = dataLoaders.loadBankAccountData;
 }
 
 /**
@@ -938,6 +940,117 @@ export async function deleteJournalEntry(id) {
 }
 
 /* --------------------------------------------------------------
+ * Bank Account Modal Functions
+ * -------------------------------------------------------------- */
+
+/**
+ * Open bank-account modal for creation or editing
+ * @param {string} [id] - Bank-account UUID for editing, omit for creation
+ */
+export async function openBankAccountModal(id) {
+    const modal   = document.getElementById('bank-account-modal');
+    const form    = modal.querySelector('form');
+    const titleEl = modal.querySelector('.modal-title');
+
+    // Reset form & meta
+    form.reset();
+    form.dataset.id = id || '';
+
+    // Title
+    titleEl.textContent = id ? 'Edit Bank Account' : 'Add Bank Account';
+
+    if (id) {
+        try {
+            const acct = await fetchData(`bank-accounts/${id}`);
+            form.querySelector('#bank-name-select').value              = acct.bank_name           || '';
+            form.querySelector('#bank-account-name-input').value       = acct.account_name        || '';
+            form.querySelector('#bank-account-number-input').value     = acct.account_number      || '';
+            form.querySelector('#routing-number-input').value          = acct.routing_number      || '';
+            form.querySelector('#bank-account-type-select').value      = acct.type                || 'Checking';
+            form.querySelector('#bank-account-status-select').value    = acct.status              || 'Active';
+            form.querySelector('#connection-method-select').value      = acct.connection_method   || 'Manual';
+            form.querySelector('#initial-balance-input').value         = acct.balance             || 0;
+            form.querySelector('#bank-account-description-textarea').value = acct.description     || '';
+        } catch (err) {
+            console.error('Error loading bank account:', err);
+            showToast('Error loading bank account', 'error');
+            return;
+        }
+    }
+
+    showModal('bank-account-modal');
+}
+
+/**
+ * Save a bank account (create or update)
+ */
+export async function saveBankAccount(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const id   = form.dataset.id;
+
+    if (!validateForm(form)) return;
+
+    const data = {
+        bank_name        : form.querySelector('#bank-name-select').value,
+        account_name     : form.querySelector('#bank-account-name-input').value,
+        account_number   : form.querySelector('#bank-account-number-input').value,
+        routing_number   : form.querySelector('#routing-number-input').value,
+        type             : form.querySelector('#bank-account-type-select').value,
+        status           : form.querySelector('#bank-account-status-select').value,
+        balance          : parseFloat(form.querySelector('#initial-balance-input').value || 0),
+        connection_method: form.querySelector('#connection-method-select').value,
+        description      : form.querySelector('#bank-account-description-textarea').value
+    };
+
+    try {
+        if (id) {
+            await saveData(`bank-accounts/${id}`, data, 'PUT');
+            showToast('Bank account updated', 'success');
+        } else {
+            await saveData('bank-accounts', data);
+            showToast('Bank account created', 'success');
+        }
+
+        if (typeof loadBankAccountData === 'function') {
+            await loadBankAccountData();
+        }
+
+        hideModal('bank-account-modal');
+    } catch (err) {
+        console.error('Error saving bank account:', err);
+        showToast('Error saving bank account', 'error');
+    }
+}
+
+/**
+ * Delete a bank account
+ * @param {string} id - Bank-account UUID
+ */
+export async function deleteBankAccount(id) {
+    if (!id) return;
+    if (!confirm('Delete this bank account? This cannot be undone.')) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/bank-accounts/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        if (!res.ok) {
+            const msg = await res.text();
+            throw new Error(msg || `HTTP ${res.status}`);
+        }
+
+        await loadBankAccountData?.();
+        showToast('Bank account deleted', 'success');
+    } catch (err) {
+        console.error('Delete bank account error:', err);
+        showToast('Error deleting bank account', 'error');
+    }
+}
+
+/* --------------------------------------------------------------
  * User Modal Functions
  * -------------------------------------------------------------- */
 
@@ -1099,4 +1212,12 @@ export function initializeModalEventListeners() {
     document.addEventListener('postJournalEntry', (event) => postJournalEntry(event.detail?.id));
     document.addEventListener('deleteJournalEntry', (event) => deleteJournalEntry(event.detail?.id));
     document.addEventListener('openUserModal', (event) => openUserModal(event.detail?.id));
+
+    // --- Bank account modal events ---
+    document.getElementById('bank-account-modal-form')?.addEventListener('submit', saveBankAccount);
+    document.getElementById('bank-account-modal-close')?.addEventListener('click', () => hideModal('bank-account-modal'));
+    document.getElementById('bank-account-modal-cancel')?.addEventListener('click', () => hideModal('bank-account-modal'));
+
+    document.addEventListener('openBankAccountModal', (e) => openBankAccountModal(e.detail?.id));
+    document.addEventListener('deleteBankAccount',   (e) => deleteBankAccount(e.detail?.id));
 }

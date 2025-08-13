@@ -36,7 +36,9 @@ import {
     loadJournalEntryData,
     loadUserData,
     loadDashboardData,
-    loadAllCoreData
+    loadAllCoreData,
+    loadBankAccountData,
+    syncBankAccounts
 } from './app-data.js';
 
 // Import UI update functions
@@ -54,7 +56,8 @@ import {
     updateDashboardUnpostedEntries,
     updateEntityHierarchyVisualization,
     initializeDashboardCharts,
-    updateFundReportsFilters
+    updateFundReportsFilters,
+    updateBankAccountsTable
 } from './app-ui.js';
 
 // Import modal management functions
@@ -76,7 +79,8 @@ import {
     deleteJournalEntry,
     openUserModal,
     saveUser,
-    initializeModalEventListeners
+    initializeModalEventListeners,
+    openBankAccountModal
 } from './app-modals.js';
 
 /**
@@ -152,7 +156,8 @@ function connectDataWithUI() {
         updateDashboardUnpostedEntries,
         updateEntityHierarchyVisualization,
         initializeDashboardCharts,
-        updateFundReportsFilters
+        updateFundReportsFilters,
+        updateBankAccountsTable
     });
 }
 
@@ -167,7 +172,8 @@ function connectModalsWithData() {
         loadAccountData,
         loadJournalEntryData,
         loadUserData,
-        loadDashboardData
+        loadDashboardData,
+        loadBankAccountData
     });
 }
 
@@ -326,6 +332,15 @@ function initializeSettingsTabs() {
     // initial data load for settings page
     loadEntityData();
     loadUserData();
+    loadBankAccountData();
+
+    // Bind sync button for bank accounts
+    const syncBankAccountsBtn = document.getElementById('btn-sync-bank-accounts');
+    if (syncBankAccountsBtn) {
+        syncBankAccountsBtn.addEventListener('click', () => {
+            syncBankAccounts();
+        });
+    }
 
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -350,6 +365,9 @@ function initializeSettingsTabs() {
                     break;
                 case 'settings-organization':
                     loadOrganizationSettings();
+                    break;
+                case 'settings-bank-accounts':
+                    loadBankAccountData();
                     break;
             }
         });
@@ -547,6 +565,14 @@ function initializeAddButtons() {
     if (addUserBtn) {
         addUserBtn.addEventListener('click', () => {
             openUserModal();
+        });
+    }
+    
+    // Add bank account button
+    const addBankAccountBtn = document.getElementById('btn-add-bank-account');
+    if (addBankAccountBtn) {
+        addBankAccountBtn.addEventListener('click', () => {
+            openBankAccountModal();
         });
     }
 }

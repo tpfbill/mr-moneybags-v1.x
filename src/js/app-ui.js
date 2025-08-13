@@ -587,6 +587,72 @@ export function updateJournalEntriesTable() {
 }
 
 /**
+ * Update bank accounts table
+ */
+export function updateBankAccountsTable() {
+    const bankAccountsTable = document.getElementById('bank-accounts-table');
+    if (!bankAccountsTable) return;
+
+    const bankAccountsTbody = bankAccountsTable.querySelector('tbody');
+    if (!bankAccountsTbody) return;
+
+    // Sort by bank then account name for predictable ordering
+    const sortedAccounts = [...appState.bankAccounts].sort((a, b) => {
+        const bankCmp = (a.bank_name || '').localeCompare(b.bank_name || '');
+        if (bankCmp !== 0) return bankCmp;
+        return (a.account_name || '').localeCompare(b.account_name || '');
+    });
+
+    bankAccountsTbody.innerHTML = '';
+
+    if (sortedAccounts.length === 0) {
+        bankAccountsTbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center">No bank accounts connected.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    sortedAccounts.forEach(acct => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${acct.bank_name || 'N/A'}</td>
+            <td>${acct.account_name || 'N/A'}</td>
+            <td>${acct.account_number || '—'}</td>
+            <td>${acct.type || 'N/A'}</td>
+            <td><span class="status status-${(acct.status || 'Active').toLowerCase()}">${acct.status || 'Active'}</span></td>
+            <td>${formatCurrency(acct.balance)}</td>
+            <td>${acct.last_sync ? formatDate(acct.last_sync) : 'Never'}</td>
+            <td>
+                <button class="action-button btn-edit-bank-account" data-id="${acct.id}">Edit</button>
+                <button class="action-button btn-delete-bank-account" data-id="${acct.id}">Delete</button>
+            </td>
+        `;
+        bankAccountsTbody.appendChild(row);
+    });
+
+    // Event listeners
+    bankAccountsTbody.querySelectorAll('.btn-edit-bank-account').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const evt = new CustomEvent('openBankAccountModal', {
+                detail: { id: btn.dataset.id }
+            });
+            document.dispatchEvent(evt);
+        });
+    });
+
+    bankAccountsTbody.querySelectorAll('.btn-delete-bank-account').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const evt = new CustomEvent('deleteBankAccount', {
+                detail: { id: btn.dataset.id }
+            });
+            document.dispatchEvent(evt);
+        });
+    });
+}
+
+/**
  * Update entities table
  */
 export function updateEntitiesTable() {

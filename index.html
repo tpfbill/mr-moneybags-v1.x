@@ -284,8 +284,8 @@
                         <div class="content-header">
                             <h3>Bank Account Connections</h3>
                             <div style="display:flex; gap:10px; align-items:center;">
-                                <button class="action-button" id="btn-sync-bank-accounts" onclick="syncBankAccounts()">Sync All Accounts</button>
-                                <button class="action-button" id="btn-add-bank-account" onclick="openBankAccountModal()">Add Bank Account</button>
+                                <button class="action-button" id="btn-sync-bank-accounts">Sync All Accounts</button>
+                                <button class="action-button" id="btn-add-bank-account">Add Bank Account</button>
                             </div>
                         </div>
 
@@ -590,9 +590,10 @@
         <div class="modal-dialog">
             <div class="modal-header">
                 <h3 class="modal-title" id="bank-account-modal-title">Bank Account</h3>
-                <button class="modal-close-btn" data-modal-id="bank-account-modal">&times;</button>
+                <button class="modal-close-btn" id="bank-account-modal-close" data-modal-id="bank-account-modal">&times;</button>
             </div>
-
+            <!-- Form wrapper required for submit handling -->
+            <form id="bank-account-modal-form">
             <div class="modal-body">
                 <input type="hidden" id="edit-bank-account-id">
 
@@ -678,11 +679,11 @@
                     <textarea id="bank-account-description-textarea" class="form-input" rows="3"></textarea>
                 </div>
             </div>
-
             <div class="modal-footer">
-                <button class="btn-secondary modal-close-btn" data-modal-id="bank-account-modal">Cancel</button>
-                <button class="action-button" id="save-bank-account-btn" onclick="saveBankAccount()">Save Account</button>
+                <button class="btn-secondary modal-close-btn" id="bank-account-modal-cancel" data-modal-id="bank-account-modal">Cancel</button>
+                <button class="action-button" id="save-bank-account-btn" type="submit">Save Account</button>
             </div>
+            </form>
         </div>
     </div>
 
