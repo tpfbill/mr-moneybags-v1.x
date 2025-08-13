@@ -4,9 +4,8 @@
  * This module handles user authentication, session management, and role-based access control.
  */
 
-// Import the API base URL from app-config.js
-// This will be defined in app-config.js and imported by all modules
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+// Import the API base URL computed in app-config.js
+import { API_BASE } from './app-config.js';
 
 // Static flag to prevent multiple retry chains for RBAC
 let rbacRetryInProgress = false;

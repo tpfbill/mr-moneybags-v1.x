@@ -132,9 +132,18 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // -----------------------------------------------------------------
-            // API base URL (always points to backend on port 3000)
+            // API base URL – match logic in app-config.js
             // -----------------------------------------------------------------
-            const API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+            let API_BASE;
+            const devPorts = ['8080', '8081'];   // http-server dev ports
+
+            if (devPorts.includes(window.location.port)) {
+                // Two-port dev mode → backend on :3000
+                API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+            } else {
+                // Same-origin (single-port) – production / express.static
+                API_BASE = window.location.origin;
+            }
 
             // Elements
             const loginForm = document.getElementById('login-form');

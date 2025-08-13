@@ -9,7 +9,18 @@
 // Dynamic API base URL – automatically uses current host (works with
 // localhost, Tailscale IP/hostname, or any other network interface)
 // ---------------------------------------------------------------------------
-export const API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+let API_BASE;
+const devPorts = ['8080', '8081'];           // ports used by http-server dev instances
+
+if (devPorts.includes(window.location.port)) {
+    // Two-port dev mode → talk to backend on :3000
+    API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+} else {
+    // Same-origin (single-port) – production or when Express serves static files
+    API_BASE = window.location.origin;
+}
+
+export { API_BASE };
 
 // DEBUGGING: Config module loaded on (timestamp)
 console.log('app-config.js loaded:', new Date().toISOString(), '- Using API at', API_BASE);
