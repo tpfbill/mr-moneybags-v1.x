@@ -170,8 +170,10 @@ make_schema_only_tmp_from_dbinit() {
   # then drop any CREATE EXTENSION statements (extensions are created
   # earlier by setup-database.sql as the postgres superuser).
   awk '/SAMPLE DATA/ {exit} {print}' database/db-init.sql \
-    | sed -E '/^[[:space:]]*CREATE[[:space:]]+EXTENSION\b/I d' \
+    | sed -E '/^[[:space:]]*CREATE[[:space:]]+EXTENSION\b/I d; /^[[:space:]]*BEGIN;[[:space:]]*$/Id' \
     >"$TMP_SCHEMA_ONLY"
+  # Ensure we do not leave the transaction open (db-init.sql starts with BEGIN;)
+  printf '\nCOMMIT;\n' >>"$TMP_SCHEMA_ONLY"
 }
 
 # Check if running as root
