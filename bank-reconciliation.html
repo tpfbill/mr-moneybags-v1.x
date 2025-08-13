@@ -9,6 +9,24 @@
     <link rel="stylesheet" href="src/css/styles.css?v=20250721170000">
     <!-- Bank reconciliation specific styles -->
     <link rel="stylesheet" href="src/css/bank-reconciliation.css?v=20250806150000">
+
+    <!-- Dynamic API base configuration (dev vs production) -->
+    <script>
+    (function(){
+      const devPorts = ['8080','8081'];
+      let API_BASE;
+      if (devPorts.includes(window.location.port)) {
+        API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+      } else {
+        API_BASE = window.location.origin;
+      }
+      window.API_BASE = API_BASE;
+    })();
+    </script>
+
+    <!-- Prefix helper so any `/api/...` fetches are routed through the correct base -->
+    <script src="src/js/api-base-prefix.js"></script>
+
     <!-- Chart.js for reports visualization -->
     <script id="chartjs-script"
             src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
@@ -772,6 +790,9 @@
     <script src="src/js/app.js?v=20250806150000"></script>
     <!-- Updated to use optimised core module -->
     <script src="src/js/bank-reconciliation-core.js?v=20250806150000"></script>
+
+    <!-- Fallback initializer to ensure workspace loads even if core listener is truncated -->
+    <script src="src/js/bank-reconciliation-init-fallback.js"></script>
 
     <!-- Safety-net for any handlers that may be referenced before definition.
          These stubs will be ignored if real implementations exist in the
