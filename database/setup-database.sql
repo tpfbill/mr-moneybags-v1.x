@@ -11,15 +11,11 @@
 --   sudo -u postgres psql -f setup-database.sql
 -- =============================================================================
 
--- Start transaction
-BEGIN;
+-- Ensure warnings are shown (but skip NOTICE noise)
+SET client_min_messages TO WARNING;
 
 -- Set password encryption method (if available)
-SET LOCAL client_min_messages TO WARNING;
-
--- Create npfadmin role if it doesn't exist
 DO $$
-BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'npfadmin') THEN
         CREATE ROLE npfadmin LOGIN PASSWORD 'npfa123';
         RAISE NOTICE 'Created role: npfadmin';
@@ -31,15 +27,15 @@ BEGIN
 END
 $$;
 
--- Create database if it doesn't exist
+-- Conditionally create database outside of a transaction using psql's \gexec
+SELECT 'CREATE DATABASE fund_accounting_db OWNER npfadmin'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'fund_accounting_db');
+\gexec
+
+-- Ensure correct owner if DB already existed
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'fund_accounting_db') THEN
-        CREATE DATABASE fund_accounting_db OWNER npfadmin;
-        RAISE NOTICE 'Created database: fund_accounting_db';
-    ELSE
-        RAISE NOTICE 'Database already exists: fund_accounting_db';
-        -- Change ownership if database exists but has different owner
+    IF EXISTS (SELECT 1 FROM pg_database WHERE datname = 'fund_accounting_db') THEN
         EXECUTE 'ALTER DATABASE fund_accounting_db OWNER TO npfadmin';
     END IF;
 END
@@ -98,8 +94,7 @@ BEGIN
 END
 $$;
 
--- Commit transaction
-COMMIT;
+-- (No explicit COMMIT needed; script no longer uses an explicit BEGIN)
 
 -- Instructions for next steps
 DO $$
