@@ -242,6 +242,9 @@ function showPage(pageId) {
         case 'settings':
             initializeSettingsTabs();
             break;
+        case 'fund-reports':
+            initializeFundReportsTabs();
+            break;
     }
 }
 
@@ -307,53 +310,31 @@ function refreshCurrentPageData() {
  * Initialize settings tabs
  */
 function initializeSettingsTabs() {
-    /* ------------------------------------------------------------------
-     * HTML structure (index.html):
-     *   • Tab buttons  : <div class="tab-item" data-tab="settings-users">...</div>
-     *   • Tab contents : <div id="settings-users" class="tab-panel">…</div>
-     *
-     * The original (monolithic) code referenced non-existent classes
-     * `.settings-tab-button` and `.settings-tab-content`.  After the
-     * modular refactor the selectors were never updated, which left the
-     * Settings page tabs non-functional.  We simply align the selectors
-     * with the actual markup and adjust the ID comparison logic.
-     * ------------------------------------------------------------------ */
+    const container = document.querySelector('#settings-page .tab-container');
+    if (!container || container.__bound) return;
+    container.__bound = true;
 
-    const tabButtons  = document.querySelectorAll('.tab-item');
-    const tabContents = document.querySelectorAll('.tab-panel');
-    
-    // Load initial data
+    const tabButtons  = container.querySelectorAll('.tab-item');
+    const tabContents = container.querySelectorAll('.tab-panel');
+
+    // initial data load for settings page
     loadEntityData();
     loadUserData();
-    
-    // Add click event listeners to tab buttons
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tab = button.dataset.tab;
-            
-            // Update active tab button
-            tabButtons.forEach(btn => {
-                if (btn.dataset.tab === tab) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+
+            // toggle active buttons
+            tabButtons.forEach(b => b.classList.toggle('active', b === btn));
+
+            // toggle panels inside this container
+            tabContents.forEach(panel => {
+                panel.classList.toggle('active', panel.id === tab);
             });
-            
-            // Show selected tab content
-            tabContents.forEach(content => {
-                // Content IDs match data-tab exactly (e.g., "settings-users")
-                if (content.id === `${tab}`) {
-                    content.classList.add('active');
-                } else {
-                    content.classList.remove('active');
-                }
-            });
-            
-            // Update app state
+
             appState.currentTab = tab;
-            
-            // Handle tab-specific initialization
+
             switch (tab) {
                 case 'settings-entities':
                     updateEntityHierarchyVisualization();
@@ -367,12 +348,32 @@ function initializeSettingsTabs() {
             }
         });
     });
-    
-    // Show default tab (users)
-    const defaultTab = document.querySelector('.tab-item[data-tab="settings-users"]');
-    if (defaultTab) {
-        defaultTab.click();
-    }
+
+    // activate default tab
+    const defaultBtn = container.querySelector('.tab-item[data-tab="settings-users"]');
+    if (defaultBtn) defaultBtn.click();
+}
+
+/**
+ * Initialize Fund Reports tab container (pure tab switching)
+ */
+function initializeFundReportsTabs() {
+    const container = document.querySelector('#fund-reports-page .tab-container');
+    if (!container || container.__bound) return;
+    container.__bound = true;
+
+    const tabButtons  = container.querySelectorAll('.tab-item');
+    const tabContents = container.querySelectorAll('.tab-panel');
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            tabButtons.forEach(b => b.classList.toggle('active', b === btn));
+            tabContents.forEach(p => p.classList.toggle('active', p.id === tab));
+        });
+    });
+
+    // ensure default active remains selected on first bind
 }
 
 /**
