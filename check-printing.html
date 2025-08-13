@@ -161,7 +161,9 @@
 
         <!-- New Check Tab -->
         <div id="new-check" class="tab-panel">
-            <div class="check-form">
+            <form id="check-form">
+                <div id="check-status" class="visually-hidden"></div>
+                <div class="check-form">
                 <div class="form-section">
                     <h3>Check Information</h3>
                     <div class="form-row">
@@ -246,11 +248,12 @@
                 </div>
 
                 <div class="form-actions">
-                    <button id="check-save" class="action-button">Save as Draft</button>
-                    <button id="check-print" class="action-button primary">Print Now</button>
-                    <button id="check-cancel" class="action-button secondary">Cancel</button>
+                    <button id="check-save" type="button" class="action-button">Save as Draft</button>
+                    <button id="check-print" type="button" class="action-button primary">Print Now</button>
+                    <button id="check-cancel" type="button" class="action-button secondary">Cancel</button>
                 </div>
-            </div>
+                </div><!-- /.check-form -->
+            </form>
         </div>
 
         <!-- Print Queue Tab -->
