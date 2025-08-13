@@ -13,6 +13,68 @@ APP_DIR="/opt/mr-moneybags"  # Application installation directory
 SERVICE_NAME="mr-moneybags"  # Systemd service name
 RUN_USER="mrmb"  # System user to run the application
 
+# ---------------------------------------------------------------------------
+# Database-related defaults (override via CLI or .env)
+# ---------------------------------------------------------------------------
+# Modes:
+#   skip       – do nothing (default)
+#   create     – create role & database only (setup-database.sql)
+#   schema     – create role/db + load schema only (no sample data)
+#   full       – create role/db + schema + built-in sample data (db-init.sql)
+#   macdump    – schema + Mac test dataset
+#   principle  – schema + run load-principle-foundation-data.js
+DB_MODE="skip"
+DB_HOST="localhost"
+DB_PORT="5432"
+DB_NAME="fund_accounting_db"
+DB_USER="npfadmin"
+DB_PASSWORD="npfa123"
+
+# ---------------------------------------------------------------------------
+# Usage helper
+# ---------------------------------------------------------------------------
+usage() {
+  cat <<EOF
+Mr. MoneyBags Ubuntu 24 Installer
+
+Usage: sudo ./install.sh [options]
+
+Options:
+  --domain=FQDN          Public domain (default: $DOMAIN)
+  --repo=URL             Git repository URL
+  --branch=NAME          Git branch to deploy (default: $BRANCH)
+  --app-dir=PATH         Install directory (default: $APP_DIR)
+  --user=USERNAME        System user to run service (default: $RUN_USER)
+  --db=MODE              Database setup mode (skip|create|schema|full|macdump|principle)
+  -h, --help             Show this help and exit
+
+Database modes:
+  skip       No DB operations (default)
+  create     Role & DB only
+  schema     Role/DB + schema (no data)
+  full       Role/DB + schema + built-in sample data
+  macdump    Schema + sample-data-mac-export.sql
+  principle  Schema + load-principle-foundation-data.js
+EOF
+  exit 0
+}
+
+# ---------------------------------------------------------------------------
+# CLI argument parsing (very light)
+# ---------------------------------------------------------------------------
+for arg in "$@"; do
+  case $arg in
+    --domain=*)      DOMAIN="${arg#*=}"       ;;
+    --repo=*)        GIT_URL="${arg#*=}"      ;;
+    --branch=*)      BRANCH="${arg#*=}"       ;;
+    --app-dir=*)     APP_DIR="${arg#*=}"      ;;
+    --user=*)        RUN_USER="${arg#*=}"     ;;
+    --db=*)          DB_MODE="${arg#*=}"      ;;
+    -h|--help)       usage                    ;;
+    *)               echo "Unknown option: $arg"; usage ;;
+  esac
+done
+
 # Text formatting
 BOLD="\e[1m"
 RED="\e[31m"
@@ -40,6 +102,65 @@ error() {
 # Print warning message
 warning() {
   echo -e "${YELLOW}WARNING: $1${RESET}"
+}
+
+# ---------------------------------------------------------------------------
+# Helper: install postgres client if psql missing
+# ---------------------------------------------------------------------------
+ensure_postgres_client() {
+  if ! command -v psql >/dev/null 2>&1; then
+    section "Installing PostgreSQL client"
+    apt-get install -y postgresql-client
+    success "postgresql-client installed"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Helper: ensure local PostgreSQL server running (for create/schema/full)
+# ---------------------------------------------------------------------------
+ensure_local_postgres() {
+  if ! sudo -u postgres psql -Atqc "SELECT 1" >/dev/null 2>&1; then
+    section "Installing local PostgreSQL server"
+    apt-get install -y postgresql postgresql-contrib
+    systemctl enable --now postgresql
+    success "PostgreSQL server installed & running"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Helper: read .env for PG* overrides if already present
+# ---------------------------------------------------------------------------
+read_env_if_present() {
+  local env_file="$APP_DIR/.env"
+  if [[ -f "$env_file" ]]; then
+    # shellcheck disable=SC1090
+    source <(grep -E '^PG(HOST|PORT|DATABASE|USER|PASSWORD)=' "$env_file" | xargs -d '\n' -I{} echo export {})
+    DB_HOST="${PGHOST:-$DB_HOST}"
+    DB_PORT="${PGPORT:-$DB_PORT}"
+    DB_NAME="${PGDATABASE:-$DB_NAME}"
+    DB_USER="${PGUSER:-$DB_USER}"
+    DB_PASSWORD="${PGPASSWORD:-$DB_PASSWORD}"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Helper: run psql command/file using provided credentials
+# ---------------------------------------------------------------------------
+run_psql() {
+  PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c "$1"
+}
+
+run_psql_file() {
+  local file="$1"
+  PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$file"
+}
+
+# ---------------------------------------------------------------------------
+# Helper: produce schema-only tmp file from db-init.sql
+# ---------------------------------------------------------------------------
+make_schema_only_tmp_from_dbinit() {
+  TMP_SCHEMA_ONLY="$(mktemp /tmp/mrmb_schema_only.XXXX.sql)"
+  awk '/SAMPLE DATA/ {exit} {print}' database/db-init.sql >"$TMP_SCHEMA_ONLY"
 }
 
 # Check if running as root
@@ -132,6 +253,69 @@ else
   success "Environment file already exists"
 fi
 
+###########################################################################
+# Optional Database Setup
+###########################################################################
+
+section "Optional Database Setup"
+read_env_if_present
+
+case "$DB_MODE" in
+  skip)
+    success "DB setup skipped (use --db=... to enable)"
+    ;;
+
+  create)
+    ensure_local_postgres
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -f database/setup-database.sql
+    success "Role/database ensured via setup-database.sql"
+    ;;
+
+  schema)
+    ensure_local_postgres
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -f database/setup-database.sql
+    ensure_postgres_client
+    make_schema_only_tmp_from_dbinit
+    run_psql_file "$TMP_SCHEMA_ONLY"
+    success "Schema loaded (no sample data)"
+    ;;
+
+  full)
+    ensure_local_postgres
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -f database/setup-database.sql
+    ensure_postgres_client
+    run_psql_file database/db-init.sql
+    success "Schema + built-in sample data loaded"
+    ;;
+
+  macdump)
+    ensure_local_postgres
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -f database/setup-database.sql
+    ensure_postgres_client
+    make_schema_only_tmp_from_dbinit
+    run_psql_file "$TMP_SCHEMA_ONLY"
+    run_psql_file database/sample-data-mac-export.sql
+    success "Schema + Mac test dataset loaded"
+    ;;
+
+  principle)
+    ensure_local_postgres
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -f database/setup-database.sql
+    ensure_postgres_client
+    make_schema_only_tmp_from_dbinit
+    run_psql_file "$TMP_SCHEMA_ONLY"
+    sudo -u "$RUN_USER" env \
+      PGPASSWORD="$DB_PASSWORD" PGHOST="$DB_HOST" PGPORT="$DB_PORT" \
+      PGDATABASE="$DB_NAME" PGUSER="$DB_USER" \
+      node database/load-principle-foundation-data.js
+    success "Schema + Principle Foundation dataset loaded"
+    ;;
+
+  *)
+    error "Unknown DB mode: $DB_MODE (valid: skip|create|schema|full|macdump|principle)"
+    ;;
+esac
+
 section "Setting Up Systemd Service"
 SYSTEMD_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 
@@ -222,5 +406,7 @@ echo -e "${YELLOW}IMPORTANT:${RESET} Remember to:"
 echo "1. Edit your .env file with proper database credentials"
 echo "2. Obtain SSL certificate using certbot command above"
 echo "3. Update your DNS records to point $DOMAIN to this server's IP address"
+echo ""
+echo "DB setup mode used: $DB_MODE (override with --db=skip|create|schema|full|macdump|principle)"
 echo ""
 echo -e "${GREEN}Thank you for using Mr. MoneyBags!${RESET}"
