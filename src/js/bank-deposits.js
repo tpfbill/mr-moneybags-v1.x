@@ -1,6 +1,9 @@
 // src/js/bank-deposits.js
 // Bank Deposits Module for Mr. MoneyBags v1.x
 
+// Import the API base URL computed in app-config.js
+import { API_BASE } from './app-config.js';
+
 // ========================================================
 // State Management
 // ========================================================
@@ -232,7 +235,7 @@ async function fetchDeposits() {
             )
         });
 
-        const response = await fetch(`/api/bank-deposits?${queryParams}`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits?${queryParams}`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -264,7 +267,7 @@ async function fetchBankAccounts() {
     try {
         state.loading.bankAccounts = true;
 
-        const response = await fetch('/api/bank-accounts', {
+        const response = await fetch(`${API_BASE}/api/bank-accounts`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -293,7 +296,7 @@ async function fetchGLAccounts() {
     try {
         state.loading.glAccounts = true;
 
-        const response = await fetch('/api/accounts?type=Asset,Revenue', {
+        const response = await fetch(`${API_BASE}/api/accounts?type=Asset,Revenue`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -322,7 +325,7 @@ async function fetchDepositTypes() {
     try {
         state.loading.depositTypes = true;
 
-        const response = await fetch('/api/bank-deposits/types', {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/types`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -349,7 +352,7 @@ async function fetchItemTypes() {
     try {
         state.loading.itemTypes = true;
 
-        const response = await fetch('/api/bank-deposits/item-types', {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/item-types`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -376,7 +379,7 @@ async function fetchDepositDetails(depositId) {
     try {
         state.loading.depositDetails = true;
 
-        const response = await fetch(`/api/bank-deposits/${depositId}`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/${depositId}`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -407,7 +410,7 @@ async function fetchDepositSlip(depositId) {
     try {
         state.loading.depositSlip = true;
 
-        const response = await fetch(`/api/bank-deposits/slip/${depositId}`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/slip/${depositId}`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -433,7 +436,7 @@ async function fetchDepositSlip(depositId) {
 // Create new deposit
 async function createDeposit(depositData) {
     try {
-        const response = await fetch('/api/bank-deposits', {
+        const response = await fetch(`${API_BASE}/api/bank-deposits`, {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -459,7 +462,7 @@ async function createDeposit(depositData) {
 // Update deposit
 async function updateDepositAPI(depositId, depositData) {
     try {
-        const response = await fetch(`/api/bank-deposits/${depositId}`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/${depositId}`, {
             method: 'PUT',
             credentials: 'include',
             headers: {
@@ -485,7 +488,7 @@ async function updateDepositAPI(depositId, depositData) {
 // Delete deposit
 async function deleteDepositAPI(depositId) {
     try {
-        const response = await fetch(`/api/bank-deposits/${depositId}`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/${depositId}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -506,7 +509,7 @@ async function deleteDepositAPI(depositId) {
 // Add deposit items
 async function addDepositItemsAPI(depositId, items) {
     try {
-        const response = await fetch(`/api/bank-deposits/${depositId}/items`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/${depositId}/items`, {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -532,7 +535,7 @@ async function addDepositItemsAPI(depositId, items) {
 // Update deposit item
 async function updateDepositItemAPI(itemId, itemData) {
     try {
-        const response = await fetch(`/api/bank-deposits/items/${itemId}`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/items/${itemId}`, {
             method: 'PUT',
             credentials: 'include',
             headers: {
@@ -558,7 +561,7 @@ async function updateDepositItemAPI(itemId, itemData) {
 // Delete deposit item
 async function deleteDepositItemAPI(itemId) {
     try {
-        const response = await fetch(`/api/bank-deposits/items/${itemId}`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/items/${itemId}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -579,7 +582,7 @@ async function deleteDepositItemAPI(itemId) {
 // Submit deposit
 async function submitDepositAPI(depositId) {
     try {
-        const response = await fetch(`/api/bank-deposits/${depositId}/submit`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/${depositId}/submit`, {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -604,7 +607,7 @@ async function submitDepositAPI(depositId) {
 // Clear deposit
 async function clearDepositAPI(depositId, clearingData) {
     try {
-        const response = await fetch(`/api/bank-deposits/${depositId}/clear`, {
+        const response = await fetch(`${API_BASE}/api/bank-deposits/${depositId}/clear`, {
             method: 'POST',
             credentials: 'include',
             headers: {
