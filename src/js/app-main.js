@@ -522,6 +522,9 @@ function initializePageElements() {
     
     // Initialize filter selects
     initializeFilterSelects();
+
+    // Initialize print buttons (e.g., Dashboard → “Print Report”)
+    initializePrintButtons();
 }
 
 /**
@@ -538,6 +541,22 @@ function initializeAddButtons() {
     
     // Add fund button
     const addFundBtn = document.getElementById('btnAddFund');
+ * Initialize print buttons (currently only Dashboard “Print Report”)
+ * Adds the listener once and stores a flag on the element so we don’t
+ * double-bind if initializePageElements() is called again.
+ */
+function initializePrintButtons() {
+    const printBtn = document.getElementById('btnPrintDashboard');
+    if (printBtn && !printBtn.__bound) {
+        printBtn.__bound = true;
+        printBtn.addEventListener('click', () => {
+            // Basic – rely on print media CSS for layout
+            window.print();
+        });
+    }
+}
+
+/**
     if (addFundBtn) {
         addFundBtn.addEventListener('click', () => {
             openFundModal();
@@ -574,6 +593,18 @@ function initializeAddButtons() {
         addBankAccountBtn.addEventListener('click', () => {
             openBankAccountModal();
         });
+    }
+}
+
+/**
+ * Initialize print buttons (currently only Dashboard "Print Report").
+ * Ensures each target element is bound only once.
+ */
+function initializePrintButtons() {
+    const printBtn = document.getElementById('btnPrintDashboard');
+    if (printBtn && !printBtn.__bound) {
+        printBtn.__bound = true;
+        printBtn.addEventListener('click', () => window.print());
     }
 }
 
