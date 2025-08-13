@@ -444,12 +444,39 @@ fi
 
 section "Configuring Firewall"
 ufw allow OpenSSH
-if [[ "$HTTP_ONLY" == "true" ]]; then
-  ufw allow 'Nginx HTTP'
+# ---------------------------------------------------------------------------
+# Hardened UFW configuration with profile fall-backs
+# ---------------------------------------------------------------------------
+section "Configuring Firewall"
+
+# Allow SSH – fallback to port 22 if the application profile is absent
+if ufw app list >/dev/null 2>&1; then
+  if ufw app list | grep -qw OpenSSH; then
+    ufw allow OpenSSH
+  else
+    ufw allow 22/tcp
+  fi
 else
-  ufw allow 'Nginx Full'
+  ufw allow 22/tcp
 fi
 
+# Allow web traffic depending on HTTP-only vs HTTPS mode
+if [[ "$HTTP_ONLY" == "true" ]]; then
+  if ufw app list >/dev/null 2>&1 && ufw app list | grep -qw "Nginx HTTP"; then
+    ufw allow 'Nginx HTTP'
+  else
+    ufw allow 80/tcp
+  fi
+else
+  if ufw app list >/dev/null 2>&1 && ufw app list | grep -qw "Nginx Full"; then
+    ufw allow 'Nginx Full'
+  else
+    ufw allow 80/tcp
+    ufw allow 443/tcp
+  fi
+fi
+
+# Enable firewall if not already active
 if ! ufw status | grep -q "Status: active"; then
   echo "Enabling UFW firewall..."
   ufw --force enable
@@ -457,8 +484,6 @@ if ! ufw status | grep -q "Status: active"; then
 else
   success "UFW firewall already enabled"
 fi
-
-section "Installation Complete"
 echo "Mr. MoneyBags has been installed and configured!"
 echo -e "Service status: ${BOLD}systemctl status $SERVICE_NAME${RESET}"
 # Show correct health-check URL for the chosen protocol
