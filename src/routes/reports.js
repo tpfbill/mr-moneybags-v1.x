@@ -175,7 +175,10 @@ router.post('/custom/preview', asyncHandler(async (req, res) => {
  * Returns all saved custom report definitions
  */
 router.get('/custom/saved', asyncHandler(async (req, res) => {
-    const { rows } = await pool.query('SELECT id, name, description FROM custom_report_definitions ORDER BY name');
+    // Include full JSON definition so the restored builder can be populated
+    const { rows } = await pool.query(
+        'SELECT id, name, description, definition_json FROM custom_report_definitions ORDER BY name'
+    );
     res.json(rows);
 }));
 

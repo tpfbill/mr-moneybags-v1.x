@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Report Builder</title>
+    <script>
+    (function(){
+      const devPorts = ['8080','8081'];
+      let API_BASE;
+      if (devPorts.includes(window.location.port)) {
+        API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+      } else {
+        API_BASE = window.location.origin;
+      }
+      window.API_BASE = API_BASE;
+      console.log('Using API_BASE:', API_BASE);
+    })();
+    </script>
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --secondary-color: #263238;
+            --success-color: #4CAF50;
+            --error-color: #F44336;
+            --warning-color: #FFC107;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --text-light-color: #666;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            margin: 0;
+            color: var(--primary-color);
+            font-size: 2em;
+        }
+        .header p {
+            margin: 5px 0 0;
+            color: var(--text-light-color);
+        }
+        .builder-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 30px;
+        }
+        .builder-sidebar, .builder-main {
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        .section h3 {
+            color: var(--secondary-color);
+            font-size: 1.2em;
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        .button:hover { background-color: #1976D2; }
+        .button.secondary { background-color: #78909C; }
+        .button.secondary:hover { background-color: #546E7A; }
+        .button.danger { background-color: var(--error-color); }
+        .button.danger:hover { background-color: #d32f2f; }
+        .button:disabled { background-color: #B0BEC5; cursor: not-allowed; }
+        
+        /* --- Navigation back to main screen --- */
+        .navigation {
+            margin-top: 15px;
+            text-align: center;
+        }
+        /* Harmonise secondary-button colours with NLQ screen */
+        .button.secondary {
+            background-color: #607D8B;
+        }
+        .button.secondary:hover {
+            background-color: #455A64;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: var(--text-light-color); }
+        .form-group input, .form-group select {
+            width: calc(100% - 22px);
+            padding: 8px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            font-size: 0.9em;
+        }
+        .field-list {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .field-list label {
+            display: block;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        .filter-row, .sort-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-row select, .sort-row select { width: auto; flex: 1; }
+        .filter-row input { width: auto; flex: 2; }
+        .filter-row .remove-btn, .sort-row .remove-btn {
+            background: none;
+            border: none;
+            color: var(--error-color);
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 0 5px;
+        }
+        .results-container {
+            margin-top: 20px;
+        }
+        .table-container {
+            max-height: 500px;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+        .data-table th { background-color: #f5f5f5; font-weight: bold; }
+        .status-message {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .status-message.info { background-color: #e3f2fd; color: #1565C0; }
+        .status-message.error { background-color: #ffebee; color: var(--error-color); }
+        .status-message.success { background-color: #e8f5e9; color: var(--success-color); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header class="header">
+            <h1>Custom Report Builder</h1>
+            <p>Create, save, and run custom reports on your financial data.</p>
+
+            <!-- Navigation back to main dashboard -->
+            <div class="navigation">
+                <button id="btn-back-to-main"
+                        class="button secondary"
+                        onclick="window.location.href='index.html'">
+                    &larr; Back to Main Dashboard
+                </button>
+            </div>
+        </header>
+
+        <div class="builder-layout">
+            <aside class="builder-sidebar">
+                <section class="section">
+                    <h3>Report Definition</h3>
+                    <div class="form-group">
+                        <label for="report-name">Report Name</label>
+                        <input type="text" id="report-name" placeholder="e.g., Q1 Expense Report by Fund">
+                    </div>
+                    <div class="form-group">
+                        <label for="load-report">Load Saved Report</label>
+                        <select id="load-report">
+                            <option value="">-- Select a report --</option>
+                        </select>
+                    </div>
+                    <button id="btn-save-report" class="button">Save Report</button>
+                    <button id="btn-delete-report" class="button danger">Delete Report</button>
+                </section>
+
+                <section class="section">
+                    <h3>1. Data Source</h3>
+                    <div class="form-group">
+                        <label for="data-source">Select primary data source</label>
+                        <select id="data-source">
+                            <option value="">-- Select --</option>
+                            <option value="journal_entry_items">Journal Entry Items</option>
+                            <option value="funds">Funds</option>
+                            <option value="accounts">Accounts</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h3>2. Fields to Include</h3>
+                    <div id="field-list" class="field-list">
+                        <p>Select a data source to see available fields.</p>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h3>3. Filters</h3>
+                    <div id="filter-container">
+                        <!-- Filter rows will be added here dynamically -->
+                    </div>
+                    <button id="btn-add-filter" class="button secondary" style="font-size: 0.8em;">+ Add Filter</button>
+                </section>
+
+                <section class="section">
+                    <h3>4. Grouping & Sorting</h3>
+                    <div class="form-group">
+                        <label for="group-by">Group By</label>
+                        <select id="group-by">
+                            <option value="">-- No Grouping --</option>
+                        </select>
+                    </div>
+                    <div id="sort-container">
+                        <!-- Sort rows will be added here dynamically -->
+                    </div>
+                    <button id="btn-add-sort" class="button secondary" style="font-size: 0.8em;">+ Add Sort</button>
+                </section>
+            </aside>
+
+            <main class="builder-main">
+                <section class="section">
+                    <h2>Actions & Preview</h2>
+                    <button id="btn-preview-report" class="button">Preview Report</button>
+                    <button id="btn-export-csv" class="button secondary">Export to CSV</button>
+                </section>
+                <section class="results-container section">
+                    <h3>Report Preview</h3>
+                    <div id="results-status" class="status-message info">Build your report and click "Preview Report" to see the results here.</div>
+                    <div id="results-table-container" class="table-container"></div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            let reportDefinition = {
+                id: null,
+                name: '',
+                dataSource: '',
+                fields: [],
+                filters: [],
+                groupBy: '',
+                sortBy: []
+            };
+            let availableFields = [];
+            let reportResults = [];
+            let savedReports = [];
+
+            // --- DOM ELEMENTS ---
+            const reportNameInput = document.getElementById('report-name');
+            const loadReportSelect = document.getElementById('load-report');
+            const dataSourceSelect = document.getElementById('data-source');
+            const fieldListDiv = document.getElementById('field-list');
+            const filterContainer = document.getElementById('filter-container');
+            const groupBySelect = document.getElementById('group-by');
+            const sortContainer = document.getElementById('sort-container');
+            const resultsStatusDiv = document.getElementById('results-status');
+            const resultsTableContainer = document.getElementById('results-table-container');
+
+            const btnSaveReport = document.getElementById('btn-save-report');
+            const btnDeleteReport = document.getElementById('btn-delete-report');
+            const btnAddFilter = document.getElementById('btn-add-filter');
+            const btnAddSort = document.getElementById('btn-add-sort');
+            const btnPreviewReport = document.getElementById('btn-preview-report');
+            const btnExportCSV = document.getElementById('btn-export-csv');
+
+            // --- API HELPER FUNCTIONS ---
+            async function apiRequest(endpoint, method = 'GET', body = null) {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                };
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
+                try {
+                    const response = await fetch(`${window.API_BASE}${endpoint}`, options);
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                        throw new Error(errorData.message || `API Error: ${response.status}`);
+                    }
+                    if (response.status === 204) return null; // No Content
+                    return response.json();
+                } catch (error) {
+                    console.error(`API request failed: ${endpoint}`, error);
+                    throw error;
+                }
+            }
+
+            // --- INITIALIZATION ---
+            async function initializeBuilder() {
+                // Event Listeners
+                dataSourceSelect.addEventListener('change', handleDataSourceChange);
+                btnAddFilter.addEventListener('click', addFilterRow);
+                btnAddSort.addEventListener('click', addSortRow);
+                btnPreviewReport.addEventListener('click', runReportPreview);
+                btnExportCSV.addEventListener('click', exportToCSV);
+                btnSaveReport.addEventListener('click', saveReportDefinition);
+                loadReportSelect.addEventListener('change', handleLoadReport);
+                btnDeleteReport.addEventListener('click', deleteReportDefinition);
+
+                await loadSavedReports();
+            }
+
+            // --- UI LOGIC ---
+            async function handleDataSourceChange() {
+                const source = dataSourceSelect.value;
+                fieldListDiv.innerHTML = '';
+                groupBySelect.innerHTML = '<option value="">-- No Grouping --</option>';
+                availableFields = [];
+
+                if (!source) {
+                    fieldListDiv.innerHTML = '<p>Select a data source to see available fields.</p>';
+                    return;
+                }
+                
+                try {
+                    fieldListDiv.innerHTML = '<p>Loading fields...</p>';
+                    availableFields = await apiRequest(`/api/reports/custom/fields/${source}`);
+                    renderFieldList();
+                    renderGroupByOptions();
+                } catch (error) {
+                    fieldListDiv.innerHTML = `<p class="error">Error loading fields: ${error.message}</p>`;
+                }
+            }
+
+            function renderFieldList() {
+                fieldListDiv.innerHTML = '';
+                availableFields.forEach(field => {
+                    const isChecked = reportDefinition.fields.includes(field);
+                    const label = document.createElement('label');
+                    label.innerHTML = `<input type="checkbox" class="field-checkbox" value="${field}" ${isChecked ? 'checked' : ''}> ${field}`;
+                    fieldListDiv.appendChild(label);
+                });
+            }
+
+            function renderGroupByOptions() {
+                groupBySelect.innerHTML = '<option value="">-- No Grouping --</option>';
+                availableFields.forEach(field => {
+                    const option = document.createElement('option');
+                    option.value = field;
+                    option.textContent = field;
+                    if (reportDefinition.groupBy === field) {
+                        option.selected = true;
+                    }
+                    groupBySelect.appendChild(option);
+                });
+            }
+
+            function addFilterRow(filter = { field: '', operator: '=', value: '' }) {
+                const rowId = `filter-${Date.now()}`;
+                const filterRow = document.createElement('div');
+                filterRow.className = 'filter-row';
+                filterRow.id = rowId;
+
+                let optionsHTML = availableFields.map(f => `<option value="${f}" ${filter.field === f ? 'selected' : ''}>${f}</option>`).join('');
+                
+                filterRow.innerHTML = `
+                    <select class="filter-field">${optionsHTML}</select>
+                    <select class="filter-operator">
+                        <option value="=" ${filter.operator === '=' ? 'selected' : ''}>equals</option>
+                        <option value="!=" ${filter.operator === '!=' ? 'selected' : ''}>not equals</option>
+                        <option value=">" ${filter.operator === '>' ? 'selected' : ''}>greater than</option>
+                        <option value="<" ${filter.operator === '<' ? 'selected' : ''}>less than</option>
+                        <option value="CONTAINS" ${filter.operator === 'CONTAINS' ? 'selected' : ''}>contains</option>
+                    </select>
+                    <input type="text" class="filter-value" placeholder="Value" value="${filter.value}">
+                    <button class="remove-btn" data-row-id="${rowId}">&times;</button>
+                `;
+                filterContainer.appendChild(filterRow);
+                filterRow.querySelector('.remove-btn').addEventListener('click', () => filterRow.remove());
+            }
+
+            function addSortRow(sort = { field: '', direction: 'ASC' }) {
+                const rowId = `sort-${Date.now()}`;
+                const sortRow = document.createElement('div');
+                sortRow.className = 'sort-row';
+                sortRow.id = rowId;
+
+                let optionsHTML = availableFields.map(f => `<option value="${f}" ${sort.field === f ? 'selected' : ''}>${f}</option>`).join('');
+
+                sortRow.innerHTML = `
+                    <select class="sort-field">${optionsHTML}</select>
+                    <select class="sort-direction">
+                        <option value="ASC" ${sort.direction === 'ASC' ? 'selected' : ''}>Ascending</option>
+                        <option value="DESC" ${sort.direction === 'DESC' ? 'selected' : ''}>Descending</option>
+                    </select>
+                    <button class="remove-btn" data-row-id="${rowId}">&times;</button>
+                `;
+                sortContainer.appendChild(sortRow);
+                sortRow.querySelector('.remove-btn').addEventListener('click', () => sortRow.remove());
+            }
+
+            function renderPreviewTable() {
+                resultsTableContainer.innerHTML = '';
+                if (reportResults.length === 0) {
+                    resultsStatusDiv.textContent = 'No results found for the current criteria.';
+                    resultsStatusDiv.className = 'status-message info';
+                    return;
+                }
+
+                resultsStatusDiv.textContent = `Showing ${reportResults.length} rows.`;
+                resultsStatusDiv.className = 'status-message success';
+
+                const table = document.createElement('table');
+                table.className = 'data-table';
+                
+                const headers = Object.keys(reportResults[0]);
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                reportResults.forEach(row => {
+                    const tr = document.createElement('tr');
+                    headers.forEach(header => {
+                        const td = document.createElement('td');
+                        td.textContent = row[header];
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+
+                resultsTableContainer.appendChild(table);
+            }
+
+            // --- DATA & API LOGIC ---
+            function gatherReportDefinitionFromUI() {
+                const definition = {
+                    id: reportDefinition.id,
+                    name: reportNameInput.value,
+                    dataSource: dataSourceSelect.value,
+                    fields: Array.from(document.querySelectorAll('.field-checkbox:checked')).map(cb => cb.value),
+                    filters: Array.from(document.querySelectorAll('.filter-row')).map(row => ({
+                        field: row.querySelector('.filter-field').value,
+                        operator: row.querySelector('.filter-operator').value,
+                        value: row.querySelector('.filter-value').value
+                    })),
+                    groupBy: groupBySelect.value,
+                    sortBy: Array.from(document.querySelectorAll('.sort-row')).map(row => ({
+                        field: row.querySelector('.sort-field').value,
+                        direction: row.querySelector('.sort-direction').value
+                    }))
+                };
+                return definition;
+            }
+
+            async function runReportPreview() {
+                const definition = gatherReportDefinitionFromUI();
+                if (!definition.dataSource || definition.fields.length === 0) {
+                    resultsStatusDiv.textContent = 'Please select a data source and at least one field.';
+                    resultsStatusDiv.className = 'status-message error';
+                    return;
+                }
+
+                resultsStatusDiv.textContent = 'Generating preview...';
+                resultsStatusDiv.className = 'status-message info';
+                btnPreviewReport.disabled = true;
+
+                try {
+                    reportResults = await apiRequest('/api/reports/custom/preview', 'POST', definition);
+                    renderPreviewTable();
+                } catch (error) {
+                    resultsStatusDiv.textContent = `Error generating report: ${error.message}`;
+                    resultsStatusDiv.className = 'status-message error';
+                } finally {
+                    btnPreviewReport.disabled = false;
+                }
+            }
+
+            async function saveReportDefinition() {
+                const definition = gatherReportDefinitionFromUI();
+                if (!definition.name) {
+                    alert('Please enter a name for the report.');
+                    return;
+                }
+                
+                try {
+                    btnSaveReport.disabled = true;
+                    const savedReport = await apiRequest('/api/reports/custom/save', 'POST', {
+                        id: definition.id,
+                        name: definition.name,
+                        description: '',
+                        definition_json: definition
+                    });
+                    reportDefinition.id = savedReport.id;
+                    alert('Report saved successfully!');
+                    await loadSavedReports();
+                    loadReportSelect.value = savedReport.id;
+                } catch (error) {
+                    alert(`Error saving report: ${error.message}`);
+                } finally {
+                    btnSaveReport.disabled = false;
+                }
+            }
+
+            async function loadSavedReports() {
+                try {
+                    savedReports = await apiRequest('/api/reports/custom/saved');
+                    loadReportSelect.innerHTML = '<option value="">-- Select a report --</option>';
+                    
+                    savedReports.forEach(report => {
+                        const option = document.createElement('option');
+                        option.value = report.id;
+                        option.textContent = report.name;
+                        
+                        // Store the full definition for easy access later
+                        if (report.definition_json) {
+                            option.dataset.definition = JSON.stringify(report.definition_json);
+                        }
+                        
+                        loadReportSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Failed to load saved reports:', error);
+                }
+            }
+
+            function handleLoadReport() {
+                const selectedOption = loadReportSelect.options[loadReportSelect.selectedIndex];
+                if (!selectedOption.value) {
+                    resetBuilder();
+                    return;
+                }
+                
+                try {
+                    const definition = JSON.parse(selectedOption.dataset.definition);
+                    populateBuilderFromDefinition(definition);
+                } catch (error) {
+                    console.error('Error parsing report definition:', error);
+                    alert('Error loading report: Invalid definition format');
+                }
+            }
+
+            async function deleteReportDefinition() {
+                const reportId = loadReportSelect.value;
+                if (!reportId) {
+                    alert('Please select a report to delete.');
+                    return;
+                }
+                if (!confirm('Are you sure you want to delete this report?')) {
+                    return;
+                }
+                try {
+                    btnDeleteReport.disabled = true;
+                    await apiRequest(`/api/reports/custom/${reportId}`, 'DELETE');
+                    alert('Report deleted successfully.');
+                    resetBuilder();
+                    await loadSavedReports();
+                } catch (error) {
+                    alert(`Error deleting report: ${error.message}`);
+                } finally {
+                    btnDeleteReport.disabled = false;
+                }
+            }
+            
+            function resetBuilder() {
+                reportDefinition = { id: null, name: '', dataSource: '', fields: [], filters: [], groupBy: '', sortBy: [] };
+                reportNameInput.value = '';
+                dataSourceSelect.value = '';
+                fieldListDiv.innerHTML = '<p>Select a data source to see available fields.</p>';
+                filterContainer.innerHTML = '';
+                sortContainer.innerHTML = '';
+                groupBySelect.innerHTML = '<option value="">-- No Grouping --</option>';
+                resultsTableContainer.innerHTML = '';
+                resultsStatusDiv.textContent = 'Build your report and click "Preview Report" to see the results here.';
+                resultsStatusDiv.className = 'status-message info';
+            }
+
+            function populateBuilderFromDefinition(definition) {
+                resetBuilder();
+                reportDefinition = definition;
+                reportNameInput.value = definition.name;
+                dataSourceSelect.value = definition.dataSource;
+                
+                handleDataSourceChange().then(() => {
+                    // Repopulate fields after they are loaded
+                    Array.from(document.querySelectorAll('.field-checkbox')).forEach(cb => {
+                        if (definition.fields.includes(cb.value)) {
+                            cb.checked = true;
+                        }
+                    });
+                    
+                    // Repopulate filters
+                    definition.filters.forEach(filter => addFilterRow(filter));
+                    
+                    // Repopulate sorting
+                    definition.sortBy.forEach(sort => addSortRow(sort));
+                    
+                    // Repopulate grouping
+                    groupBySelect.value = definition.groupBy;
+                });
+            }
+
+            function exportToCSV() {
+                if (reportResults.length === 0) {
+                    alert('No data to export. Please run a report first.');
+                    return;
+                }
+
+                const headers = Object.keys(reportResults[0]);
+                const csvRows = [headers.join(',')];
+
+                for (const row of reportResults) {
+                    const values = headers.map(header => {
+                        const value = row[header] === null || row[header] === undefined ? '' : row[header];
+                        const escaped = ('' + value).replace(/\"/g, '""');
+                        return `"${escaped}"`;
+                    });
+                    csvRows.push(values.join(','));
+                }
+
+                const csvString = csvRows.join('\n');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                const reportName = reportNameInput.value.replace(/\s+/g, '_') || 'custom_report';
+                link.setAttribute('download', `${reportName}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            initializeBuilder();
+        });
+    </script>
+
+</body>
+</html>

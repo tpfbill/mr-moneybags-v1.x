@@ -1,5 +1,13 @@
-// API Configuration
-const API_BASE_URL = 'http://localhost:3000';
+// ---------------------------------------------------------------------------
+// API Configuration (dynamic)
+// ---------------------------------------------------------------------------
+// Determine the correct API base URL at runtime.
+// • Dev mode: frontend runs on :8080/8081 and should talk to backend on :3000
+// • Prod / same-origin: use the current window.location.origin
+const devPorts = ['8080', '8081'];
+const API_BASE_URL = devPorts.includes(window.location.port)
+    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    : window.location.origin;
 
 // Global variables
 let currentVendor = null;

@@ -142,19 +142,29 @@ async function fetchChecks() {
             if (value) params.append(key, value);
         });
         
-        const response = await fetch(`/api/checks?${params.toString()}`, {
+        const API = window.API_BASE || '';
+        const response = await fetch(`${API}/api/checks?${params.toString()}`, {
             credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to fetch checks');
         
         const data = await response.json();
-        state.checks = data.checks;
-        state.pagination.total = data.total;
-        state.pagination.pages = Math.ceil(data.total / state.pagination.limit);
+        // Backend returns { data: [...], pagination: { page, limit, total, pages } }
+        state.checks = data.data || [];
+        if (data.pagination) {
+            state.pagination.page  = data.pagination.page;
+            state.pagination.limit = data.pagination.limit;
+            state.pagination.total = data.pagination.total;
+            state.pagination.pages = data.pagination.pages;
+        } else {
+            // Fallback to legacy shape
+            state.pagination.total = data.total || state.checks.length;
+            state.pagination.pages = Math.ceil(state.pagination.total / state.pagination.limit);
+        }
         
         state.loading.checks = false;
         updateUI();
-        return data.checks;
+        return state.checks;
     } catch (error) {
         console.error('Error fetching checks:', error);
         state.loading.checks = false;
@@ -168,7 +178,8 @@ async function fetchChecks() {
 async function fetchBankAccounts() {
     try {
         state.loading.bankAccounts = true;
-        const response = await fetch('/api/bank-accounts', {
+        const API = window.API_BASE || '';
+        const response = await fetch(`${API}/api/bank-accounts`, {
             credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to fetch bank accounts');
@@ -191,7 +202,8 @@ async function fetchBankAccounts() {
 async function fetchVendors() {
     try {
         state.loading.vendors = true;
-        const response = await fetch('/api/vendors', {
+        const API = window.API_BASE || '';
+        const response = await fetch(`${API}/api/vendors`, {
             credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to fetch vendors');
@@ -213,7 +225,8 @@ async function fetchVendors() {
 async function fetchJournalEntries() {
     try {
         state.loading.journalEntries = true;
-        const response = await fetch('/api/journal-entries', {
+        const API = window.API_BASE || '';
+        const response = await fetch(`${API}/api/journal-entries`, {
             credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to fetch journal entries');
@@ -237,7 +250,8 @@ async function fetchCheckFormats() {
         state.loading.checkFormats = true;
         // Use separate endpoint dedicated to check formats (no UUID conflict)
         // Include credentials so session cookies are sent with the request
-        const response = await fetch('/api/check-formats', {
+        const API = window.API_BASE || '';
+        const response = await fetch(`${API}/api/check-formats`, {
             credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to fetch check formats');
@@ -260,7 +274,8 @@ async function fetchCheckFormats() {
 async function getCheckById(id) {
     try {
         state.loading.checkDetails = true;
-        const response = await fetch(`/api/checks/${id}`, {
+        const API = window.API_BASE || '';
+        const response = await fetch(`${API}/api/checks/${id}`, {
             credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to fetch check details');
@@ -278,12 +293,19 @@ async function getCheckById(id) {
 
 // Create new check
 async function createCheck(checkData) {
+        const API = window.API_BASE || '';
+        // Ensure backend-expected field names
+        const payload = {
+            ...checkData,
+            check_date : checkData.check_date || checkData.date,
+            payee_name : checkData.payee_name || checkData.payee
+        };
     try {
-        const response = await fetch('/api/checks', {
+        const response = await fetch(`${API}/api/checks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify(checkData)
+            body: JSON.stringify(payload)
         });
         
         if (!response.ok) {
@@ -303,12 +325,18 @@ async function createCheck(checkData) {
 
 // Update existing check
 async function updateCheck(id, checkData) {
+        const API = window.API_BASE || '';
+        const payload = {
+            ...checkData,
+            check_date : checkData.check_date || checkData.date,
+            payee_name : checkData.payee_name || checkData.payee
+        };
     try {
-        const response = await fetch(`/api/checks/${id}`, {
+        const response = await fetch(`${API}/api/checks/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify(checkData)
+            body: JSON.stringify(payload)
         });
         
         if (!response.ok) {
@@ -328,8 +356,9 @@ async function updateCheck(id, checkData) {
 
 // Delete check
 async function deleteCheck(id) {
+        const API = window.API_BASE || '';
     try {
-        const response = await fetch(`/api/checks/${id}`, {
+        const response = await fetch(`${API}/api/checks/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -351,13 +380,18 @@ async function deleteCheck(id) {
 // Validate check number
 async function validateCheckNumber(bankAccountId, checkNumber, checkId = null) {
     try {
-        const params = new URLSearchParams();
-        params.append('bank_account_id', bankAccountId);
-        params.append('check_number', checkNumber);
-        if (checkId) params.append('check_id', checkId);
-        
-        const response = await fetch(`/api/checks/validate-number?${params.toString()}`, {
+        const API = window.API_BASE || '';
+        const body = {
+            bank_account_id: bankAccountId,
+            check_number,
+            check_id: checkId
+        };
+        const response = await fetch(`${API}/api/checks/validate-number`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
+            ,
+            body: JSON.stringify(body)
         });
         if (!response.ok) throw new Error('Failed to validate check number');
         
@@ -396,9 +430,9 @@ function updateChecksTable() {
     checksTableBody.innerHTML = state.checks.map(check => `
         <tr data-id="${check.id}">
             <td>${check.check_number}</td>
-            <td>${check.bank_account_name}</td>
-            <td>${check.date}</td>
-            <td>${check.payee}</td>
+            <td>${check.check_date}</td>
+            <td>${check.bank_name ? `${check.bank_name} - ${check.account_name}` : '—'}</td>
+            <td>${check.payee_name}</td>
             <td class="text-right">${formatCurrency(check.amount)}</td>
             <td><span class="status-badge status-${check.status.toLowerCase()}">${check.status}</span></td>
             <td>

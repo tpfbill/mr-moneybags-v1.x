@@ -42,6 +42,15 @@ const registerInterEntityTransferRoutes = require('./src/js/inter-entity-transfe
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ---------------------------------------------------------------------------
+// Trust proxy (needed for secure cookies & proper client IP detection when
+// running behind Nginx / load-balancer in production)
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV === 'production') {
+  // Behind a TLS-terminating reverse-proxy
+  app.set('trust proxy', 1);
+}
+
 // Configure middleware
 // ---------------------------------------------------------------------------
 // CORS configuration
@@ -49,10 +58,40 @@ const PORT = process.env.PORT || 3000;
 // Front-end runs on port 8080 while the API runs on port 3000, so we must
 // allow cross-origin requests *with credentials*.  Wildcard origins ("*")
 // cannot be used when `credentials: true`, therefore we explicitly list
-// the development origins we expect.
+// the development origins we expect OR compute them dynamically.
+
+const extraOrigins =
+  (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+
+function corsOriginCallback(origin, cb) {
+  // Same-origin or server-to-server (no Origin header)
+  if (!origin) return cb(null, true);
+
+  // Auto-allow localhost / 127.0.0.1 / any-IP on ports 8080 & 8081
+  try {
+    const { hostname, port, protocol } = new URL(origin);
+    const devPorts = ['8080', '8081'];
+    if (devPorts.includes(port) && ['http:', 'https:'].includes(protocol)) {
+      return cb(null, true);
+    }
+  } catch {
+    // Malformed Origin header – reject
+  }
+
+  // Explicitly allowed via env
+  if (extraOrigins.includes(origin)) {
+    return cb(null, true);
+  }
+
+  return cb(new Error(`CORS: origin ${origin} not allowed`), false);
+}
+
 app.use(
   cors({
-    origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+    origin: corsOriginCallback,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -87,7 +126,7 @@ app.use(
       // refuse to send it back.  Force secure=false here; for production
       // deployments, override by setting NODE_ENV=production and using a
       // reverse-proxy/HTTPS terminator in front of Node.
-      secure: false
+      secure: process.env.NODE_ENV === 'production'
     }
   })
 );
