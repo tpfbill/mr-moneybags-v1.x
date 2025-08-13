@@ -296,7 +296,8 @@ async function fetchGLAccounts() {
     try {
         state.loading.glAccounts = true;
 
-        const response = await fetch(`${API_BASE}/api/accounts?type=Asset,Revenue`, {
+        // Request only active accounts, then filter client-side for Asset & Revenue
+        const response = await fetch(`${API_BASE}/api/accounts?status=Active`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -309,7 +310,10 @@ async function fetchGLAccounts() {
         }
 
         const data = await response.json();
-        state.glAccounts = data;
+        // Keep only Asset and Revenue account types
+        state.glAccounts = data.filter(acc =>
+            acc.type === 'Asset' || acc.type === 'Revenue'
+        );
 
         updateGLAccountDropdowns();
     } catch (error) {
