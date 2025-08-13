@@ -146,6 +146,39 @@
     </div>
 
     <div class="section">
+        <h3 id="db-modes">6.4 Database Setup Modes (Installer)</h3>
+        <p>The one-shot installer (<code>deployment/ubuntu24/install.sh</code>) supports optional database setup via <code>--db=MODE</code>:</p>
+        <ul>
+            <li><code>skip</code> (default): No DB operations</li>
+            <li><code>create</code>: Create role &amp; database only (<code>database/setup-database.sql</code>)</li>
+            <li><code>schema</code>: Role/DB + schema only (no sample data) – empty DB recommended for AccuFund imports</li>
+            <li><code>full</code>: Role/DB + schema + built-in sample data (<code>database/db-init.sql</code>)</li>
+            <li><code>macdump</code>: Schema + Mac test dataset (<code>database/sample-data-mac-export.sql</code>)</li>
+            <li><code>principle</code>: Schema + The Principle Foundation dataset (<code>database/load-principle-foundation-data.js</code>)</li>
+        </ul>
+
+        <p>Examples:</p>
+<pre class="command"># Empty schema only (prepare for AccuFund import later)
+sudo ./deployment/ubuntu24/install.sh --db=schema
+
+# Full schema + built-in sample data
+sudo ./deployment/ubuntu24/install.sh --db=full
+
+# Schema + Mac test dataset
+sudo ./deployment/ubuntu24/install.sh --db=macdump
+
+# Schema + Principle Foundation dataset
+sudo ./deployment/ubuntu24/install.sh --db=principle</pre>
+
+        <p class="note">
+            Notes:<br>
+            • The installer will install/start local PostgreSQL if required for <code>create</code>, <code>schema</code>, or <code>full</code> modes.<br>
+            • If <code>/opt/mr-moneybags/.env</code> exists, it will read <code>PGHOST</code>, <code>PGPORT</code>, <code>PGDATABASE</code>, <code>PGUSER</code>, <code>PGPASSWORD</code> to target a remote DB.<br>
+            • You may combine <code>--db</code> with other flags such as <code>--domain</code>, <code>--repo</code>, <code>--branch</code>, <code>--app-dir</code>, and <code>--user</code>.
+        </p>
+    </div>
+
+    <div class="section">
         <h2 id="architecture">2. Reference Architecture</h2>
         <div class="architecture">
 ┌─────────┐   HTTPS 443              ┌────────────────────┐

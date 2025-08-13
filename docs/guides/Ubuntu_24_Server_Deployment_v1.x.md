@@ -241,3 +241,43 @@ sudo systemctl restart mr-moneybags
 ---
 
 Happy accounting! 🚀
+
+### 6.4  Database Setup Modes (Installer)
+
+The one-shot installer (<code>deployment/ubuntu24/install.sh</code>) now supports optional
+database setup via <code>--db=MODE</code>:
+
+| Mode | What it does | SQL / Script executed |
+|------|--------------|-----------------------|
+| `skip` *(default)* | No DB operations | – |
+| `create` | Create role **npfadmin** & database **fund_accounting_db** | `database/setup-database.sql` |
+| `schema` | Role / DB + **schema only**&nbsp;(empty DB – ideal for AccuFund imports) | `setup-database.sql` + schema-only slice of `db-init.sql` |
+| `full` | Role / DB + schema **and** built-in sample data | `setup-database.sql`, then `database/db-init.sql` |
+| `macdump` | Schema + Mac test dataset | schema-only + `database/sample-data-mac-export.sql` |
+| `principle` | Schema + “The Principle Foundation” dataset | schema-only + `database/load-principle-foundation-data.js` |
+
+#### Examples
+
+```bash
+# Empty schema only (prepare for AccuFund import later)
+sudo ./deployment/ubuntu24/install.sh --db=schema
+
+# Full schema + built-in sample data
+sudo ./deployment/ubuntu24/install.sh --db=full
+
+# Schema + Mac test dataset
+sudo ./deployment/ubuntu24/install.sh --db=macdump
+
+# Schema + Principle Foundation dataset
+sudo ./deployment/ubuntu24/install.sh --db=principle
+```
+
+**Notes**
+1. For `create`, `schema`, and `full` modes the script will install & start a local
+   PostgreSQL server if one is not already running.
+2. If <code>/opt/mr-moneybags/.env</code> exists, the installer respects
+   `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` and will target that
+   server instead of creating a local cluster.
+3. Additional flags such as <code>--domain</code>, <code>--repo</code>,
+   <code>--branch</code>, <code>--app-dir</code>, and <code>--user</code> can be
+   combined with <code>--db</code> as needed.
