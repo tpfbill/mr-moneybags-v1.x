@@ -317,8 +317,27 @@ async function fetchNachaSettings() {
             }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        nachaSettings = await response.json();
-        console.log('NACHA settings fetched successfully:', nachaSettings.length, 'settings');
+        /* ------------------------------------------------------------------
+         * Robust parsing / shape-normalisation
+         * ----------------------------------------------------------------*/
+        let data;
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = [];
+        }
+
+        if (Array.isArray(data)) {
+            nachaSettings = data;
+        } else if (data && Array.isArray(data.rows)) {
+            nachaSettings = data.rows;
+        } else if (data && Array.isArray(data.data)) {
+            nachaSettings = data.data;
+        } else {
+            nachaSettings = [];
+        }
+
+        console.log('NACHA settings fetched successfully:', (nachaSettings?.length || 0), 'settings');
         renderNachaSettingsTable();
         
         // Populate NACHA settings dropdowns
