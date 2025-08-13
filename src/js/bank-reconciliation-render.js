@@ -199,6 +199,7 @@ async function loadReconciliationWorkspace(reconciliationId=null){
 function renderReconciliationWorkspace(rec){
   document.getElementById('workspace-bank-account').textContent = `${rec.bank_name} - ${rec.account_name}`;
   document.getElementById('workspace-statement-date').textContent = formatDate(rec.statement_date);
+  document.getElementById('workspace-status').textContent = rec.status;
   document.getElementById('workspace-statement-balance').textContent = formatCurrency(rec.statement_balance);
   document.getElementById('workspace-book-balance').textContent = formatCurrency(rec.book_balance);
   const diff = rec.statement_balance - rec.book_balance;
