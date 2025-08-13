@@ -45,6 +45,13 @@ $$;
 -- Connect to the database to set permissions
 \c fund_accounting_db
 
+-- ---------------------------------------------------------------------------
+-- Ensure required extensions exist (needs superuser; we're still postgres here)
+-- ---------------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Grant privileges to npfadmin
 DO $$
 BEGIN

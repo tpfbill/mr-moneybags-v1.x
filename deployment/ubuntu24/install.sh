@@ -166,8 +166,12 @@ run_psql_file() {
 # ---------------------------------------------------------------------------
 make_schema_only_tmp_from_dbinit() {
   TMP_SCHEMA_ONLY="$(mktemp /tmp/mrmb_schema_only.XXXX.sql)"
-  # Grab everything up to (but not including) the SAMPLE DATA section
-  awk '/SAMPLE DATA/ {exit} {print}' database/db-init.sql >"$TMP_SCHEMA_ONLY"
+  # Pull everything up to (but not including) the SAMPLE DATA section,
+  # then drop any CREATE EXTENSION statements (extensions are created
+  # earlier by setup-database.sql as the postgres superuser).
+  awk '/SAMPLE DATA/ {exit} {print}' database/db-init.sql \
+    | sed -E '/^[[:space:]]*CREATE[[:space:]]+EXTENSION\b/I d' \
+    >"$TMP_SCHEMA_ONLY"
 }
 
 # Check if running as root
