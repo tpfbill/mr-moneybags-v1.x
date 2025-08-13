@@ -16,14 +16,15 @@ function populateCheckForm(check) {
     // Populate form fields
     document.getElementById('check-bank-account').value = check.bank_account_id || '';
     document.getElementById('check-number').value = check.check_number || '';
-    document.getElementById('check-date').value = check.date || '';
-    document.getElementById('check-payee').value = check.payee || '';
+    document.getElementById('check-date').value = check.check_date || '';
+    document.getElementById('check-payee').value = check.payee_name || '';
     document.getElementById('check-amount').value = check.amount || '';
-    document.getElementById('check-amount-words').value = check.amount_words || numberToWords(check.amount) || '';
+    document.getElementById('check-amount-words').value = check.amount_in_words || numberToWords(check.amount) || '';
     document.getElementById('check-memo').value = check.memo || '';
     
     // Update status field
-    document.getElementById('check-status').textContent = check.status || 'Draft';
+    const statusEl = document.getElementById('check-status');
+    if (statusEl) statusEl.textContent = check.status || 'Draft';
     
     // Show/hide action buttons based on status
     updateActionButtons(check.status);
@@ -38,7 +39,8 @@ function resetCheckForm() {
     
     // Reset form fields
     document.getElementById('check-form').reset();
-    document.getElementById('check-status').textContent = 'Draft';
+    const statusEl = document.getElementById('check-status');
+    if (statusEl) statusEl.textContent = 'Draft';
     
     // Reset validation styling
     document.querySelectorAll('.form-control.is-invalid').forEach(field => {
@@ -99,10 +101,10 @@ async function saveCheck() {
     const checkData = {
         bank_account_id: document.getElementById('check-bank-account').value,
         check_number: document.getElementById('check-number').value.trim(),
-        date: document.getElementById('check-date').value,
-        payee: document.getElementById('check-payee').value.trim(),
+        check_date: document.getElementById('check-date').value,
+        payee_name: document.getElementById('check-payee').value.trim(),
         amount: parseFloat(document.getElementById('check-amount').value) || 0,
-        amount_words: document.getElementById('check-amount-words').value.trim(),
+        amount_in_words: document.getElementById('check-amount-words').value.trim(),
         memo: document.getElementById('check-memo').value.trim(),
         status: core.state.currentCheck?.status || 'Draft'
     };
@@ -167,7 +169,7 @@ async function viewCheck(checkId) {
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Date</div>
-                            <div class="detail-value">${check.date}</div>
+                            <div class="detail-value">${check.check_date}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Amount</div>
@@ -175,7 +177,7 @@ async function viewCheck(checkId) {
                         </div>
                         <div class="detail-item full-width">
                             <div class="detail-label">Amount in Words</div>
-                            <div class="detail-value">${check.amount_words}</div>
+                            <div class="detail-value">${check.amount_in_words}</div>
                         </div>
                     </div>
                 </div>
@@ -185,7 +187,7 @@ async function viewCheck(checkId) {
                     <div class="details-grid">
                         <div class="detail-item full-width">
                             <div class="detail-label">Payee</div>
-                            <div class="detail-value">${check.payee}</div>
+                            <div class="detail-value">${check.payee_name}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Bank Account</div>
@@ -282,7 +284,7 @@ async function voidCheck() {
     }
     
     try {
-        const response = await fetch(`/api/checks/${checkId}/void`, {
+        const response = await fetch(`${window.API_BASE}/api/checks/${checkId}/void`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -318,11 +320,11 @@ async function clearCheck() {
     }
     
     try {
-        const response = await fetch(`/api/checks/${checkId}/clear`, {
+        const response = await fetch(`${window.API_BASE}/api/checks/${checkId}/clear`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ cleared_date: clearedDate })
+            body: JSON.stringify({ clearing_date: clearedDate })
         });
         
         if (!response.ok) {
@@ -521,7 +523,7 @@ async function suggestNextCheckNumber() {
     
     try {
         const response = await fetch(
-            `/api/checks/next-number?bank_account_id=${bankAccountSelect.value}`,
+            `${window.API_BASE}/api/checks/next-number/${bankAccountSelect.value}`,
             { credentials: 'include' }
         );
         if (!response.ok) throw new Error('Failed to get next check number');

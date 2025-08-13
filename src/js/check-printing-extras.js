@@ -14,7 +14,7 @@ async function fetchCheckFormats() {
 // Create new check format
 async function createCheckFormat(formatData) {
     try {
-        const response = await fetch('/api/checks/formats', {
+        const response = await fetch(`${window.API_BASE}/api/check-formats`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -39,7 +39,7 @@ async function createCheckFormat(formatData) {
 // Update existing check format
 async function updateCheckFormatAPI(id, formatData) {
     try {
-        const response = await fetch(`/api/checks/formats/${id}`, {
+        const response = await fetch(`${window.API_BASE}/api/check-formats/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -64,7 +64,7 @@ async function updateCheckFormatAPI(id, formatData) {
 // Delete check format
 async function deleteCheckFormat(id) {
     try {
-        const response = await fetch(`/api/checks/formats/${id}`, {
+        const response = await fetch(`${window.API_BASE}/api/check-formats/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -86,8 +86,8 @@ async function deleteCheckFormat(id) {
 // Set default format
 async function setDefaultFormatAPI(id) {
     try {
-        const response = await fetch(`/api/checks/formats/${id}/default`, {
-            method: 'PUT',
+        const response = await fetch(`${window.API_BASE}/api/check-formats/${id}/set-default`, {
+            method: 'POST',
             credentials: 'include'
         });
         
@@ -178,9 +178,9 @@ function updatePrintQueue() {
     tableBody.innerHTML = filteredQueue.map(check => `
         <tr data-id="${check.id}">
             <td>${check.check_number}</td>
-            <td>${check.bank_account_name}</td>
-            <td>${check.date}</td>
-            <td>${check.payee}</td>
+            <td>${check.bank_name ? `${check.bank_name} - ${check.account_name}` : '—'}</td>
+            <td>${check.check_date}</td>
+            <td>${check.payee_name}</td>
             <td class="text-right">${core.formatCurrency(check.amount)}</td>
             <td>
                 <button class="action-button remove-from-queue" data-id="${check.id}">Remove</button>
@@ -232,7 +232,7 @@ async function printQueuedChecks() {
     try {
         // Mark checks as printed
         const checkIds = filteredQueue.map(check => check.id);
-        const response = await fetch('/api/checks/print-batch', {
+        const response = await fetch(`${window.API_BASE}/api/checks/batch-print`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -355,10 +355,10 @@ async function printQueuedChecks() {
                         <div class="bank-info">${bankAccount ? bankAccount.bank_name : 'Bank Account'}</div>
                         <div class="check-number">Check #${check.check_number}</div>
                     </div>
-                    <div class="check-date">${check.date}</div>
-                    <div class="check-payee">${check.payee}</div>
+                    <div class="check-date">${check.check_date}</div>
+                    <div class="check-payee">${check.payee_name}</div>
                     <div class="check-amount-box">${core.formatCurrency(check.amount)}</div>
-                    <div class="check-amount-words">${check.amount_words}</div>
+                    <div class="check-amount-words">${check.amount_in_words}</div>
                     <div class="check-memo">Memo: ${check.memo || ''}</div>
                     <div class="check-signature">
                         <div class="signature-line"></div>
@@ -591,10 +591,10 @@ function updateFormatPreview() {
     // Create sample check data
     const sampleCheck = {
         check_number: '12345',
-        date: new Date().toLocaleDateString(),
-        payee: 'Sample Vendor, Inc.',
+        check_date: new Date().toLocaleDateString(),
+        payee_name: 'Sample Vendor, Inc.',
         amount: 1234.56,
-        amount_words: 'One Thousand Two Hundred Thirty-Four and 56/100',
+        amount_in_words: 'One Thousand Two Hundred Thirty-Four and 56/100',
         memo: 'Sample payment'
     };
     
@@ -611,14 +611,14 @@ function updateFormatPreview() {
                 right: ${format.date_x}in;
                 font-family: ${format.font_name};
                 font-size: ${format.font_size_normal}pt;
-            ">${sampleCheck.date}</div>
+            ">${sampleCheck.check_date}</div>
             <div class="check-payee" style="
                 position: absolute;
                 top: ${format.payee_y}in;
                 left: ${format.payee_x}in;
                 font-family: ${format.font_name};
                 font-size: ${format.font_size_normal}pt;
-            ">${sampleCheck.payee}</div>
+            ">${sampleCheck.payee_name}</div>
             <div class="check-amount-box" style="
                 position: absolute;
                 top: ${format.amount_y}in;
@@ -637,7 +637,7 @@ function updateFormatPreview() {
                 font-family: ${format.font_name};
                 font-size: ${format.font_size_normal}pt;
                 width: 70%;
-            ">${sampleCheck.amount_words}</div>
+            ">${sampleCheck.amount_in_words}</div>
             <div class="check-memo" style="
                 position: absolute;
                 top: ${format.memo_y}in;
@@ -752,14 +752,14 @@ async function previewCheck(checkId) {
                     right: ${defaultFormat.date_x}in;
                     font-family: ${defaultFormat.font_name};
                     font-size: ${defaultFormat.font_size_normal}pt;
-                ">${check.date}</div>
+                ">${check.check_date}</div>
                 <div class="check-payee" style="
                     position: absolute;
                     top: ${defaultFormat.payee_y}in;
                     left: ${defaultFormat.payee_x}in;
                     font-family: ${defaultFormat.font_name};
                     font-size: ${defaultFormat.font_size_normal}pt;
-                ">${check.payee}</div>
+                ">${check.payee_name}</div>
                 <div class="check-amount-box" style="
                     position: absolute;
                     top: ${defaultFormat.amount_y}in;
@@ -778,7 +778,7 @@ async function previewCheck(checkId) {
                     font-family: ${defaultFormat.font_name};
                     font-size: ${defaultFormat.font_size_normal}pt;
                     width: 70%;
-                ">${check.amount_words}</div>
+                ">${check.amount_in_words}</div>
                 <div class="check-memo" style="
                     position: absolute;
                     top: ${defaultFormat.memo_y}in;
@@ -833,7 +833,7 @@ async function printSingleCheck(checkId) {
     
     try {
         // Mark check as printed
-        const response = await fetch(`/api/checks/${checkId}/print`, {
+        const response = await fetch(`${window.API_BASE}/api/checks/${checkId}/print`, {
             method: 'POST',
             credentials: 'include'
         });

@@ -8,6 +8,18 @@
     <link rel="stylesheet" href="src/css/styles.css">
     <link rel="stylesheet" href="src/css/check-printing.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <script>
+    (function(){
+      const devPorts = ['8080','8081'];
+      let API_BASE;
+      if (devPorts.includes(window.location.port)) {
+        API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+      } else {
+        API_BASE = window.location.origin;
+      }
+      window.API_BASE = API_BASE;
+    })();
+    </script>
 </head>
 <body>
     <div class="header">
@@ -63,7 +75,7 @@
 
         <!-- Check Register Tab -->
         <div id="check-register" class="tab-panel active">
-            <div class="filter-section">
+            <form id="filter-form" class="filter-section">
                 <div class="filter-row">
                     <div class="filter-group">
                         <label for="filter-status">Status:</label>
@@ -89,27 +101,27 @@
                 </div>
                 <div class="filter-row">
                     <div class="filter-group">
-                        <label for="filter-date-start">Date Range:</label>
+                        <label for="filter-start-date">Date Range:</label>
                         <div class="date-range-container">
-                            <input type="date" id="filter-date-start" class="filter-control date-input">
+                            <input type="date" id="filter-start-date" class="filter-control date-input">
                             <span>to</span>
-                            <input type="date" id="filter-date-end" class="filter-control date-input">
+                            <input type="date" id="filter-end-date" class="filter-control date-input">
                         </div>
                     </div>
                     <div class="filter-group">
-                        <label for="filter-amount-min">Amount Range:</label>
+                        <label for="filter-min-amount">Amount Range:</label>
                         <div class="date-range-container">
-                            <input type="number" id="filter-amount-min" class="filter-control" placeholder="Min" step="0.01">
+                            <input type="number" id="filter-min-amount" class="filter-control" placeholder="Min" step="0.01">
                             <span>to</span>
-                            <input type="number" id="filter-amount-max" class="filter-control" placeholder="Max" step="0.01">
+                            <input type="number" id="filter-max-amount" class="filter-control" placeholder="Max" step="0.01">
                         </div>
                     </div>
                     <div class="filter-group filter-buttons">
-                        <button id="apply-filters-btn" class="action-button">Apply Filters</button>
-                        <button id="clear-filters-btn" class="action-button">Clear Filters</button>
+                        <button id="filter-apply" class="action-button">Apply Filters</button>
+                        <button id="filter-reset" class="action-button">Clear Filters</button>
                     </div>
                 </div>
-            </div>
+            </form>
 
             <div class="table-container">
                 <table id="checks-table" class="data-table">
@@ -124,7 +136,7 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="checks-table-body">
                         <!-- Checks will be populated by JavaScript -->
                         <tr class="loading-row">
                             <td colspan="7" class="text-center">Loading checks...</td>
@@ -133,11 +145,11 @@
                 </table>
             </div>
 
-            <div class="pagination-container">
-                <div class="pagination-info">
+            <div id="pagination-container" class="pagination-container">
+                <div id="pagination-info" class="pagination-info">
                     Showing <span id="pagination-start">0</span> to <span id="pagination-end">0</span> of <span id="pagination-total">0</span> checks
                 </div>
-                <div class="pagination-controls">
+                <div id="pagination-controls" class="pagination-controls">
                     <button id="pagination-prev" class="pagination-button" disabled>Previous</button>
                     <div id="pagination-pages" class="pagination-pages">
                         <!-- Page numbers will be populated by JavaScript -->
@@ -234,9 +246,9 @@
                 </div>
 
                 <div class="form-actions">
-                    <button id="save-draft-btn" class="action-button">Save as Draft</button>
-                    <button id="print-now-btn" class="action-button primary">Print Now</button>
-                    <button id="cancel-check-btn" class="action-button secondary">Cancel</button>
+                    <button id="check-save" class="action-button">Save as Draft</button>
+                    <button id="check-print" class="action-button primary">Print Now</button>
+                    <button id="check-cancel" class="action-button secondary">Cancel</button>
                 </div>
             </div>
         </div>
@@ -263,7 +275,7 @@
                         <button id="print-selected-btn" class="action-button primary" disabled>
                             <i class="bi bi-printer"></i> Print Selected
                         </button>
-                        <button id="print-all-btn" class="action-button">
+                        <button id="print-queue-print" class="action-button">
                             <i class="bi bi-printer"></i> Print All
                         </button>
                     </div>
@@ -286,7 +298,7 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="print-queue-table-body">
                         <!-- Print queue will be populated by JavaScript -->
                         <tr class="empty-row">
                             <td colspan="8" class="text-center">No checks in print queue. Create a new check or add existing checks to the queue.</td>
@@ -295,7 +307,7 @@
                 </table>
             </div>
 
-            <div class="print-preview-container">
+            <div id="print-preview-container" class="print-preview-container">
                 <h3>Print Preview</h3>
                 <div id="print-preview" class="print-preview">
                     <div class="print-preview-placeholder">
@@ -350,7 +362,7 @@
         <div id="check-formats" class="tab-panel">
             <div class="formats-header">
                 <h3>Check Format Templates</h3>
-                <button id="add-format-btn" class="action-button">
+                <button id="format-add" class="action-button">
                     <i class="bi bi-plus-circle"></i> Add Format
                 </button>
             </div>
@@ -377,8 +389,8 @@
 
             <div class="format-editor-container">
                 <h3 id="format-editor-title">Format Editor</h3>
-                <div class="format-editor">
-                    <div class="format-form">
+                <div id="format-editor" class="format-editor">
+                    <div id="format-form" class="format-form">
                         <div class="form-section">
                             <h4>Basic Information</h4>
                             <div class="form-row">
@@ -501,8 +513,8 @@
                         </div>
 
                         <div class="form-actions">
-                            <button id="save-format-btn" class="action-button primary">Save Format</button>
-                            <button id="cancel-format-btn" class="action-button secondary">Cancel</button>
+                            <button id="format-save" class="action-button primary">Save Format</button>
+                            <button id="format-cancel" class="action-button secondary">Cancel</button>
                         </div>
                     </div>
                     <div class="format-preview">
@@ -633,15 +645,15 @@
                     <input type="hidden" id="void-check-id">
                     <div class="form-row">
                         <div class="form-group full-width">
-                            <label for="void-reason">Reason for Voiding <span class="required">*</span></label>
-                            <textarea id="void-reason" class="form-control" required rows="3"></textarea>
+                            <label for="void-check-reason">Reason for Voiding <span class="required">*</span></label>
+                            <textarea id="void-check-reason" class="form-control" required rows="3"></textarea>
                             <div class="invalid-feedback">Please provide a reason for voiding this check</div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button id="confirm-void-btn" class="action-button danger">Void Check</button>
+                <button id="void-check-confirm" class="action-button danger">Void Check</button>
                 <button class="action-button secondary modal-close-btn" data-modal-id="void-check-modal">Cancel</button>
             </div>
         </div>
@@ -662,15 +674,15 @@
                     <input type="hidden" id="clear-check-id">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="clearing-date">Clearing Date <span class="required">*</span></label>
-                            <input type="date" id="clearing-date" class="form-control" required>
+                            <label for="clear-check-date">Clearing Date <span class="required">*</span></label>
+                            <input type="date" id="clear-check-date" class="form-control" required>
                             <div class="invalid-feedback">Please enter a valid clearing date</div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button id="confirm-clear-btn" class="action-button primary">Mark as Cleared</button>
+                <button id="clear-check-confirm" class="action-button primary">Mark as Cleared</button>
                 <button class="action-button secondary modal-close-btn" data-modal-id="clear-check-modal">Cancel</button>
             </div>
         </div>
@@ -761,7 +773,7 @@
                 <p>This format will be used for all new checks unless another format is specifically selected.</p>
             </div>
             <div class="modal-footer">
-                <button id="confirm-default-format-btn" class="action-button primary">Set as Default</button>
+                <button id="default-format-confirm" class="action-button primary">Set as Default</button>
                 <button class="action-button secondary modal-close-btn" data-modal-id="default-format-modal">Cancel</button>
             </div>
         </div>
