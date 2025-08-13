@@ -53,7 +53,8 @@ import {
     updateDashboardRecentTransactions,
     updateDashboardUnpostedEntries,
     updateEntityHierarchyVisualization,
-    initializeDashboardCharts
+    initializeDashboardCharts,
+    updateFundReportsFilters
 } from './app-ui.js';
 
 // Import modal management functions
@@ -150,7 +151,8 @@ function connectDataWithUI() {
         updateDashboardRecentTransactions,
         updateDashboardUnpostedEntries,
         updateEntityHierarchyVisualization,
-        initializeDashboardCharts
+        initializeDashboardCharts,
+        updateFundReportsFilters
     });
 }
 
@@ -244,6 +246,7 @@ function showPage(pageId) {
             break;
         case 'fund-reports':
             initializeFundReportsTabs();
+            updateFundReportsFilters();
             break;
     }
 }
@@ -302,6 +305,9 @@ function refreshCurrentPageData() {
             break;
         case 'chart-of-accounts':
             updateChartOfAccountsTable();
+            break;
+        case 'fund-reports':
+            updateFundReportsFilters();
             break;
     }
 }

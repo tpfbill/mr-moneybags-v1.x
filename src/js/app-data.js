@@ -22,6 +22,7 @@ let updateDashboardRecentTransactions;
 let updateDashboardUnpostedEntries;
 let updateEntityHierarchyVisualization;
 let initializeDashboardCharts;
+let updateFundReportsFilters; // <-- Fund Reports dropdown updater
 
 /**
  * Set UI update functions - called from app-main.js to connect the data layer with UI updates
@@ -41,6 +42,7 @@ export function setUIUpdaters(uiUpdaters) {
     updateDashboardUnpostedEntries = uiUpdaters.updateDashboardUnpostedEntries;
     updateEntityHierarchyVisualization = uiUpdaters.updateEntityHierarchyVisualization;
     initializeDashboardCharts = uiUpdaters.initializeDashboardCharts;
+    updateFundReportsFilters = uiUpdaters.updateFundReportsFilters;
 }
 
 /**
@@ -207,6 +209,11 @@ export async function loadFundData() {
         // Update dashboard fund balances if UI updater is available
         if (typeof updateDashboardFundBalances === 'function') {
             updateDashboardFundBalances();
+        }
+
+        // Update Fund Reports filters dropdown if UI updater is available
+        if (typeof updateFundReportsFilters === 'function') {
+            updateFundReportsFilters();
         }
         
         return funds;

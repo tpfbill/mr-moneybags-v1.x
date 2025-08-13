@@ -15,6 +15,57 @@ import {
 } from './app-config.js';
 
 /**
+ * Populate Fund Reports fund dropdown based on current entity / consolidated view
+ */
+export function updateFundReportsFilters() {
+    const fundSelect = document.getElementById('fund-reports-fund-select');
+    if (!fundSelect) return;
+
+    // Preserve previous selection so we don't reset user choice on every refresh
+    const previous = fundSelect.value;
+
+    // Determine funds relevant to the current context
+    const funds = getRelevantFunds();
+
+    // Sort by code then name for predictable ordering
+    funds.sort(
+        (a, b) =>
+            (a.code || '').localeCompare(b.code || '') ||
+            (a.name || '').localeCompare(b.name || '')
+    );
+
+    // Re-build the <select> options
+    fundSelect.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select Fund...';
+    fundSelect.appendChild(placeholder);
+
+    funds.forEach(fund => {
+        const opt = document.createElement('option');
+        opt.value = fund.id;
+
+        // Show entity name suffix only when consolidated view is enabled
+        const entityName =
+            (appState.entities.find(e => e.id === fund.entity_id) || {}).name;
+        const suffix =
+            appState.isConsolidatedView && entityName ? ` (${entityName})` : '';
+
+        opt.textContent = `${fund.code || ''}${
+            fund.code ? ' - ' : ''
+        }${fund.name || ''}${suffix}`.trim();
+        fundSelect.appendChild(opt);
+    });
+
+    // Restore previous selection if it still exists, else reset to placeholder
+    const exists = Array.from(fundSelect.options).some(
+        o => o.value === previous
+    );
+    fundSelect.value = exists ? previous : '';
+}
+
+/**
  * Update entity selector dropdown with current entities
  */
 export function updateEntitySelector() {
