@@ -212,11 +212,35 @@
                         body: JSON.stringify({ username, password }),
                         credentials: 'include' // Include cookies for session
                     });
-                    
-                    const data = await response.json();
-                    
+                    // -------------------------------------------------------
+                    // Robust error handling – avoid “[object Object]”
+                    // -------------------------------------------------------
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (_) {
+                        data = null;
+                    }
+
                     if (!response.ok) {
-                        throw new Error(data.error || 'Login failed. Please try again.');
+                        let errMsg = 'Login failed. Please try again.';
+
+                        if (data) {
+                            if (typeof data.error === 'string') {
+                                errMsg = data.error;
+                            } else if (data.error && typeof data.error === 'object') {
+                                // Nested object – try common “message” field or fallback to JSON
+                                if (typeof data.error.message === 'string') {
+                                    errMsg = data.error.message;
+                                } else {
+                                    errMsg = JSON.stringify(data.error);
+                                }
+                            } else if (typeof data.message === 'string') {
+                                errMsg = data.message;
+                            }
+                        }
+
+                        throw new Error(errMsg);
                     }
                     
                     // Handle remember me
