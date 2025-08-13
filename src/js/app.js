@@ -32,8 +32,8 @@ async function initializeApplication() {
     try {
         console.log('Importing modules...');
         
-        // Import the main module
-        const { initializeApp } = await import('./app-main.js')
+        // Import the main module (use absolute path so classic script resolves correctly)
+        const { initializeApp } = await import('/src/js/app-main.js')
             .then(module => {
                 console.log('✅ Main module loaded successfully');
                 moduleStatus.main = true;
