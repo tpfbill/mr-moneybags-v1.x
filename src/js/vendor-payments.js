@@ -347,10 +347,11 @@ async function fetchNachaSettings() {
         ];
         
         settingsSelects.forEach(select => {
-            if (!select) return;
+            // Guard: make sure select element and its options collection exist
+            if (!select || !select.options) return;
             
             // Clear existing options except the first one
-            while (select.options.length > 1) {
+            while ((select.options?.length || 0) > 1) {
                 select.remove(1);
             }
             
@@ -358,7 +359,9 @@ async function fetchNachaSettings() {
             nachaSettings.forEach(setting => {
                 const option = document.createElement('option');
                 option.value = setting.id;
-                option.textContent = `${setting.company_name} (${setting.company_entry_description})`;
+                option.textContent = setting.company_entry_description
+                    ? `${setting.company_name} (${setting.company_entry_description})`
+                    : setting.company_name;
                 select.appendChild(option);
             });
         });
