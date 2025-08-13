@@ -549,7 +549,111 @@
             </form>
         </div>
     </div>
-    <div id="journal-entry-modal" class="modal-overlay"><div class="modal-dialog modal-dialog-lg"><div class="modal-header"><h3 class="modal-title" id="journal-entry-modal-title">New Journal Entry</h3><button class="modal-close-btn" data-modal-id="journal-entry-modal">&times;</button></div><div class="modal-body"><input type="hidden" id="edit-je-id-input"><div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-date">Date</label><input type="date" id="journal-entry-date" class="form-input"></div></div><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-reference">Reference</label><input type="text" id="journal-entry-reference" class="form-input" readonly></div></div></div><div class="form-group"><label class="form-label" for="journal-entry-description">Description</label><input type="text" id="journal-entry-description" class="form-input" placeholder="Enter transaction description..."></div><div class="form-group"><label class="form-label"><input type="checkbox" id="journal-entry-is-inter-entity" class="form-input"> Is Inter-Entity Transfer?</label></div><div id="inter-entity-fields-container" class="inter-entity-fields"><div class="form-row"><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-target-entity">Target Entity</label><select id="journal-entry-target-entity" class="form-input"><option value="">Select Target Entity...</option></select></div></div><div class="form-column"><div class="form-group"><label class="form-label" for="journal-entry-matching-tx-id">Matching Transaction ID (Optional)</label><input type="text" id="journal-entry-matching-tx-id" class="form-input" placeholder="Auto-generated if blank"></div></div></div></div><h4 style="margin: 20px 0 10px 0;">Journal Entry Lines</h4><table class="data-table" id="journal-lines-table"><thead><tr><th>Account</th><th>Fund</th><th>Debit</th><th>Credit</th><th>Description</th><th>Action</th></tr></thead><tbody id="journal-lines"></tbody></table><button id="add-journal-line" class="btn-secondary" style="margin-top: 10px;">Add Line</button><div class="totals-summary"><div class="form-group"><label class="form-label">Total Debits</label><input type="text" id="journal-total-debits" class="form-input" value="$0.00" readonly></div><div class="form-group"><label class="form-label">Total Credits</label><input type="text" id="journal-total-credits" class="form-input" value="$0.00" readonly></div><div class="form-group"><label class="form-label">Difference</label><input type="text" id="journal-difference" class="form-input" value="$0.00" readonly></div></div></div><div class="modal-footer"><button class="btn-secondary modal-close-btn" data-modal-id="journal-entry-modal">Cancel</button><button class="action-button" id="btn-save-journal-draft">Save as Draft</button><button class="action-button" id="btn-save-journal-post">Save & Post</button></div></div></div>
+    <!-- ================= Journal Entry Modal (aligned with app-modals.js) ================= -->
+    <div id="journal-entry-modal" class="modal-overlay">
+        <div class="modal-dialog modal-dialog-lg">
+            <div class="modal-header">
+                <h3 class="modal-title" id="journal-entry-modal-title">Journal Entry</h3>
+                <!-- Close button with explicit id -->
+                <button class="modal-close-btn"
+                        id="journal-entry-modal-close"
+                        data-modal-id="journal-entry-modal">&times;</button>
+            </div>
+
+            <!-- Form wrapper required for submit handling in app-modals.js -->
+            <form id="journal-entry-modal-form">
+                <div class="modal-body">
+                    <input type="hidden" id="edit-je-id-input">
+
+                    <!-- Top-level meta fields -->
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="journal-entry-date">Date</label>
+                                <input type="date"
+                                       id="journal-entry-date"
+                                       name="journal-entry-date"
+                                       class="form-input"
+                                       required>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="journal-entry-reference">Reference</label>
+                                <input type="text"
+                                       id="journal-entry-reference"
+                                       name="journal-entry-reference"
+                                       class="form-input"
+                                       readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="journal-entry-entity-id">Entity</label>
+                                <select id="journal-entry-entity-id"
+                                        name="journal-entry-entity-id"
+                                        class="form-input">
+                                    <option value="">Select Entity…</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="journal-entry-type">Type</label>
+                                <select id="journal-entry-type"
+                                        name="journal-entry-type"
+                                        class="form-input">
+                                    <option value="General">General</option>
+                                    <option value="Revenue">Revenue</option>
+                                    <option value="Expense">Expense</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="journal-entry-description">Description</label>
+                        <input type="text"
+                               id="journal-entry-description"
+                               name="journal-entry-description"
+                               class="form-input">
+                    </div>
+
+                    <!-- Line-items container (dynamically populated) -->
+                    <h4 style="margin: 20px 0 10px 0;">Journal Entry Line Items</h4>
+                    <div id="journal-entry-line-items" class="dynamic-container"></div>
+                    <button id="add-line-item-btn" type="button" class="btn-secondary" style="margin-top:10px;">
+                        Add Line Item
+                    </button>
+
+                    <!-- Totals -->
+                    <div class="totals-summary" style="margin-top:15px;">
+                        <div>Total Debits: <span id="journal-entry-total-debit">$0.00</span></div>
+                        <div>Total Credits: <span id="journal-entry-total-credit">$0.00</span></div>
+                        <div>Balance: <span id="journal-entry-balance">$0.00</span></div>
+                    </div>
+                </div><!-- /.modal-body -->
+
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn-secondary modal-close-btn"
+                            id="journal-entry-modal-cancel"
+                            data-modal-id="journal-entry-modal">Cancel</button>
+
+                    <button type="submit"
+                            class="action-button"
+                            id="save-journal-entry-btn">Save Entry</button>
+
+                    <button type="button"
+                            class="action-button"
+                            id="post-journal-entry-btn">Post Entry</button>
+                </div>
+            </form><!-- /form -->
+        </div>
+    </div>
     <!-- Enhanced Entity Modal -->
     <div id="entity-modal" class="modal-overlay">
         <div class="modal-dialog modal-dialog-lg">
