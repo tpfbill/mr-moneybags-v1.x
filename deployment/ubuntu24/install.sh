@@ -159,8 +159,10 @@ run_psql_file() {
 # Helper: produce schema-only tmp file from db-init.sql
 # ---------------------------------------------------------------------------
 make_schema_only_tmp_from_dbinit() {
-  TMP_SCHEMA_ONLY="$(mktemp /tmp/mrmb_schema_only.XXXX.sql)"
-  awk '/SAMPLE DATA/ {exit} {print}' database/db-init.sql >"$TMP_SCHEMA_ONLY"
+  TMP_SCHEMA_ONLY="database/schema-only.sql"
+  if [[ ! -f "$TMP_SCHEMA_ONLY" ]]; then
+    error "Missing $TMP_SCHEMA_ONLY (expected curated schema-only file)"
+  fi
 }
 
 # Check if running as root
