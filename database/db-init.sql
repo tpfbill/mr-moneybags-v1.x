@@ -339,66 +339,88 @@ VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- Update parent-child relationships
-UPDATE entities SET parent_entity_id = 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22' 
-WHERE code IN ('TPF-ES', 'TPF-IF') AND parent_entity_id IS NULL;
+-- NOTE: Avoid hard-coded UUIDs so the script can run even if the IDs were
+-- generated differently on a previous run.  Look up the parent’s id by code.
+UPDATE entities       AS e
+SET    parent_entity_id = p.id
+FROM   entities        AS p
+WHERE  p.code = 'TPF_PARENT'
+  AND  e.code IN ('TPF-ES', 'TPF-IF')
+  AND  e.parent_entity_id IS NULL;
 
 -- Sample Accounts
 INSERT INTO accounts (id, entity_id, code, name, type, balance, status)
 VALUES
-    ('a1b2c3d4-e5f6-4a5b-8c9d-1e2f3a4b5c6d', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '1000', 'Cash - Operating', 'Asset', 100000.00, 'Active'),
-    ('b2c3d4e5-f6a7-5b6c-9d0e-2f3a4b5c6d7e', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '1200', 'Accounts Receivable', 'Asset', 25000.00, 'Active'),
-    ('c3d4e5f6-a7b8-6c7d-0e1f-3a4b5c6d7e8f', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '2000', 'Accounts Payable', 'Liability', 15000.00, 'Active'),
-    ('d4e5f6a7-b8c9-7d8e-1f2a-4b5c6d7e8f9a', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '3000', 'Fund Balance', 'Equity', 110000.00, 'Active'),
-    ('e5f6a7b8-c9d0-8e9f-2a3b-5c6d7e8f9a0b', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '4000', 'Contribution Revenue', 'Revenue', 0.00, 'Active'),
-    ('f6a7b8c9-d0e1-9f0a-3b4c-6d7e8f9a0b1c', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '5000', 'Program Expenses', 'Expense', 0.00, 'Active'),
-    ('a7b8c9d0-e1f2-0a1b-4c5d-7e8f9a0b1c2d', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '1900', 'Due From TPF-ES', 'Asset', 5000.00, 'Active'),
-    ('b8c9d0e1-f2a3-1b2c-5d6e-8f9a0b1c2d3e', 'd8b3a2e1-5f4c-4e5b-8d7f-3c9a8b7e6d5c', '2900', 'Due To TPF Parent', 'Liability', 5000.00, 'Active')
+    ('a1b2c3d4-e5f6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1000', 'Cash - Operating', 'Asset', 100000.00, 'Active'),
+    ('b2c3d4e5-f6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1200', 'Accounts Receivable', 'Asset', 25000.00, 'Active'),
+    ('c3d4e5f6-a7b8-6c7d-0e1f-3a4b5c6d7e8f', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '2000', 'Accounts Payable', 'Liability', 15000.00, 'Active'),
+    ('d4e5f6a7-b8c9-7d8e-1f2a-4b5c6d7e8f9a', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '3000', 'Fund Balance', 'Equity', 110000.00, 'Active'),
+    ('e5f6a7b8-c9d0-8e9f-2a3b-5c6d7e8f9a0b', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '4000', 'Contribution Revenue', 'Revenue', 0.00, 'Active'),
+    ('f6a7b8c9-d0e1-9f0a-3b4c-6d7e8f9a0b1c', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '5000', 'Program Expenses', 'Expense', 0.00, 'Active'),
+    ('a7b8c9d0-e1f2-0a1b-4c5d-7e8f9a0b1c2d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1900', 'Due From TPF-ES', 'Asset', 5000.00, 'Active'),
+    ('b8c9d0e1-f2a3-1b2c-5d6e-8f9a0b1c2d3e', (SELECT id FROM entities WHERE code = 'TPF-ES'),      '2900', 'Due To TPF Parent', 'Liability', 5000.00, 'Active')
 ON CONFLICT (entity_id, code) DO NOTHING;
 
 -- Sample Funds
 INSERT INTO funds (id, entity_id, code, name, type, restriction_type, balance, status)
 VALUES
-    ('f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'GEN-FND', 'General Fund', 'Operating', 'unrestricted', 75000.00, 'Active'),
-    ('f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'EDU-FND', 'Education Fund', 'Program', 'temporarily_restricted', 25000.00, 'Active'),
-    ('f3e4d5c6-b7a8-6c7d-0e1f-3a4b5c6d7e8f', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'END-FND', 'Endowment Fund', 'Endowment', 'permanently_restricted', 10000.00, 'Active'),
-    ('f4e5d6c7-b8a9-7d8e-1f2a-4b5c6d7e8f9a', 'd8b3a2e1-5f4c-4e5b-8d7f-3c9a8b7e6d5c', 'ES-GEN', 'ES General Fund', 'Operating', 'unrestricted', 15000.00, 'Active')
+    ('f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'GEN-FND', 'General Fund', 'Operating', 'unrestricted', 75000.00, 'Active'),
+    ('f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'EDU-FND', 'Education Fund', 'Program', 'temporarily_restricted', 25000.00, 'Active'),
+    ('f3e4d5c6-b7a8-6c7d-0e1f-3a4b5c6d7e8f', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'END-FND', 'Endowment Fund', 'Endowment', 'permanently_restricted', 10000.00, 'Active'),
+    ('f4e5d6c7-b8a9-7d8e-1f2a-4b5c6d7e8f9a', (SELECT id FROM entities WHERE code = 'TPF-ES'),      'ES-GEN', 'ES General Fund', 'Operating', 'unrestricted', 15000.00, 'Active')
 ON CONFLICT (entity_id, code) DO NOTHING;
 
 -- Sample Journal Entries
 INSERT INTO journal_entries (id, entity_id, entry_date, reference_number, description, total_amount, status)
 VALUES
-    ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '2025-07-15', 'JE-2025-001', 'Donation from Smith Foundation', 10000.00, 'Posted'),
-    ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', '2025-07-16', 'JE-2025-002', 'Payment for educational materials', 2500.00, 'Posted')
+    ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '2025-07-15', 'JE-2025-001', 'Donation from Smith Foundation', 10000.00, 'Posted'),
+    ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '2025-07-16', 'JE-2025-002', 'Payment for educational materials', 2500.00, 'Posted')
 ON CONFLICT (id) DO NOTHING;
 
 -- Sample Journal Entry Items with updated column names (debit/credit)
 INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
 VALUES
-    ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'a1b2c3d4-e5f6-4a5b-8c9d-1e2f3a4b5c6d', 'f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 10000.00, 0.00, 'Cash received'),
-    ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'e5f6a7b8-c9d0-8e9f-2a3b-5c6d7e8f9a0b', 'f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 0.00, 10000.00, 'Donation revenue'),
-    ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'f6a7b8c9-d0e1-9f0a-3b4c-6d7e8f9a0b1c', 'f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 2500.00, 0.00, 'Educational materials expense'),
-    ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'a1b2c3d4-e5f6-4a5b-8c9d-1e2f3a4b5c6d', 'f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 0.00, 2500.00, 'Cash payment')
+    ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d',
+        (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        10000.00, 0.00, 'Cash received'),
+    ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d',
+        (SELECT id FROM accounts WHERE code = '4000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        0.00, 10000.00, 'Donation revenue'),
+    ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e',
+        (SELECT id FROM accounts WHERE code = '5000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE code = 'EDU-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        2500.00, 0.00, 'Educational materials expense'),
+    ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e',
+        (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE code = 'EDU-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        0.00, 2500.00, 'Cash payment')
 ON CONFLICT DO NOTHING;
 
 -- Sample Vendors
 INSERT INTO vendors (id, entity_id, vendor_code, name, tax_id, contact_name, email, status)
 VALUES
-    ('71e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'EDUSUP-001', 'Educational Supplies Inc', '12-3456789', 'John Smith', 'john@edusupplies.com', 'Active'),
-    ('72e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'OFFSUPP-002', 'Office Supplies Co', '98-7654321', 'Jane Doe', 'jane@officesupplies.com', 'Active')
+    ('71e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'EDUSUP-001', 'Educational Supplies Inc', '12-3456789', 'John Smith', 'john@edusupplies.com', 'Active'),
+    ('72e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'OFFSUPP-002', 'Office Supplies Co', '98-7654321', 'Jane Doe', 'jane@officesupplies.com', 'Active')
 ON CONFLICT (entity_id, vendor_code) DO NOTHING;
 
 -- Sample Vendor Bank Accounts
 INSERT INTO vendor_bank_accounts (vendor_id, account_name, account_number, routing_number, account_type, is_primary)
 VALUES
-    ('71e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'Operating Account', '123456789', '021000021', 'Checking', TRUE),
-    ('72e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'Main Account', '987654321', '021000021', 'Checking', TRUE)
+    ((SELECT id FROM vendors WHERE vendor_code = 'EDUSUP-001'), 'Operating Account', '123456789', '021000021', 'Checking', TRUE),
+    ((SELECT id FROM vendors WHERE vendor_code = 'OFFSUPP-002'), 'Main Account', '987654321', '021000021', 'Checking', TRUE)
 ON CONFLICT DO NOTHING;
 
 -- Sample Bank Accounts
 INSERT INTO bank_accounts (entity_id, gl_account_id, bank_name, account_name, account_number, routing_number, type, balance, status)
 VALUES
-    ('c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'a1b2c3d4-e5f6-4a5b-8c9d-1e2f3a4b5c6d', 'First National Bank', 'Operating Account', '1234567890', '021000021', 'Checking', 100000.00, 'Active'),
-    ('d8b3a2e1-5f4c-4e5b-8d7f-3c9a8b7e6d5c', NULL, 'Second National Bank', 'ES Operating Account', '0987654321', '021000021', 'Checking', 15000.00, 'Active')
+    ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
+        (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        'First National Bank', 'Operating Account', '1234567890', '021000021', 'Checking', 100000.00, 'Active'),
+    ((SELECT id FROM entities WHERE code = 'TPF-ES'),
+        NULL,
+        'Second National Bank', 'ES Operating Account', '0987654321', '021000021', 'Checking', 15000.00, 'Active')
 ON CONFLICT DO NOTHING;
 
 -- Sample Users
@@ -411,20 +433,26 @@ ON CONFLICT (username) DO NOTHING;
 -- Sample NACHA Settings
 INSERT INTO company_nacha_settings (entity_id, company_name, company_id, originating_dfi_id, is_production)
 VALUES
-    ('c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'The Principle Foundation', '1234567890', '02100002', FALSE)
+    ((SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'The Principle Foundation', '1234567890', '02100002', FALSE)
 ON CONFLICT DO NOTHING;
 
 -- Sample Budget
 INSERT INTO budgets (entity_id, fund_id, account_id, fiscal_year, period, amount)
 VALUES
-    ('c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'e5f6a7b8-c9d0-8e9f-2a3b-5c6d7e8f9a0b', '2025', 'Q1', 25000.00),
-    ('c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'f6a7b8c9-d0e1-9f0a-3b4c-6d7e8f9a0b1c', '2025', 'Q1', 20000.00)
+    ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
+        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE code = '4000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        '2025', 'Q1', 25000.00),
+    ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
+        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE code = '5000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        '2025', 'Q1', 20000.00)
 ON CONFLICT DO NOTHING;
 
 -- Sample Custom Report Definition
 INSERT INTO custom_report_definitions (entity_id, name, description, definition_json, created_by)
 VALUES
-    ('c37c2e7c-9b69-4e5a-a899-a3c0f9668e22', 'Quarterly Fund Balance', 'Shows fund balances by quarter', 
+    ((SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'Quarterly Fund Balance', 'Shows fund balances by quarter', 
     '{"dataSource": "funds", "fields": ["name", "code", "balance"], "filters": [{"field": "status", "operator": "=", "value": "Active"}]}', 'admin')
 ON CONFLICT DO NOTHING;
 
