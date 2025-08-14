@@ -35,7 +35,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     const user = userResult.rows[0];
     
     // Check if user is active
-    if (user.status !== 'active') {
+    if ((user.status || '').toLowerCase() !== 'active') {
         return res.status(401).json({ 
             error: 'Account is inactive. Please contact an administrator.' 
         });
