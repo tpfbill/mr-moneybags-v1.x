@@ -377,18 +377,23 @@ export function updateChartOfAccountsTable() {
     if (sortedAccounts.length === 0) {
         chartOfAccountsTbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center">No accounts found</td>
+                <td colspan="7" class="text-center">No accounts found</td>
             </tr>
         `;
         return;
     }
     
     sortedAccounts.forEach(account => {
+        const entityName =
+            account.entity_name ||
+            (appState.entities.find(e => e.id === account.entity_id)?.name ||
+                'Unknown');
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${account.code}</td>
             <td>${account.name}</td>
             <td>${account.type}</td>
+            <td>${entityName}</td>
             <td>${formatCurrency(account.balance)}</td>
             <td><span class="status status-${account.status.toLowerCase()}">${account.status}</span></td>
             <td>
