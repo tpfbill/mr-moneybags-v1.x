@@ -757,13 +757,17 @@ export function updateUsersTable() {
     sortedUsers.forEach(user => {
         // Handle both name formats (name or first_name + last_name)
         const displayName = user.name || `${user.first_name} ${user.last_name}`;
+        // Normalise status for consistent class naming & human-friendly label
+        const statusRaw   = (user.status || 'active');
+        const statusCls   = statusRaw.toLowerCase();
+        const statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
         
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${displayName}</td>
             <td>${user.email}</td>
             <td>${user.role}</td>
-            <td><span class="status status-${user.status?.toLowerCase() || 'active'}">${user.status || 'Active'}</span></td>
+            <td><span class="status status-${statusCls}">${statusLabel}</span></td>
             <td>
                 <button class="action-button btn-edit-user" data-id="${user.id}">Edit</button>
             </td>

@@ -80,7 +80,7 @@ function requireRole(roles) {
         const user = await getUserById(req.session.userId);
         
         // Check if user exists and is active
-        if (!user || user.status !== 'active') {
+        if (!user || (user.status || '').toLowerCase() !== 'active') {
             req.session.destroy();
             
             // Handle API requests
@@ -132,7 +132,7 @@ async function getCurrentUser(req, res, next) {
         const user = await getUserById(req.session.userId);
         
         // If user exists and is active, attach to request
-        if (user && user.status === 'active') {
+        if (user && (user.status || '').toLowerCase() === 'active') {
             req.user = user;
         } else {
             // Clear invalid session
@@ -163,7 +163,7 @@ function redirectIfAuthenticated(redirectTo = '/index.html') {
             const user = await getUserById(req.session.userId);
             
             // If user exists and is active, redirect
-            if (user && user.status === 'active') {
+            if (user && (user.status || '').toLowerCase() === 'active') {
                 return res.redirect(redirectTo);
             } else {
                 // Clear invalid session

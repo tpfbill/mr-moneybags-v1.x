@@ -98,12 +98,15 @@ router.post('/', asyncHandler(async (req, res) => {
     // Hash the password
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
+
+    // Normalise status to lowercase to avoid case-sensitivity issues
+    const normStatus = (status || 'active').toLowerCase();
     
     const { rows } = await pool.query(
         `INSERT INTO users (
             username, password_hash, email, first_name, last_name, role, status
         ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [username, password_hash, email, first_name, last_name, role || 'user', status || 'active']
+        [username, password_hash, email, first_name, last_name, role || 'user', normStatus]
     );
     
     // Remove password hash from response
@@ -191,7 +194,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
     
     if (status !== undefined) {
         updates.push(`status = $${paramIndex++}`);
-        params.push(status);
+        // Ensure status stored in lowercase
+        params.push(String(status).toLowerCase());
     }
     
     // Add updated_at timestamp
