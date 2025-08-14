@@ -266,5 +266,280 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="src/js/vendor-payments.js"></script>
+
+    <!-- ===================================================================== -->
+    <!--  VENDOR CRUD MODALS                                                   -->
+    <!-- ===================================================================== -->
+
+    <!-- Create Vendor -->
+    <div class="modal fade" id="createVendorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New Vendor</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="createVendorForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="entityId" class="form-label">Entity*</label>
+                            <select id="entityId" class="form-select" required>
+                                <option value="">-- Select Entity --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorCode" class="form-label">Vendor Code*</label>
+                            <input type="text" id="vendorCode" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorName" class="form-label">Vendor Name*</label>
+                            <input type="text" id="vendorName" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="contactName" class="form-label">Contact Name</label>
+                            <input type="text" id="contactName" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorEmail" class="form-label">Email</label>
+                            <input type="email" id="vendorEmail" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorPhone" class="form-label">Phone</label>
+                            <input type="text" id="vendorPhone" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorStatus" class="form-label">Status</label>
+                            <select id="vendorStatus" class="form-select">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorNotes" class="form-label">Notes</label>
+                            <textarea id="vendorNotes" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="saveVendorBtn">Save Vendor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Vendor -->
+    <div class="modal fade" id="editVendorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Vendor</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editVendorForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editVendorId" />
+                        <div class="mb-3">
+                            <label for="editEntityId" class="form-label">Entity*</label>
+                            <select id="editEntityId" class="form-select" required></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVendorCode" class="form-label">Vendor Code*</label>
+                            <input type="text" id="editVendorCode" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVendorName" class="form-label">Vendor Name*</label>
+                            <input type="text" id="editVendorName" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editContactName" class="form-label">Contact Name</label>
+                            <input type="text" id="editContactName" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVendorEmail" class="form-label">Email</label>
+                            <input type="email" id="editVendorEmail" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVendorPhone" class="form-label">Phone</label>
+                            <input type="text" id="editVendorPhone" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVendorStatus" class="form-label">Status</label>
+                            <select id="editVendorStatus" class="form-select">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVendorNotes" class="form-label">Notes</label>
+                            <textarea id="editVendorNotes" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger me-auto" id="deleteVendorBtn">Delete</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="updateVendorBtn">Update Vendor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!--  NACHA SETTINGS CRUD MODALS                                           -->
+    <!-- ===================================================================== -->
+
+    <!-- Create NACHA Settings -->
+    <div class="modal fade" id="createNachaSettingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New NACHA Configuration</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="createNachaSettingsForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="settingsEntityId" class="form-label">Entity*</label>
+                            <select id="settingsEntityId" class="form-select" required></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="settlementAccountId" class="form-label">Settlement Account*</label>
+                            <select id="settlementAccountId" class="form-select" required></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="companyName" class="form-label">Company Name* (≤16 chars)</label>
+                            <input type="text" id="companyName" class="form-control" maxlength="16" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="companyId" class="form-label">Company ID*</label>
+                            <input type="text" id="companyId" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="originatingDfiId" class="form-label">Originating DFI ID*</label>
+                            <input type="text" id="originatingDfiId" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="companyEntryDescription" class="form-label">Entry Description</label>
+                            <input type="text" id="companyEntryDescription" class="form-control" />
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="isProduction" />
+                            <label class="form-check-label" for="isProduction">Production Mode</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="saveNachaSettingsBtn">Save Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit NACHA Settings -->
+    <div class="modal fade" id="editNachaSettingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit NACHA Configuration</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editNachaSettingsForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editNachaSettingsId" />
+                        <div class="mb-3">
+                            <label for="editSettingsEntityId" class="form-label">Entity*</label>
+                            <select id="editSettingsEntityId" class="form-select" required></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editSettlementAccountId" class="form-label">Settlement Account*</label>
+                            <select id="editSettlementAccountId" class="form-select" required></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCompanyName" class="form-label">Company Name* (≤16 chars)</label>
+                            <input type="text" id="editCompanyName" class="form-control" maxlength="16" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCompanyId" class="form-label">Company ID*</label>
+                            <input type="text" id="editCompanyId" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editOriginatingDfiId" class="form-label">Originating DFI ID*</label>
+                            <input type="text" id="editOriginatingDfiId" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCompanyEntryDescription" class="form-label">Entry Description</label>
+                            <input type="text" id="editCompanyEntryDescription" class="form-control" />
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="editIsProduction" />
+                            <label class="form-check-label" for="editIsProduction">Production Mode</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger me-auto" id="deleteNachaSettingsBtn">Delete</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="updateNachaSettingsBtn">Update Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!--  EDIT PAYMENT BATCH MODAL                                             -->
+    <!-- ===================================================================== -->
+
+    <div class="modal fade" id="editBatchModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Payment Batch</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editBatchForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editBatchId" />
+                        <div class="mb-3">
+                            <label for="editBatchNumber" class="form-label">Batch Number*</label>
+                            <input type="text" id="editBatchNumber" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBatchEntityId" class="form-label">Entity*</label>
+                            <select id="editBatchEntityId" class="form-select" required></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBatchFundId" class="form-label">Fund</label>
+                            <select id="editBatchFundId" class="form-select"></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editNachaSettingsId" class="form-label">NACHA Settings*</label>
+                            <select id="editNachaSettingsId" class="form-select" required></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBatchDate" class="form-label">Batch Date*</label>
+                            <input type="date" id="editBatchDate" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editEffectiveDate" class="form-label">Effective Date*</label>
+                            <input type="date" id="editEffectiveDate" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBatchDescription" class="form-label">Description</label>
+                            <input type="text" id="editBatchDescription" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger me-auto" id="deleteBatchBtn">Delete</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="updateBatchBtn">Update Batch</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

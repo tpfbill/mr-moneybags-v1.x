@@ -12,6 +12,7 @@ const API_BASE_URL = devPorts.includes(window.location.port)
 // Global variables
 let currentVendor = null;
 let currentBatch = null;
+let currentNachaSettings = null;
 let entities = [];
 let funds = [];
 let bankAccounts = [];
@@ -43,6 +44,10 @@ function showToast(title, message, isError = false) {
     
     const bsToast = new bootstrap.Toast(toast);
     bsToast.show();
+}
+
+function confirmDialog(message) {
+    return window.confirm(message);
 }
 
 function formatCurrency(amount) {
@@ -100,6 +105,7 @@ async function fetchEntities() {
             document.getElementById('entityId'),
             document.getElementById('editEntityId'),
             document.getElementById('batchEntityId'),
+            document.getElementById('editBatchEntityId'),
             document.getElementById('settingsEntityId'),
             document.getElementById('editSettingsEntityId')
         ];
@@ -144,7 +150,8 @@ async function fetchFunds(entityId = null) {
         
         // Populate fund dropdowns
         const fundSelects = [
-            document.getElementById('batchFundId')
+            document.getElementById('batchFundId'),
+            document.getElementById('editBatchFundId')
         ];
         
         fundSelects.forEach(select => {
@@ -310,20 +317,41 @@ async function fetchNachaSettings() {
             }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        nachaSettings = await response.json();
-        console.log('NACHA settings fetched successfully:', nachaSettings.length, 'settings');
+        /* ------------------------------------------------------------------
+         * Robust parsing / shape-normalisation
+         * ----------------------------------------------------------------*/
+        let data;
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = [];
+        }
+
+        if (Array.isArray(data)) {
+            nachaSettings = data;
+        } else if (data && Array.isArray(data.rows)) {
+            nachaSettings = data.rows;
+        } else if (data && Array.isArray(data.data)) {
+            nachaSettings = data.data;
+        } else {
+            nachaSettings = [];
+        }
+
+        console.log('NACHA settings fetched successfully:', (nachaSettings?.length || 0), 'settings');
         renderNachaSettingsTable();
         
         // Populate NACHA settings dropdowns
         const settingsSelects = [
-            document.getElementById('nachaSettingsId')
+            document.getElementById('nachaSettingsId'),
+            document.getElementById('editNachaSettingsId')
         ];
         
         settingsSelects.forEach(select => {
-            if (!select) return;
+            // Guard: make sure select element and its options collection exist
+            if (!select || !select.options) return;
             
             // Clear existing options except the first one
-            while (select.options.length > 1) {
+            while ((select.options?.length || 0) > 1) {
                 select.remove(1);
             }
             
@@ -331,7 +359,9 @@ async function fetchNachaSettings() {
             nachaSettings.forEach(setting => {
                 const option = document.createElement('option');
                 option.value = setting.id;
-                option.textContent = `${setting.company_name} (${setting.company_entry_description})`;
+                option.textContent = setting.company_entry_description
+                    ? `${setting.company_name} (${setting.company_entry_description})`
+                    : setting.company_name;
                 select.appendChild(option);
             });
         });
@@ -393,9 +423,9 @@ async function fetchNachaFiles() {
     }
 }
 
-// Render functions (stubs - these would contain the actual rendering logic)
+// Render functions
 function renderBatchesTable(batches) {
-    console.log('Rendering batches table with', batches.length, 'batches');
+    console.log('Rendering batches table with', batches?.length || 0, 'batches');
     const tableBody = document.getElementById('batchesTableBody');
     if (!tableBody) return;
     
@@ -409,17 +439,15 @@ function renderBatchesTable(batches) {
         return;
     }
     
-    // This would contain the full batches table rendering logic
-
     batches.forEach(batch => {
         const row = document.createElement('tr');
+        row.dataset.id = batch.id;
 
         /* ----------- prepare values with graceful fall-backs ----------- */
         const batchNo    = batch.batch_number ?? '(n/a)';
-        const entityName = batch.entity_name ?? '';
-        const nachaName  = batch.nacha_company_name ?? '—';
         const batchDate  = formatDate(batch.batch_date);
-        const effDate    = formatDate(batch.effective_date);
+        const description = batch.description ?? '';
+        const entityName = batch.entity_name ?? '';
         const amountFmt  = formatCurrency(parseFloat(batch.total_amount ?? 0));
         const itemsTotal = batch.total_items ?? 0;
 
@@ -428,24 +456,45 @@ function renderBatchesTable(batches) {
         const statusBadge = `<span class="badge ${statusCls} text-capitalize">${(batch.status || '')
                                     .replace('_', ' ')}</span>`;
 
+        /* actions buttons */
+        const actions = `
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary btn-edit-batch" data-id="${batch.id}" title="Edit Batch">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-delete-batch" data-id="${batch.id}" title="Delete Batch">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+
         /* ----------- build row html ----------- */
         row.innerHTML = `
             <td>${batchNo}</td>
-            <td>${entityName}</td>
-            <td>${nachaName}</td>
             <td>${batchDate}</td>
-            <td>${effDate}</td>
-            <td>${statusBadge}</td>
+            <td>${description}</td>
+            <td>${entityName}</td>
             <td class="text-end">${amountFmt}</td>
             <td class="text-end">${itemsTotal}</td>
+            <td>${statusBadge}</td>
+            <td class="text-center">${actions}</td>
         `;
 
         tableBody.appendChild(row);
     });
+
+    // Add event listeners to action buttons
+    document.querySelectorAll('.btn-edit-batch').forEach(btn => {
+        btn.addEventListener('click', () => openEditBatch(btn.dataset.id));
+    });
+
+    document.querySelectorAll('.btn-delete-batch').forEach(btn => {
+        btn.addEventListener('click', () => deletePaymentBatch(btn.dataset.id));
+    });
 }
 
 function renderVendorsTable() {
-    console.log('Rendering vendors table with', vendors.length, 'vendors');
+    console.log('Rendering vendors table with', vendors?.length || 0, 'vendors');
     const tableBody = document.getElementById('vendorsTableBody');
     if (!tableBody) return;
     
@@ -464,16 +513,29 @@ function renderVendorsTable() {
      * ----------------------------------------------------------------*/
     vendors.forEach(vendor => {
         const row = document.createElement('tr');
+        row.dataset.id = vendor.id;
 
         const code        = vendor.vendor_code ?? '';
         const name        = vendor.name ?? '';
         const contactName = vendor.contact_name ?? '—';
         const email       = vendor.email ?? '—';
         const phone       = vendor.phone ?? '—';
+        const bankAccounts = '—'; // Placeholder for bank accounts count
         const statusCls   = getStatusBadgeClass(vendor.status);
         const statusBadge = `<span class="badge ${statusCls} text-capitalize">${(vendor.status || '')
                                 .replace('_', ' ')}</span>`;
-        const createdDate = formatDate(vendor.created_at);
+
+        /* actions buttons */
+        const actions = `
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary btn-edit-vendor" data-id="${vendor.id}" title="Edit Vendor">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-delete-vendor" data-id="${vendor.id}" title="Delete Vendor">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
 
         row.innerHTML = `
             <td>${code}</td>
@@ -481,16 +543,26 @@ function renderVendorsTable() {
             <td>${contactName}</td>
             <td>${email}</td>
             <td>${phone}</td>
+            <td>${bankAccounts}</td>
             <td>${statusBadge}</td>
-            <td>${createdDate}</td>
+            <td class="text-center">${actions}</td>
         `;
 
         tableBody.appendChild(row);
     });
+
+    // Add event listeners to action buttons
+    document.querySelectorAll('.btn-edit-vendor').forEach(btn => {
+        btn.addEventListener('click', () => openEditVendor(btn.dataset.id));
+    });
+
+    document.querySelectorAll('.btn-delete-vendor').forEach(btn => {
+        btn.addEventListener('click', () => deleteVendor(btn.dataset.id));
+    });
 }
 
 function renderNachaSettingsTable() {
-    console.log('Rendering NACHA settings table with', nachaSettings.length, 'settings');
+    console.log('Rendering NACHA settings table with', nachaSettings?.length || 0, 'settings');
     const tableBody = document.getElementById('nachaSettingsTableBody');
     if (!tableBody) return;
     
@@ -509,32 +581,53 @@ function renderNachaSettingsTable() {
      * ----------------------------------------------------------------*/
     nachaSettings.forEach(setting => {
         const row = document.createElement('tr');
+        row.dataset.id = setting.id;
 
         /* graceful fall-backs */
-        const entityName  = setting.entity_name  ?? '—';
         const companyName = setting.company_name ?? '';
         const companyId   = setting.company_id   ?? '';
         const dfiId       = setting.originating_dfi_id ?? '';
         const entryDesc   = setting.company_entry_description ?? '';
+        const settlementAccount = setting.settlement_account_name ?? '—';
         const prodFlag    = setting.is_production ? 'Yes' : 'No';
-        const createdDate = formatDate(setting.created_at);
+
+        /* actions buttons */
+        const actions = `
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary btn-edit-nacha-settings" data-id="${setting.id}" title="Edit Settings">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-delete-nacha-settings" data-id="${setting.id}" title="Delete Settings">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
 
         row.innerHTML = `
-            <td>${entityName}</td>
             <td>${companyName}</td>
             <td>${companyId}</td>
             <td>${dfiId}</td>
             <td>${entryDesc}</td>
+            <td>${settlementAccount}</td>
             <td class="text-center">${prodFlag}</td>
-            <td>${createdDate}</td>
+            <td class="text-center">${actions}</td>
         `;
 
         tableBody.appendChild(row);
     });
+
+    // Add event listeners to action buttons
+    document.querySelectorAll('.btn-edit-nacha-settings').forEach(btn => {
+        btn.addEventListener('click', () => openEditNachaSettings(btn.dataset.id));
+    });
+
+    document.querySelectorAll('.btn-delete-nacha-settings').forEach(btn => {
+        btn.addEventListener('click', () => deleteNachaSettings(btn.dataset.id));
+    });
 }
 
 function renderNachaFilesTable(files) {
-    console.log('Rendering NACHA files table with', files.length, 'files');
+    console.log('Rendering NACHA files table with', files?.length || 0, 'files');
     const tableBody = document.getElementById('nachaFilesTableBody');
     if (!tableBody) return;
     
@@ -591,7 +684,334 @@ function renderNachaFilesTable(files) {
 }
 
 /* ---------------------------------------------------------------------------
- * PAYMENT BATCH CREATION
+ * VENDOR CRUD OPERATIONS
+ * -------------------------------------------------------------------------*/
+
+// Open edit vendor modal
+function openEditVendor(vendorId) {
+    const vendor = vendors.find(v => v.id == vendorId);
+    if (!vendor) {
+        showToast('Error', 'Vendor not found', true);
+        return;
+    }
+
+    currentVendor = vendor;
+
+    // Populate form fields
+    document.getElementById('editVendorId').value = vendor.id;
+    document.getElementById('editEntityId').value = vendor.entity_id;
+    document.getElementById('editVendorCode').value = vendor.vendor_code;
+    document.getElementById('editVendorName').value = vendor.name;
+    document.getElementById('editContactName').value = vendor.contact_name || '';
+    document.getElementById('editVendorEmail').value = vendor.email || '';
+    document.getElementById('editVendorPhone').value = vendor.phone || '';
+    document.getElementById('editVendorStatus').value = vendor.status || 'active';
+    document.getElementById('editVendorNotes').value = vendor.notes || '';
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('editVendorModal'));
+    modal.show();
+}
+
+// Create vendor
+async function createVendor(vendorData) {
+    try {
+        console.log('[createVendor] Creating vendor…', vendorData);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/vendors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(vendorData)
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        const created = await res.json();
+        console.log('[createVendor] Success:', created);
+        showToast('Success', 'Vendor created successfully');
+
+        // Refresh list
+        await fetchVendors();
+
+        // Close modal & reset form
+        const modalEl = document.getElementById('createVendorModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+        document.getElementById('createVendorForm')?.reset();
+
+        return created;
+    } catch (err) {
+        console.error('[createVendor] Error:', err);
+        showToast('Error', 'Failed to create vendor: ' + err.message, true);
+        throw err;
+    } finally {
+        hideLoading();
+    }
+}
+
+// Update vendor
+async function updateVendor(vendorId, vendorData) {
+    try {
+        console.log('[updateVendor] Updating vendor…', vendorId, vendorData);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/vendors/${vendorId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(vendorData)
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        const updated = await res.json();
+        console.log('[updateVendor] Success:', updated);
+        showToast('Success', 'Vendor updated successfully');
+
+        // Refresh list
+        await fetchVendors();
+
+        // Close modal
+        const modalEl = document.getElementById('editVendorModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+
+        return updated;
+    } catch (err) {
+        console.error('[updateVendor] Error:', err);
+        showToast('Error', 'Failed to update vendor: ' + err.message, true);
+        throw err;
+    } finally {
+        hideLoading();
+    }
+}
+
+// Delete vendor
+async function deleteVendor(vendorId) {
+    if (!confirmDialog('Are you sure you want to delete this vendor? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        console.log('[deleteVendor] Deleting vendor…', vendorId);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/vendors/${vendorId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        console.log('[deleteVendor] Success');
+        showToast('Success', 'Vendor deleted successfully');
+
+        // Refresh list
+        await fetchVendors();
+
+        // Close modal if open
+        const modalEl = document.getElementById('editVendorModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    } catch (err) {
+        console.error('[deleteVendor] Error:', err);
+        showToast('Error', 'Failed to delete vendor: ' + err.message, true);
+    } finally {
+        hideLoading();
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * NACHA SETTINGS CRUD OPERATIONS
+ * -------------------------------------------------------------------------*/
+
+// Open edit NACHA settings modal
+function openEditNachaSettings(settingsId) {
+    const settings = nachaSettings.find(s => s.id == settingsId);
+    if (!settings) {
+        showToast('Error', 'NACHA settings not found', true);
+        return;
+    }
+
+    currentNachaSettings = settings;
+
+    // Populate form fields
+    document.getElementById('editNachaSettingsId').value = settings.id;
+    document.getElementById('editSettingsEntityId').value = settings.entity_id;
+    document.getElementById('editSettlementAccountId').value = settings.settlement_account_id || '';
+    document.getElementById('editCompanyName').value = settings.company_name;
+    document.getElementById('editCompanyId').value = settings.company_id;
+    document.getElementById('editOriginatingDfiId').value = settings.originating_dfi_id;
+    document.getElementById('editCompanyEntryDescription').value = settings.company_entry_description || '';
+    document.getElementById('editIsProduction').checked = settings.is_production || false;
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('editNachaSettingsModal'));
+    modal.show();
+}
+
+// Create NACHA settings
+async function createNachaSettings(settingsData) {
+    try {
+        console.log('[createNachaSettings] Creating NACHA settings…', settingsData);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/nacha-settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(settingsData)
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        const created = await res.json();
+        console.log('[createNachaSettings] Success:', created);
+        showToast('Success', 'NACHA settings created successfully');
+
+        // Refresh list
+        await fetchNachaSettings();
+
+        // Close modal & reset form
+        const modalEl = document.getElementById('createNachaSettingsModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+        document.getElementById('createNachaSettingsForm')?.reset();
+
+        return created;
+    } catch (err) {
+        console.error('[createNachaSettings] Error:', err);
+        showToast('Error', 'Failed to create NACHA settings: ' + err.message, true);
+        throw err;
+    } finally {
+        hideLoading();
+    }
+}
+
+// Update NACHA settings
+async function updateNachaSettings(settingsId, settingsData) {
+    try {
+        console.log('[updateNachaSettings] Updating NACHA settings…', settingsId, settingsData);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/nacha-settings/${settingsId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(settingsData)
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        const updated = await res.json();
+        console.log('[updateNachaSettings] Success:', updated);
+        showToast('Success', 'NACHA settings updated successfully');
+
+        // Refresh list
+        await fetchNachaSettings();
+
+        // Close modal
+        const modalEl = document.getElementById('editNachaSettingsModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+
+        return updated;
+    } catch (err) {
+        console.error('[updateNachaSettings] Error:', err);
+        showToast('Error', 'Failed to update NACHA settings: ' + err.message, true);
+        throw err;
+    } finally {
+        hideLoading();
+    }
+}
+
+// Delete NACHA settings
+async function deleteNachaSettings(settingsId) {
+    if (!confirmDialog('Are you sure you want to delete these NACHA settings? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        console.log('[deleteNachaSettings] Deleting NACHA settings…', settingsId);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/nacha-settings/${settingsId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        console.log('[deleteNachaSettings] Success');
+        showToast('Success', 'NACHA settings deleted successfully');
+
+        // Refresh list
+        await fetchNachaSettings();
+
+        // Close modal if open
+        const modalEl = document.getElementById('editNachaSettingsModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    } catch (err) {
+        console.error('[deleteNachaSettings] Error:', err);
+        showToast('Error', 'Failed to delete NACHA settings: ' + err.message, true);
+    } finally {
+        hideLoading();
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * PAYMENT BATCH CRUD OPERATIONS
  * -------------------------------------------------------------------------*/
 
 // Helper: Create payment batch via API
@@ -636,6 +1056,145 @@ async function createPaymentBatch(batchData) {
         console.error('[createPaymentBatch] Error:', err);
         showToast('Error', 'Failed to create batch: ' + err.message, true);
         throw err;
+    } finally {
+        hideLoading();
+    }
+}
+
+// Open edit batch modal
+async function openEditBatch(batchId) {
+    try {
+        console.log('[openEditBatch] Fetching batch details…', batchId);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/payment-batches/${batchId}`, {
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const batch = await res.json();
+        console.log('[openEditBatch] Success:', batch);
+        
+        currentBatch = batch;
+
+        // Populate form fields
+        document.getElementById('editBatchId').value = batch.id;
+        document.getElementById('editBatchNumber').value = batch.batch_number || '';
+        document.getElementById('editBatchEntityId').value = batch.entity_id || '';
+        document.getElementById('editBatchFundId').value = batch.fund_id || '';
+        document.getElementById('editNachaSettingsId').value = batch.nacha_settings_id || '';
+        
+        // Format dates for input[type=date]
+        if (batch.batch_date) {
+            const batchDate = new Date(batch.batch_date);
+            document.getElementById('editBatchDate').value = batchDate.toISOString().split('T')[0];
+        }
+        
+        if (batch.effective_date) {
+            const effectiveDate = new Date(batch.effective_date);
+            document.getElementById('editEffectiveDate').value = effectiveDate.toISOString().split('T')[0];
+        }
+        
+        document.getElementById('editBatchDescription').value = batch.description || '';
+
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('editBatchModal'));
+        modal.show();
+        
+        hideLoading();
+    } catch (err) {
+        hideLoading();
+        console.error('[openEditBatch] Error:', err);
+        showToast('Error', 'Failed to load batch details: ' + err.message, true);
+    }
+}
+
+// Update payment batch
+async function updatePaymentBatch(batchId, batchData) {
+    try {
+        console.log('[updatePaymentBatch] Updating batch…', batchId, batchData);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/payment-batches/${batchId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(batchData)
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        const updated = await res.json();
+        console.log('[updatePaymentBatch] Success:', updated);
+        showToast('Success', 'Payment batch updated successfully');
+
+        // Refresh list
+        await fetchBatches();
+
+        // Close modal
+        const modalEl = document.getElementById('editBatchModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+
+        return updated;
+    } catch (err) {
+        console.error('[updatePaymentBatch] Error:', err);
+        showToast('Error', 'Failed to update batch: ' + err.message, true);
+        throw err;
+    } finally {
+        hideLoading();
+    }
+}
+
+// Delete payment batch
+async function deletePaymentBatch(batchId) {
+    if (!confirmDialog('Are you sure you want to delete this payment batch? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        console.log('[deletePaymentBatch] Deleting batch…', batchId);
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/payment-batches/${batchId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore body read errors */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        console.log('[deletePaymentBatch] Success');
+        showToast('Success', 'Payment batch deleted successfully');
+
+        // Refresh list
+        await fetchBatches();
+
+        // Close modal if open
+        const modalEl = document.getElementById('editBatchModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    } catch (err) {
+        console.error('[deletePaymentBatch] Error:', err);
+        showToast('Error', 'Failed to delete batch: ' + err.message, true);
     } finally {
         hideLoading();
     }
@@ -729,6 +1288,246 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             });
             console.log('✅ Create-batch button listener added');
+        }
+
+        // Vendor form submission handlers
+        const createVendorForm = document.getElementById('createVendorForm');
+        if (createVendorForm) {
+            createVendorForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const entityId = document.getElementById('entityId').value;
+                const vendorCode = document.getElementById('vendorCode').value;
+                const name = document.getElementById('vendorName').value;
+                const contactName = document.getElementById('contactName').value;
+                const email = document.getElementById('vendorEmail').value;
+                const phone = document.getElementById('vendorPhone').value;
+                const status = document.getElementById('vendorStatus').value;
+                const notes = document.getElementById('vendorNotes').value;
+                
+                // Validation
+                if (!entityId) return showToast('Validation', 'Please select an entity', true);
+                if (!vendorCode) return showToast('Validation', 'Please enter a vendor code', true);
+                if (!name) return showToast('Validation', 'Please enter a vendor name', true);
+                
+                const vendorData = {
+                    entity_id: entityId,
+                    vendor_code: vendorCode,
+                    name,
+                    contact_name: contactName,
+                    email,
+                    phone,
+                    status,
+                    notes
+                };
+                
+                try {
+                    await createVendor(vendorData);
+                } catch (_) {
+                    /* error toast already shown */
+                }
+            });
+            console.log('✅ Create-vendor form submission handler added');
+        }
+        
+        const editVendorForm = document.getElementById('editVendorForm');
+        if (editVendorForm) {
+            editVendorForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const vendorId = document.getElementById('editVendorId').value;
+                const entityId = document.getElementById('editEntityId').value;
+                const vendorCode = document.getElementById('editVendorCode').value;
+                const name = document.getElementById('editVendorName').value;
+                const contactName = document.getElementById('editContactName').value;
+                const email = document.getElementById('editVendorEmail').value;
+                const phone = document.getElementById('editVendorPhone').value;
+                const status = document.getElementById('editVendorStatus').value;
+                const notes = document.getElementById('editVendorNotes').value;
+                
+                // Validation
+                if (!vendorId) return showToast('Validation', 'Vendor ID is missing', true);
+                if (!entityId) return showToast('Validation', 'Please select an entity', true);
+                if (!vendorCode) return showToast('Validation', 'Please enter a vendor code', true);
+                if (!name) return showToast('Validation', 'Please enter a vendor name', true);
+                
+                const vendorData = {
+                    entity_id: entityId,
+                    vendor_code: vendorCode,
+                    name,
+                    contact_name: contactName,
+                    email,
+                    phone,
+                    status,
+                    notes
+                };
+                
+                try {
+                    await updateVendor(vendorId, vendorData);
+                } catch (_) {
+                    /* error toast already shown */
+                }
+            });
+            console.log('✅ Edit-vendor form submission handler added');
+        }
+        
+        // Delete vendor button handler
+        const deleteVendorBtn = document.getElementById('deleteVendorBtn');
+        if (deleteVendorBtn) {
+            deleteVendorBtn.addEventListener('click', () => {
+                const vendorId = document.getElementById('editVendorId').value;
+                if (vendorId) {
+                    deleteVendor(vendorId);
+                }
+            });
+            console.log('✅ Delete-vendor button handler added');
+        }
+        
+        // NACHA Settings form submission handlers
+        const createNachaSettingsForm = document.getElementById('createNachaSettingsForm');
+        if (createNachaSettingsForm) {
+            createNachaSettingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const entityId = document.getElementById('settingsEntityId').value;
+                const settlementAccountId = document.getElementById('settlementAccountId').value;
+                const companyName = document.getElementById('companyName').value;
+                const companyId = document.getElementById('companyId').value;
+                const originatingDfiId = document.getElementById('originatingDfiId').value;
+                const companyEntryDescription = document.getElementById('companyEntryDescription').value;
+                const isProduction = document.getElementById('isProduction').checked;
+                
+                // Validation
+                if (!entityId) return showToast('Validation', 'Please select an entity', true);
+                if (!companyName) return showToast('Validation', 'Please enter a company name', true);
+                if (!companyId) return showToast('Validation', 'Please enter a company ID', true);
+                if (!originatingDfiId) return showToast('Validation', 'Please enter an originating DFI ID', true);
+                
+                const settingsData = {
+                    entity_id: entityId,
+                    settlement_account_id: settlementAccountId,
+                    company_name: companyName,
+                    company_id: companyId,
+                    originating_dfi_id: originatingDfiId,
+                    company_entry_description: companyEntryDescription || 'PAYMENT',
+                    is_production: isProduction
+                };
+                
+                try {
+                    await createNachaSettings(settingsData);
+                } catch (_) {
+                    /* error toast already shown */
+                }
+            });
+            console.log('✅ Create-NACHA-settings form submission handler added');
+        }
+        
+        const editNachaSettingsForm = document.getElementById('editNachaSettingsForm');
+        if (editNachaSettingsForm) {
+            editNachaSettingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const settingsId = document.getElementById('editNachaSettingsId').value;
+                const entityId = document.getElementById('editSettingsEntityId').value;
+                const settlementAccountId = document.getElementById('editSettlementAccountId').value;
+                const companyName = document.getElementById('editCompanyName').value;
+                const companyId = document.getElementById('editCompanyId').value;
+                const originatingDfiId = document.getElementById('editOriginatingDfiId').value;
+                const companyEntryDescription = document.getElementById('editCompanyEntryDescription').value;
+                const isProduction = document.getElementById('editIsProduction').checked;
+                
+                // Validation
+                if (!settingsId) return showToast('Validation', 'Settings ID is missing', true);
+                if (!entityId) return showToast('Validation', 'Please select an entity', true);
+                if (!companyName) return showToast('Validation', 'Please enter a company name', true);
+                if (!companyId) return showToast('Validation', 'Please enter a company ID', true);
+                if (!originatingDfiId) return showToast('Validation', 'Please enter an originating DFI ID', true);
+                
+                const settingsData = {
+                    entity_id: entityId,
+                    settlement_account_id: settlementAccountId,
+                    company_name: companyName,
+                    company_id: companyId,
+                    originating_dfi_id: originatingDfiId,
+                    company_entry_description: companyEntryDescription || 'PAYMENT',
+                    is_production: isProduction
+                };
+                
+                try {
+                    await updateNachaSettings(settingsId, settingsData);
+                } catch (_) {
+                    /* error toast already shown */
+                }
+            });
+            console.log('✅ Edit-NACHA-settings form submission handler added');
+        }
+        
+        // Delete NACHA settings button handler
+        const deleteNachaSettingsBtn = document.getElementById('deleteNachaSettingsBtn');
+        if (deleteNachaSettingsBtn) {
+            deleteNachaSettingsBtn.addEventListener('click', () => {
+                const settingsId = document.getElementById('editNachaSettingsId').value;
+                if (settingsId) {
+                    deleteNachaSettings(settingsId);
+                }
+            });
+            console.log('✅ Delete-NACHA-settings button handler added');
+        }
+        
+        // Edit Batch form submission handler
+        const editBatchForm = document.getElementById('editBatchForm');
+        if (editBatchForm) {
+            editBatchForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const batchId = document.getElementById('editBatchId').value;
+                const batchNumber = document.getElementById('editBatchNumber').value;
+                const entityId = document.getElementById('editBatchEntityId').value;
+                const fundId = document.getElementById('editBatchFundId').value;
+                const nachaSettingsId = document.getElementById('editNachaSettingsId').value;
+                const batchDate = document.getElementById('editBatchDate').value;
+                const effectiveDate = document.getElementById('editEffectiveDate').value;
+                const description = document.getElementById('editBatchDescription').value;
+                
+                // Validation
+                if (!batchId) return showToast('Validation', 'Batch ID is missing', true);
+                if (!batchNumber) return showToast('Validation', 'Please enter a batch number', true);
+                if (!entityId) return showToast('Validation', 'Please select an entity', true);
+                if (!nachaSettingsId) return showToast('Validation', 'Please select NACHA settings', true);
+                if (!batchDate) return showToast('Validation', 'Please enter a batch date', true);
+                if (!effectiveDate) return showToast('Validation', 'Please enter an effective date', true);
+                
+                const batchData = {
+                    entity_id: entityId,
+                    fund_id: fundId || null,
+                    nacha_settings_id: nachaSettingsId,
+                    batch_name: batchNumber, // API expects batch_name but stores as batch_number
+                    batch_date: batchDate,
+                    effective_date: effectiveDate,
+                    description,
+                    status: currentBatch.status,
+                    total_amount: currentBatch.total_amount
+                };
+                
+                try {
+                    await updatePaymentBatch(batchId, batchData);
+                } catch (_) {
+                    /* error toast already shown */
+                }
+            });
+            console.log('✅ Edit-batch form submission handler added');
+        }
+        
+        // Delete batch button handler
+        const deleteBatchBtn = document.getElementById('deleteBatchBtn');
+        if (deleteBatchBtn) {
+            deleteBatchBtn.addEventListener('click', () => {
+                const batchId = document.getElementById('editBatchId').value;
+                if (batchId) {
+                    deletePaymentBatch(batchId);
+                }
+            });
+            console.log('✅ Delete-batch button handler added');
         }
 
         console.log('✅ Vendor Payments page initialized successfully');

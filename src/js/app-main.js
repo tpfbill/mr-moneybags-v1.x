@@ -253,6 +253,7 @@ function showPage(pageId) {
         case 'fund-reports':
             initializeFundReportsTabs();
             updateFundReportsFilters();
+            initializeFundReportsActions();
             break;
     }
 }
@@ -401,6 +402,279 @@ function initializeFundReportsTabs() {
 }
 
 /**
+ * Bind Generate Report button for Fund Reports page (runs once)
+ */
+function initializeFundReportsActions() {
+    const generateBtn = document.getElementById('fund-reports-generate');
+    if (!generateBtn || generateBtn.__bound) return;
+    generateBtn.__bound = true;
+
+    // Set sensible default dates on first bind
+    const inputStart = document.getElementById('fund-reports-date-start');
+    const inputEnd   = document.getElementById('fund-reports-date-end');
+    if (inputStart && !inputStart.value) {
+        const now = new Date();
+        inputStart.value = `${now.getFullYear()}-01-01`;
+    }
+    if (inputEnd && !inputEnd.value) {
+        inputEnd.value = new Date().toISOString().substring(0, 10);
+    }
+
+    generateBtn.addEventListener('click', generateFundReports);
+}
+
+/**
+ * Main dispatcher for Fund Reports
+ */
+async function generateFundReports() {
+    const fundSelect = document.getElementById('fund-reports-fund-select');
+    const fromInput  = document.getElementById('fund-reports-date-start');
+    const toInput    = document.getElementById('fund-reports-date-end');
+
+    const fundId   = fundSelect ? fundSelect.value : '';
+    const fromDate = fromInput ? fromInput.value : '';
+    const toDate   = toInput ? toInput.value : '';
+
+    const activeTabId = getActiveFundReportTabId();
+
+    // Tabs that require a fund
+    const needsFund = [
+        'fund-balance-report',
+        'fund-activity-report',
+        'fund-statement-report'
+    ];
+    if (needsFund.includes(activeTabId) && !fundId) {
+        showToast('Please select a fund first', 'warning');
+        return;
+    }
+
+    try {
+        switch (activeTabId) {
+            case 'fund-balance-report':
+                renderFundBalanceReport(fundId);
+                break;
+            case 'fund-activity-report':
+                await renderFundActivityReport(fundId, fromDate, toDate);
+                break;
+            case 'fund-statement-report':
+                await renderFundStatementReport(fundId, fromDate, toDate);
+                break;
+            case 'funds-comparison-report':
+                renderFundsComparisonReport();
+                break;
+            default:
+                console.warn('Unknown Fund Report tab:', activeTabId);
+        }
+    } catch (err) {
+        console.error('Error generating fund report:', err);
+        showToast('Error generating report', 'error');
+    }
+}
+
+/**
+ * Returns ID of active tab panel inside Fund Reports
+ */
+function getActiveFundReportTabId() {
+    const activePanel = document
+        .querySelector('#fund-reports-page .tab-panel.active');
+    return activePanel ? activePanel.id : '';
+}
+
+/* ------------------------------------------------------------------
+ * Renderers
+ * -----------------------------------------------------------------*/
+
+function renderFundBalanceReport(fundId) {
+    const container = document.getElementById('fund-balance-content');
+    if (!container) return;
+
+    const fund = appState.funds.find(f => String(f.id) === String(fundId));
+    if (!fund) {
+        container.innerHTML = '<p class="text-center">Fund not found.</p>';
+        return;
+    }
+
+    const entityName =
+        appState.entities.find(e => e.id === fund.entity_id)?.name || 'Unknown';
+
+    container.innerHTML = `
+        <table class="data-table">
+            <tbody>
+                <tr><th>Fund</th><td>${fund.code} - ${fund.name}</td></tr>
+                <tr><th>Entity</th><td>${entityName}</td></tr>
+                <tr><th>Type</th><td>${fund.type || 'N/A'}</td></tr>
+                <tr><th>Balance</th><td>${formatCurrency(fund.balance)}</td></tr>
+                <tr><th>As of</th><td>${formatDate(new Date())}</td></tr>
+            </tbody>
+        </table>
+    `;
+}
+
+/**
+ * Fetch journal entry lines affecting the given fund within date range
+ */
+async function loadFundActivityLines(fundId, fromDate, toDate) {
+    const params = [];
+    if (fromDate) params.push(`from_date=${fromDate}`);
+    if (toDate)   params.push(`to_date=${toDate}`);
+    const qs = params.length ? `?${params.join('&')}` : '';
+
+    const entries = await fetchData(`journal-entries${qs}`);
+    const lines = [];
+
+    for (const entry of entries) {
+        const entryLines = await fetchData(`journal-entries/${entry.id}/lines`);
+        entryLines
+            .filter(l => String(l.fund_id) === String(fundId))
+            .forEach(l => {
+                lines.push({
+                    entry_date: entry.entry_date,
+                    description:
+                        l.description || entry.description || '—',
+                    account_code: l.account_code,
+                    account_name: l.account_name,
+                    debit: parseFloat(l.debit || 0),
+                    credit: parseFloat(l.credit || 0)
+                });
+            });
+    }
+    return lines;
+}
+
+async function renderFundActivityReport(fundId, fromDate, toDate) {
+    const container = document.getElementById('fund-activity-content');
+    if (!container) return;
+
+    container.innerHTML = '<p>Loading activity...</p>';
+    const lines = await loadFundActivityLines(fundId, fromDate, toDate);
+
+    if (lines.length === 0) {
+        container.innerHTML =
+            '<p class="text-center">No activity found for selected period.</p>';
+        return;
+    }
+
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    const rowsHtml = lines
+        .sort((a, b) => new Date(a.entry_date) - new Date(b.entry_date))
+        .map(l => {
+            totalDebit += l.debit;
+            totalCredit += l.credit;
+            return `<tr>
+                <td>${formatDate(l.entry_date)}</td>
+                <td>${l.account_code} - ${l.account_name}</td>
+                <td>${l.description}</td>
+                <td class="text-right">${l.debit ? formatCurrency(l.debit) : ''}</td>
+                <td class="text-right">${l.credit ? formatCurrency(l.credit) : ''}</td>
+            </tr>`;
+        })
+        .join('');
+
+    container.innerHTML = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th><th>Account</th><th>Description</th>
+                    <th class="text-right">Debit</th>
+                    <th class="text-right">Credit</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="3" class="text-right">Total</th>
+                    <th class="text-right">${formatCurrency(totalDebit)}</th>
+                    <th class="text-right">${formatCurrency(totalCredit)}</th>
+                </tr>
+            </tfoot>
+        </table>
+    `;
+}
+
+async function renderFundStatementReport(fundId, fromDate, toDate) {
+    const container = document.getElementById('fund-statement-content');
+    if (!container) return;
+
+    container.innerHTML = '<p>Loading statement...</p>';
+    const lines = await loadFundActivityLines(fundId, fromDate, toDate);
+
+    if (lines.length === 0) {
+        container.innerHTML =
+            '<p class="text-center">No activity to build statement.</p>';
+        return;
+    }
+
+    // Map account_code to type via appState.accounts
+    const acctTypeMap = {};
+    appState.accounts.forEach(a => (acctTypeMap[a.code] = a.type));
+
+    let revenue = 0;
+    let expense = 0;
+
+    lines.forEach(l => {
+        const aType = acctTypeMap[l.account_code] || '';
+        if (aType === 'Revenue') revenue += l.credit - l.debit;
+        if (aType === 'Expense') expense += l.debit - l.credit;
+    });
+
+    const net = revenue - expense;
+
+    container.innerHTML = `
+        <table class="data-table">
+            <tbody>
+                <tr><th>Total Revenue</th><td class="text-right">${formatCurrency(revenue)}</td></tr>
+                <tr><th>Total Expense</th><td class="text-right">${formatCurrency(expense)}</td></tr>
+                <tr class="font-weight-bold"><th>Net Change</th><td class="text-right">${formatCurrency(net)}</td></tr>
+            </tbody>
+        </table>
+    `;
+}
+
+function renderFundsComparisonReport() {
+    const container = document.getElementById('funds-comparison-content');
+    if (!container) return;
+
+    const funds = getRelevantFunds();
+    if (funds.length === 0) {
+        container.innerHTML =
+            '<p class="text-center">No funds available for comparison.</p>';
+        return;
+    }
+
+    const total = funds.reduce((s, f) => s + parseFloat(f.balance || 0), 0);
+
+    const rowsHtml = funds
+        .sort((a, b) => parseFloat(b.balance) - parseFloat(a.balance))
+        .map(f => {
+            const pct = total ? formatPercentage(f.balance, total) : '—';
+            return `<tr>
+                <td>${f.code} - ${f.name}</td>
+                <td>${f.type || 'N/A'}</td>
+                <td class="text-right">${formatCurrency(f.balance)}</td>
+                <td class="text-right">${pct}</td>
+            </tr>`;
+        })
+        .join('');
+
+    container.innerHTML = `
+        <table class="data-table">
+            <thead>
+                <tr><th>Fund</th><th>Type</th><th class="text-right">Balance</th><th class="text-right">% of Total</th></tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot>
+                <tr><th colspan="2" class="text-right">Total</th>
+                    <th class="text-right">${formatCurrency(total)}</th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    `;
+}
+
+/**
  * Load organization settings
  */
 async function loadOrganizationSettings() {
@@ -522,6 +796,9 @@ function initializePageElements() {
     
     // Initialize filter selects
     initializeFilterSelects();
+
+    // Initialize print buttons (e.g., Dashboard → “Print Report”)
+    initializePrintButtons();
 }
 
 /**
@@ -574,6 +851,18 @@ function initializeAddButtons() {
         addBankAccountBtn.addEventListener('click', () => {
             openBankAccountModal();
         });
+    }
+}
+
+/**
+ * Initialize print buttons (currently only Dashboard "Print Report").
+ * Ensures each target element is bound only once.
+ */
+function initializePrintButtons() {
+    const printBtn = document.getElementById('btnPrintDashboard');
+    if (printBtn && !printBtn.__bound) {
+        printBtn.__bound = true;
+        printBtn.addEventListener('click', () => window.print());
     }
 }
 

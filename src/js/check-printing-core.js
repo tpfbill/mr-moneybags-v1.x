@@ -648,6 +648,27 @@ function showToast(type, title, message, timeout = 4000) {
     }, timeout);
 }
 
+// --- Global toast shim for compatibility with app.js and other modules ---
+try {
+    // Preserve reference to the local implementation
+    const _localShowToast = showToast;
+
+    // Expose a global wrapper that matches the simpler (message, type) signature
+    window.showToast = function (message, type = 'info') {
+        try {
+            const t = (typeof type === 'string' && type.trim()) ? type.trim() : 'info';
+            const title = t.charAt(0).toUpperCase() + t.slice(1);
+            _localShowToast(t, title, message);
+        } catch (err) {
+            // Fail silently but log for debugging
+            console.error('Toast shim failed:', err);
+        }
+    };
+} catch (e) {
+    // In very rare cases (frozen window) just log the problem
+    console.warn('Unable to install global toast shim:', e);
+}
+
 // ========================================================
 // Event Listeners
 // ========================================================
