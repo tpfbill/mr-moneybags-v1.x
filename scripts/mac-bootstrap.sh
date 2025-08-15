@@ -57,20 +57,48 @@ fi
 
 echo -e "${GREEN}Using PostgreSQL formula: ${PG_FORMULA}${RESET}"
 
-# Start PostgreSQL service if not running
-if ! brew services list | grep -q "${PG_FORMULA}.*started"; then
-    echo "Starting PostgreSQL service..."
-    brew services start ${PG_FORMULA}
-    
-    # If using postgresql@16, might need to add to PATH
-    if [[ "${PG_FORMULA}" == "postgresql@16" ]]; then
-        if ! command -v pg_isready &> /dev/null; then
-            echo "Adding PostgreSQL 16 to PATH..."
+# ---------------------------------------------------------------------------
+# Start PostgreSQL service (with safety checks)
+# ---------------------------------------------------------------------------
+# 1. If a server is already answering on $PGPORT, skip starting anything.
+# 2. Otherwise try `brew services start`.
+# 3. If that fails, fall back to manual pg_ctl start (initialising the data
+#    directory if necessary).
+
+if pg_isready -h "${PGHOST}" -p "${PGPORT}" >/dev/null 2>&1; then
+    echo "PostgreSQL already running on ${PGHOST}:${PGPORT} (pg_isready OK)"
+else
+    echo "Starting PostgreSQL service via Homebrew..."
+    if brew services start "${PG_FORMULA}"; then
+        :
+    else
+        echo -e "${YELLOW}brew services start failed. Attempting manual pg_ctl start...${RESET}"
+
+        # Ensure PATH includes correct PostgreSQL bin dir
+        if [[ "${PG_FORMULA}" == "postgresql@16" ]]; then
             export PATH="$(brew --prefix)/opt/postgresql@16/bin:$PATH"
+            DATADIR="$(brew --prefix)/var/postgresql@16"
+        else
+            export PATH="$(brew --prefix)/opt/postgresql/bin:$PATH"
+            DATADIR="$(brew --prefix)/var/postgresql"
+        fi
+
+        # Initialise data directory if it doesn't exist or is empty
+        if [ ! -d "${DATADIR}" ] || [ -z "$(ls -A "${DATADIR}" 2>/dev/null)" ]; then
+            echo "Initialising PostgreSQL data directory at ${DATADIR}..."
+            mkdir -p "${DATADIR}"
+            initdb -D "${DATADIR}"
+        fi
+
+        # Start postgres for this shell session
+        if pg_ctl -D "${DATADIR}" -l "${DATADIR}/server.log" start; then
+            echo -e "${GREEN}PostgreSQL started manually via pg_ctl.${RESET}"
+        else
+            echo -e "${RED}Error: Failed to start PostgreSQL manually via pg_ctl.${RESET}"
+            echo "Check ${DATADIR}/server.log for details."
+            exit 1
         fi
     fi
-else
-    echo "PostgreSQL service is already running."
 fi
 
 # Set database connection parameters (same as db-seed.sh)
