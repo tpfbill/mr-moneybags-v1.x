@@ -698,8 +698,10 @@ ON CONFLICT DO NOTHING;
 -- Sample Users
 INSERT INTO users (username, password_hash, email, first_name, last_name, role, status)
 VALUES
-    ('admin', '$2a$10$8KxO7M0O6h.WN/JaXXJJtO2AxJOZlJKlmIVW9vFDXqvT3Wp3JzZr2', 'admin@example.com', 'Admin', 'User', 'admin', 'active'),
-    ('user', '$2a$10$8KxO7M0O6h.WN/JaXXJJtO2AxJOZlJKlmIVW9vFDXqvT3Wp3JzZr2', 'user@example.com', 'Regular', 'User', 'user', 'active')
+    -- admin / admin
+    ('admin', '$2b$10$R7Az01f1bovSiGNKn4Cn5.8hl605rQXH5EWA96ZePeKAu1CVUF7Qu', 'admin@example.com', 'Admin', 'User', 'admin', 'active'),
+    -- user / user
+    ('user',  '$2b$10$VPIviXA9/yt0OY4/hQqSK.UZJvzr8/gtwr6TZgggAQMcahHikr3W6',  'user@example.com',  'Regular', 'User', 'user',  'active')
 ON CONFLICT (username) DO NOTHING;
 
 -- Sample NACHA Settings
