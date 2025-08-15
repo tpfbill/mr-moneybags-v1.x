@@ -1096,7 +1096,8 @@ export async function openUserModal(id) {
             form.elements['user-email'].value = user.email || '';
             form.elements['user-username'].value = user.username || '';
             form.elements['user-role'].value = user.role || 'user';
-            form.elements['user-status'].value = user.status || 'Active';
+            // Ensure lowercase assignment to match <option value="active|inactive">
+            form.elements['user-status'].value = (user.status || 'active').toLowerCase();
         } catch (error) {
             console.error('Error fetching user data:', error);
             showToast('Error loading user data', 'error');
