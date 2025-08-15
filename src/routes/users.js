@@ -17,7 +17,8 @@ router.get('/', asyncHandler(async (req, res) => {
     let paramIndex = 1;
     
     if (status) {
-        query += ` AND status = $${paramIndex++}`;
+        // Case-insensitive status filter
+        query += ` AND lower(status) = lower($${paramIndex++})`;
         params.push(status);
     }
     
@@ -59,6 +60,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
  */
 router.post('/', asyncHandler(async (req, res) => {
     const { first_name, last_name, username, email, password, role, status } = req.body;
+
+    // Normalize status to lowercase; default to 'active'
+    const normalizedStatus = (status || 'active').toString().toLowerCase();
     
     // Validate required fields
     if (!first_name || !last_name) {
@@ -103,7 +107,7 @@ router.post('/', asyncHandler(async (req, res) => {
         `INSERT INTO users (
             username, password_hash, email, first_name, last_name, role, status
         ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [username, password_hash, email, first_name, last_name, role || 'user', status || 'active']
+        [username, password_hash, email, first_name, last_name, role || 'user', normalizedStatus]
     );
     
     // Remove password hash from response
@@ -191,7 +195,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
     
     if (status !== undefined) {
         updates.push(`status = $${paramIndex++}`);
-        params.push(status);
+        // Normalize status to lowercase for consistency
+        params.push(status?.toString().toLowerCase());
     }
     
     // Add updated_at timestamp

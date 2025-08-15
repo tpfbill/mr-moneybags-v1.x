@@ -10,20 +10,6 @@ const pool = new Pool(getDbConfig());
 const initializeDatabase = async () => {
     const client = await pool.connect();
     try {
-        // Check for users table and create if it doesn't exist
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                role VARCHAR(50) DEFAULT 'User',
-                status VARCHAR(20) DEFAULT 'Active',
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        `);
-        console.log('Table "users" is present or created.');
-
         // Add import_id to journal_entries only if the table itself exists
         await client.query(`
             DO $$
@@ -44,20 +30,6 @@ const initializeDatabase = async () => {
             END $$;
         `);
         console.log('Checked/created column "import_id" on "journal_entries" if table exists.');
-        
-        // Check for custom_report_definitions table
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS custom_report_definitions (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(255) NOT NULL,
-                description TEXT,
-                definition_json JSONB NOT NULL,
-                created_by VARCHAR(255),
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        `);
-        console.log('Table "custom_report_definitions" is present or created.');
 
         /* 
          * Tables that depend on core schema (bank_accounts, payment_batches, vendors)
@@ -77,8 +49,6 @@ const testConnection = async () => {
     try {
         const res = await pool.query('SELECT NOW()');
         console.log('Database connected successfully at:', res.rows[0].now);
-        // Initialize database after successful connection
-        await initializeDatabase();
         return true;
     } catch (err) {
         console.error('Database connection error:', err.message);
@@ -86,8 +56,46 @@ const testConnection = async () => {
     }
 };
 
+// ---------------------------------------------------------------------------
+// Schema Version Check
+// ---------------------------------------------------------------------------
+const checkSchemaVersion = async () => {
+    const REQUIRED = process.env.REQUIRED_SCHEMA_VERSION;
+
+    if (!REQUIRED) {
+        console.warn('[SchemaVersion] REQUIRED_SCHEMA_VERSION not set – skipping version check.');
+        return;
+    }
+
+    const { rows } = await pool.query(
+        `SELECT version
+           FROM schema_meta
+          ORDER BY applied_at DESC NULLS LAST, version DESC
+          LIMIT 1`
+    );
+
+    if (rows.length === 0) {
+        throw new Error(
+            'schema_meta table is empty – database not seeded. ' +
+            'Run `npm run db:seed` before starting the application.'
+        );
+    }
+
+    const current = rows[0].version;
+
+    if (current !== REQUIRED) {
+        throw new Error(
+            `Database schema version mismatch. Expected ${REQUIRED} but found ${current}. ` +
+            'Run `npm run db:seed` or apply migrations to update the schema.'
+        );
+    }
+
+    console.log(`[SchemaVersion] OK (version ${current})`);
+};
+
 module.exports = {
     pool,
     initializeDatabase,
-    testConnection
+    testConnection,
+    checkSchemaVersion
 };
