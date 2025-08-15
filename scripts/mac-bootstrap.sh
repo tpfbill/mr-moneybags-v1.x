@@ -149,16 +149,30 @@ echo -e "${GREEN}Database role ${PGUSER} is ready!${RESET}"
 if [ ! -f .env ]; then
     echo "Creating .env file from .env.example..."
     cp .env.example .env
-    
-    # Ensure REQUIRED_SCHEMA_VERSION is set
-    if ! grep -q "REQUIRED_SCHEMA_VERSION" .env; then
-        echo "REQUIRED_SCHEMA_VERSION=2025-08-15" >> .env
-    fi
 fi
 
 # Run database recreation script
 echo -e "${BOLD}Running database recreation and seed...${RESET}"
 npm run db:recreate
+
+# ---------------------------------------------------------------------------
+# Sync REQUIRED_SCHEMA_VERSION in .env with latest applied version
+# ---------------------------------------------------------------------------
+LATEST_VER=$(psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -tA \
+  -c "SELECT version FROM schema_meta ORDER BY applied_at DESC NULLS LAST, version DESC LIMIT 1" \
+  "${PGDATABASE}" || true)
+
+if [ -n "${LATEST_VER}" ]; then
+    if grep -qE '^REQUIRED_SCHEMA_VERSION=' .env; then
+        # macOS sed requires an empty string '' for in-place editing backup suffix
+        sed -i '' -e "s/^REQUIRED_SCHEMA_VERSION=.*/REQUIRED_SCHEMA_VERSION=${LATEST_VER}/" .env
+    else
+        echo "REQUIRED_SCHEMA_VERSION=${LATEST_VER}" >> .env
+    fi
+    echo -e "${GREEN}Synced REQUIRED_SCHEMA_VERSION=${LATEST_VER} in .env${RESET}"
+else
+    echo -e "${YELLOW}Warning: Could not determine latest schema version from schema_meta.${RESET}"
+fi
 
 echo -e "${GREEN}${BOLD}Bootstrap complete!${RESET}"
 echo "You can now start the application with: npm run start"

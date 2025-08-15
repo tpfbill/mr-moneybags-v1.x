@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 
 -- Record current schema version for this seed
 INSERT INTO schema_meta (version)
-VALUES ('2025-08-15')
+VALUES ('2025-08-15-02')
 ON CONFLICT (version) DO NOTHING;
 
 -- =============================================================================
@@ -214,6 +214,226 @@ CREATE TABLE IF NOT EXISTS payment_items (
 -- NACHA_FILES TABLE
 -- Stores NACHA file information for ACH payments
 -- =============================================================================
+-- =============================================================================
+
+-- =============================================================================
+-- BANK DEPOSITS MODULE
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bank_deposits (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_account_id UUID NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+    deposit_date DATE NOT NULL,
+    deposit_type VARCHAR(50) NOT NULL,
+    reference_number VARCHAR(50),
+    description TEXT,
+    memo TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft',
+    submitted_date TIMESTAMP,
+    submitted_by UUID REFERENCES users(id),
+    cleared_date DATE,
+    clearing_reference VARCHAR(100),
+    cleared_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES users(id),
+    updated_by UUID REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_bank_deposit_status CHECK (status IN ('Draft','Submitted','Cleared','Rejected'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_deposits_account ON bank_deposits(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_bank_deposits_date    ON bank_deposits(deposit_date);
+CREATE INDEX IF NOT EXISTS idx_bank_deposits_status  ON bank_deposits(status);
+
+CREATE TABLE IF NOT EXISTS bank_deposit_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    deposit_id UUID NOT NULL REFERENCES bank_deposits(id) ON DELETE CASCADE,
+    item_type VARCHAR(50) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    check_number VARCHAR(50),
+    check_date DATE,
+    payer_name VARCHAR(100),
+    description TEXT,
+    gl_account_id UUID REFERENCES accounts(id),
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_deposit_items_deposit ON bank_deposit_items(deposit_id);
+CREATE INDEX IF NOT EXISTS idx_bank_deposit_items_account ON bank_deposit_items(gl_account_id);
+CREATE INDEX IF NOT EXISTS idx_bank_deposit_items_type    ON bank_deposit_items(item_type);
+
+-- =============================================================================
+-- BANK RECONCILIATION MODULE
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bank_statements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_account_id UUID NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+    statement_date DATE NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    opening_balance DECIMAL(15,2) NOT NULL,
+    closing_balance DECIMAL(15,2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Uploaded',
+    file_name VARCHAR(255),
+    file_path VARCHAR(1024),
+    import_method VARCHAR(50) DEFAULT 'Manual',
+    notes TEXT,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_bank_statement_status CHECK (status IN ('Uploaded','Processed','Reconciled'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_statements_account ON bank_statements(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_bank_statements_date    ON bank_statements(statement_date);
+CREATE INDEX IF NOT EXISTS idx_bank_statements_status  ON bank_statements(status);
+
+CREATE TABLE IF NOT EXISTS bank_statement_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_statement_id UUID NOT NULL REFERENCES bank_statements(id) ON DELETE CASCADE,
+    transaction_date DATE NOT NULL,
+    description TEXT NOT NULL,
+    reference VARCHAR(100),
+    amount DECIMAL(15,2) NOT NULL,
+    running_balance DECIMAL(15,2),
+    transaction_type VARCHAR(20) NOT NULL,
+    check_number VARCHAR(50),
+    status VARCHAR(20) NOT NULL DEFAULT 'Unmatched',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_bank_tx_status CHECK (status IN ('Unmatched','Matched','Ignored'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_statement_tx_stmt   ON bank_statement_transactions(bank_statement_id);
+CREATE INDEX IF NOT EXISTS idx_bank_statement_tx_date   ON bank_statement_transactions(transaction_date);
+CREATE INDEX IF NOT EXISTS idx_bank_statement_tx_status ON bank_statement_transactions(status);
+
+CREATE TABLE IF NOT EXISTS bank_reconciliations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_account_id UUID NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+    bank_statement_id UUID REFERENCES bank_statements(id),
+    reconciliation_date DATE NOT NULL,
+    start_balance DECIMAL(15,2) NOT NULL,
+    end_balance DECIMAL(15,2) NOT NULL,
+    book_balance DECIMAL(15,2) NOT NULL,
+    statement_balance DECIMAL(15,2) NOT NULL,
+    difference DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(20) NOT NULL DEFAULT 'In Progress',
+    notes TEXT,
+    created_by UUID REFERENCES users(id),
+    approved_by UUID REFERENCES users(id),
+    approved_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_bank_rec_status CHECK (status IN ('In Progress','Completed','Approved'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_recs_account ON bank_reconciliations(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_bank_recs_date    ON bank_reconciliations(reconciliation_date);
+CREATE INDEX IF NOT EXISTS idx_bank_recs_status  ON bank_reconciliations(status);
+
+CREATE TABLE IF NOT EXISTS bank_reconciliation_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_reconciliation_id UUID NOT NULL REFERENCES bank_reconciliations(id) ON DELETE CASCADE,
+    bank_statement_transaction_id UUID REFERENCES bank_statement_transactions(id),
+    journal_entry_item_id UUID REFERENCES journal_entry_items(id),
+    match_type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Matched',
+    amount DECIMAL(15,2) NOT NULL,
+    notes TEXT,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_rec_items_rec     ON bank_reconciliation_items(bank_reconciliation_id);
+CREATE INDEX IF NOT EXISTS idx_bank_rec_items_stmt_tx ON bank_reconciliation_items(bank_statement_transaction_id);
+CREATE INDEX IF NOT EXISTS idx_bank_rec_items_jei     ON bank_reconciliation_items(journal_entry_item_id);
+
+CREATE TABLE IF NOT EXISTS bank_reconciliation_adjustments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_reconciliation_id UUID NOT NULL REFERENCES bank_reconciliations(id) ON DELETE CASCADE,
+    adjustment_date DATE NOT NULL,
+    description TEXT NOT NULL,
+    adjustment_type VARCHAR(50) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_bank_rec_adj_status CHECK (status IN ('Pending','Approved'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_rec_adjs_rec ON bank_reconciliation_adjustments(bank_reconciliation_id);
+
+-- =============================================================================
+-- CHECK PRINTING MODULE
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS check_formats (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    format_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    check_width DECIMAL(8,2) NOT NULL,
+    check_height DECIMAL(8,2) NOT NULL,
+    payee_x DECIMAL(8,2) NOT NULL,
+    payee_y DECIMAL(8,2) NOT NULL,
+    date_x DECIMAL(8,2) NOT NULL,
+    date_y DECIMAL(8,2) NOT NULL,
+    amount_x DECIMAL(8,2) NOT NULL,
+    amount_y DECIMAL(8,2) NOT NULL,
+    amount_words_x DECIMAL(8,2) NOT NULL,
+    amount_words_y DECIMAL(8,2) NOT NULL,
+    memo_x DECIMAL(8,2) NOT NULL,
+    memo_y DECIMAL(8,2) NOT NULL,
+    signature_x DECIMAL(8,2) NOT NULL,
+    signature_y DECIMAL(8,2) NOT NULL,
+    font_name VARCHAR(100) DEFAULT 'Arial',
+    font_size_normal DECIMAL(5,2) DEFAULT 10.00,
+    font_size_amount DECIMAL(5,2) DEFAULT 12.00,
+    format_data JSONB,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_check_formats_default ON check_formats(is_default);
+
+CREATE TABLE IF NOT EXISTS printed_checks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_account_id UUID NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+    check_number VARCHAR(20) NOT NULL,
+    check_date DATE NOT NULL,
+    payee_name VARCHAR(100) NOT NULL,
+    vendor_id UUID REFERENCES vendors(id),
+    amount DECIMAL(15,2) NOT NULL,
+    amount_in_words TEXT NOT NULL,
+    memo TEXT,
+    address_line1 VARCHAR(255),
+    address_line2 VARCHAR(255),
+    address_city VARCHAR(100),
+    address_state VARCHAR(50),
+    address_zip VARCHAR(20),
+    check_format_id UUID REFERENCES check_formats(id),
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft',
+    created_by UUID REFERENCES users(id),
+    printed_by UUID REFERENCES users(id),
+    voided_by UUID REFERENCES users(id),
+    cleared_by UUID REFERENCES users(id),
+    printed_date TIMESTAMP,
+    voided_date TIMESTAMP,
+    cleared_date TIMESTAMP,
+    void_reason TEXT,
+    clearing_reference VARCHAR(100),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_check_number_per_account UNIQUE (bank_account_id, check_number),
+    CONSTRAINT chk_check_status CHECK (status IN ('Draft','Printed','Voided','Cleared'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_printed_checks_account ON printed_checks(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_printed_checks_date    ON printed_checks(check_date);
+CREATE INDEX IF NOT EXISTS idx_printed_checks_status  ON printed_checks(status);
 CREATE TABLE IF NOT EXISTS nacha_files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     payment_batch_id UUID NOT NULL REFERENCES payment_batches(id),
@@ -263,6 +483,32 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ---------------------------------------------------------------------------
+-- Ensure new columns required by banking modules exist (idempotent)
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+    -- last_reconciliation_id ---------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'last_reconciliation_id'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN last_reconciliation_id UUID;
+    END IF;
+
+    -- reconciled_balance -------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'reconciled_balance'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN reconciled_balance DECIMAL(15,2) DEFAULT 0.00;
+    END IF;
+END $$;
 
 -- =============================================================================
 -- BUDGETS TABLE
