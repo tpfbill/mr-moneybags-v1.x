@@ -156,6 +156,42 @@ echo -e "${BOLD}Running database recreation and seed...${RESET}"
 npm run db:recreate
 
 # ---------------------------------------------------------------------------
+# Optional sample-data loads
+# ---------------------------------------------------------------------------
+# By default we load the full “Principle Foundation” sample data set so a fresh
+# install is immediately usable.  NACHA vendor data is larger and disabled by
+# default but can be enabled with an environment flag.
+LOAD_TPF_DATA="${LOAD_TPF_DATA:-true}"
+LOAD_NACHA_SAMPLE="${LOAD_NACHA_SAMPLE:-false}"
+
+if [[ "${LOAD_TPF_DATA}" == "true" ]]; then
+  echo
+  echo -e "${BOLD}Loading The Principle Foundation comprehensive sample dataset...${RESET}"
+  if node database/load-principle-foundation-data.js; then
+    echo -e "${GREEN}TPF dataset loaded successfully.${RESET}"
+  else
+    echo -e "${YELLOW}Warning: TPF dataset load failed. Continuing...${RESET}"
+  fi
+fi
+
+if [[ "${LOAD_NACHA_SAMPLE}" == "true" ]]; then
+  echo
+  echo -e "${BOLD}Loading NACHA vendor sample data...${RESET}"
+  if [ -f database/insert-complete-nacha-data.sql ]; then
+    if PGOPTIONS='--client-min-messages=warning' psql \
+         -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" \
+         -v ON_ERROR_STOP=1 \
+         -f database/insert-complete-nacha-data.sql; then
+      echo -e "${GREEN}NACHA sample data loaded successfully.${RESET}"
+    else
+      echo -e "${YELLOW}Warning: NACHA sample data load failed. Continuing...${RESET}"
+    fi
+  else
+    echo -e "${YELLOW}Warning: NACHA sample SQL not found. Skipping...${RESET}"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Sync REQUIRED_SCHEMA_VERSION in .env with latest applied version
 # ---------------------------------------------------------------------------
 LATEST_VER=$(psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -tA \
