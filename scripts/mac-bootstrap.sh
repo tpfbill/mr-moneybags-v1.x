@@ -1,0 +1,164 @@
+#!/bin/bash
+# mac-bootstrap.sh - Bootstrap PostgreSQL and database for Mr. MoneyBags on macOS
+# Sets up PostgreSQL via Homebrew, creates required roles, and seeds the database
+
+# Exit on error, unset variable reference, or pipe failure
+set -euo pipefail
+
+# Terminal colors
+BOLD="\033[1m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+RED="\033[0;31m"
+RESET="\033[0m"
+
+echo -e "${BOLD}=== Mr. MoneyBags macOS Bootstrap ===${RESET}"
+
+# Check if running on macOS
+if [[ "$(uname)" != "Darwin" ]]; then
+    echo -e "${RED}Error: This script is for macOS only.${RESET}"
+    echo "For other platforms, please refer to the documentation."
+    exit 1
+fi
+
+# Check if Homebrew is installed
+if ! command -v brew &> /dev/null; then
+    echo -e "${RED}Error: Homebrew is not installed.${RESET}"
+    echo "Please install Homebrew first:"
+    echo "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+    exit 1
+fi
+
+# Determine PostgreSQL formula to use
+PG_FORMULA="postgresql@16"
+if ! brew list --formula | grep -q "^postgresql@16$"; then
+    if brew search postgresql@16 &> /dev/null; then
+        echo -e "${YELLOW}PostgreSQL 16 not installed. Installing...${RESET}"
+        brew install postgresql@16
+    else
+        echo -e "${YELLOW}PostgreSQL 16 formula not found. Falling back to latest PostgreSQL.${RESET}"
+        PG_FORMULA="postgresql"
+        if ! brew list --formula | grep -q "^postgresql$"; then
+            echo -e "${YELLOW}PostgreSQL not installed. Installing...${RESET}"
+            brew install postgresql
+        fi
+    fi
+fi
+
+# Determine the installed formula
+if brew list --formula | grep -q "^postgresql@16$"; then
+    PG_FORMULA="postgresql@16"
+elif brew list --formula | grep -q "^postgresql$"; then
+    PG_FORMULA="postgresql"
+else
+    echo -e "${RED}Error: Failed to find installed PostgreSQL formula.${RESET}"
+    exit 1
+fi
+
+echo -e "${GREEN}Using PostgreSQL formula: ${PG_FORMULA}${RESET}"
+
+# Start PostgreSQL service if not running
+if ! brew services list | grep -q "${PG_FORMULA}.*started"; then
+    echo "Starting PostgreSQL service..."
+    brew services start ${PG_FORMULA}
+    
+    # If using postgresql@16, might need to add to PATH
+    if [[ "${PG_FORMULA}" == "postgresql@16" ]]; then
+        if ! command -v pg_isready &> /dev/null; then
+            echo "Adding PostgreSQL 16 to PATH..."
+            export PATH="$(brew --prefix)/opt/postgresql@16/bin:$PATH"
+        fi
+    fi
+else
+    echo "PostgreSQL service is already running."
+fi
+
+# Set database connection parameters (same as db-seed.sh)
+PGHOST="${PGHOST:-localhost}"
+PGPORT="${PGPORT:-5432}"
+PGUSER="${PGUSER:-postgres}"
+PGPASSWORD="${PGPASSWORD:-npfa123}"
+PGDATABASE="${PGDATABASE:-fund_accounting_db}"
+
+# Export password for psql (non-interactive authentication)
+export PGPASSWORD
+
+# Wait for PostgreSQL to be ready
+echo "Waiting for PostgreSQL to be ready..."
+RETRY_COUNT=0
+MAX_RETRIES=30
+until pg_isready -h "${PGHOST}" -p "${PGPORT}" &> /dev/null || [ $RETRY_COUNT -eq $MAX_RETRIES ]; do
+    echo "Waiting for PostgreSQL to start... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
+    RETRY_COUNT=$((RETRY_COUNT+1))
+    sleep 1
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    echo -e "${RED}Error: PostgreSQL did not start within the expected time.${RESET}"
+    echo "Check the PostgreSQL logs for more information."
+    exit 1
+fi
+
+echo -e "${GREEN}PostgreSQL is ready!${RESET}"
+
+# Display connection information (with masked password)
+echo "=== Database Connection ==="
+echo "Host: ${PGHOST}:${PGPORT}"
+echo "User: ${PGUSER}"
+echo "Database: ${PGDATABASE}"
+
+# Ensure the database role exists with proper permissions
+echo "Ensuring database role exists with proper permissions..."
+
+# First check if we can connect as the target user
+if ! psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -c "SELECT 1" postgres &> /dev/null; then
+    echo "Cannot connect as ${PGUSER}. Attempting to create/update role..."
+    
+    # Get current macOS username to connect as initially
+    CURRENT_USER=$(whoami)
+    
+    # Try connecting as current macOS user (Homebrew default)
+    if psql -h "${PGHOST}" -p "${PGPORT}" -U "${CURRENT_USER}" -c "SELECT 1" postgres &> /dev/null; then
+        echo "Connected as ${CURRENT_USER}. Creating ${PGUSER} role..."
+        # Check if role exists
+        if psql -h "${PGHOST}" -p "${PGPORT}" -U "${CURRENT_USER}" -tAc "SELECT 1 FROM pg_roles WHERE rolname='${PGUSER}'" postgres | grep -q 1; then
+            # Role exists, update password and permissions
+            psql -h "${PGHOST}" -p "${PGPORT}" -U "${CURRENT_USER}" -c "ALTER ROLE ${PGUSER} WITH LOGIN SUPERUSER PASSWORD '${PGPASSWORD}';" postgres
+        else
+            # Create new role
+            psql -h "${PGHOST}" -p "${PGPORT}" -U "${CURRENT_USER}" -c "CREATE ROLE ${PGUSER} WITH LOGIN SUPERUSER PASSWORD '${PGPASSWORD}';" postgres
+        fi
+    else
+        echo -e "${RED}Error: Cannot connect to PostgreSQL as ${CURRENT_USER} or ${PGUSER}.${RESET}"
+        echo "You may need to manually create the role or fix PostgreSQL authentication."
+        echo "Try: createuser -h ${PGHOST} -p ${PGPORT} -s -P ${PGUSER}"
+        exit 1
+    fi
+    
+    # Verify we can now connect as the target user
+    if ! psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -c "SELECT 1" postgres &> /dev/null; then
+        echo -e "${RED}Error: Still cannot connect as ${PGUSER} after setup attempt.${RESET}"
+        echo "You may need to manually fix PostgreSQL authentication or pg_hba.conf."
+        exit 1
+    fi
+fi
+
+echo -e "${GREEN}Database role ${PGUSER} is ready!${RESET}"
+
+# Ensure .env file exists with REQUIRED_SCHEMA_VERSION
+if [ ! -f .env ]; then
+    echo "Creating .env file from .env.example..."
+    cp .env.example .env
+    
+    # Ensure REQUIRED_SCHEMA_VERSION is set
+    if ! grep -q "REQUIRED_SCHEMA_VERSION" .env; then
+        echo "REQUIRED_SCHEMA_VERSION=2025-08-15" >> .env
+    fi
+fi
+
+# Run database recreation script
+echo -e "${BOLD}Running database recreation and seed...${RESET}"
+npm run db:recreate
+
+echo -e "${GREEN}${BOLD}Bootstrap complete!${RESET}"
+echo "You can now start the application with: npm run start"

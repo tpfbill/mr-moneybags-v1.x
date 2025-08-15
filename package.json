@@ -11,7 +11,8 @@
     "setup": "node database/setup-complete.js",
     "db:seed": "bash scripts/db-seed.sh",
     "db:recreate": "bash scripts/db-recreate.sh",
-    "db:verify": "node database/db-verify-data.js"
+    "db:verify": "node database/db-verify-data.js",
+    "bootstrap:mac": "bash scripts/mac-bootstrap.sh"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
