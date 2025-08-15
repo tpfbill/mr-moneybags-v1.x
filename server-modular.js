@@ -10,7 +10,11 @@ const session = require('express-session');
 const PgSession = require('connect-pg-simple')(session);
 
 // Import database connection
-const { pool, testConnection } = require('./src/database/connection');
+const {
+  pool,
+  testConnection,
+  checkSchemaVersion
+} = require('./src/database/connection');
 
 // Import middleware
 const { errorHandler } = require('./src/middleware/error-handler');
@@ -211,6 +215,8 @@ const startServer = async () => {
       console.error('Failed to connect to database. Server will not start.');
       process.exit(1);
     }
+    // Ensure database schema version matches application requirements
+    await checkSchemaVersion();
     
     // Start the server if database connection is successful
     app.listen(PORT, '0.0.0.0', () => {

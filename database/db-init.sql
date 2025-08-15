@@ -21,6 +21,20 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";       -- For text search
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";      -- For encryption functions
 
 -- =============================================================================
+-- SCHEMA VERSIONING
+-- Tracks the database schema version applied by this seed
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS schema_meta (
+    version     VARCHAR(64) PRIMARY KEY,
+    applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Record current schema version for this seed
+INSERT INTO schema_meta (version)
+VALUES ('2025-08-15')
+ON CONFLICT (version) DO NOTHING;
+
+-- =============================================================================
 -- ENTITIES TABLE
 -- Stores organizational entities/departments in a hierarchical structure
 -- =============================================================================
