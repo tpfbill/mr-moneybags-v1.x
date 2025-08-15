@@ -214,7 +214,99 @@ CREATE TABLE IF NOT EXISTS payment_items (
 -- NACHA_FILES TABLE
 -- Stores NACHA file information for ACH payments
 -- =============================================================================
+CREATE TABLE IF NOT EXISTS nacha_files (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    payment_batch_id UUID NOT NULL REFERENCES payment_batches(id),
+    filename VARCHAR(100) NOT NULL,
+    file_date DATE NOT NULL,
+    file_content TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'Generated',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- =============================================================================
+-- COMPANY_NACHA_SETTINGS TABLE
+-- Stores company NACHA settings for ACH file generation
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS company_nacha_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    entity_id UUID NOT NULL REFERENCES entities(id),
+    settlement_account_id UUID,
+    company_name VARCHAR(100) NOT NULL,
+    company_id VARCHAR(10) NOT NULL,
+    originating_dfi_id VARCHAR(10) NOT NULL,
+    immediate_destination VARCHAR(10),
+    immediate_origin VARCHAR(10),
+    company_entry_description VARCHAR(10) DEFAULT 'PAYMENT',
+    is_production BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================================================
+-- BANK_ACCOUNTS TABLE
+-- Stores bank account information
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bank_accounts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    entity_id UUID NOT NULL REFERENCES entities(id),
+    gl_account_id UUID REFERENCES accounts(id),
+    bank_name VARCHAR(100) NOT NULL,
+    account_name VARCHAR(100) NOT NULL,
+    account_number VARCHAR(50) NOT NULL,
+    routing_number VARCHAR(20) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    balance DECIMAL(15,2) DEFAULT 0.00,
+    last_reconciliation_date DATE,
+    status VARCHAR(20) DEFAULT 'Active',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ---------------------------------------------------------------------------
+-- Ensure new columns required by banking modules exist (idempotent)
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+    -- last_reconciliation_id ---------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'last_reconciliation_id'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN last_reconciliation_id UUID;
+    END IF;
+
+    -- reconciled_balance -------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'reconciled_balance'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN reconciled_balance DECIMAL(15,2) DEFAULT 0.00;
+    END IF;
+END $$;
+
+-- =============================================================================
+-- USERS TABLE
+-- Stores user authentication and profile data
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    last_login TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 -- =============================================================================
 -- BANK DEPOSITS MODULE
@@ -434,81 +526,6 @@ CREATE TABLE IF NOT EXISTS printed_checks (
 CREATE INDEX IF NOT EXISTS idx_printed_checks_account ON printed_checks(bank_account_id);
 CREATE INDEX IF NOT EXISTS idx_printed_checks_date    ON printed_checks(check_date);
 CREATE INDEX IF NOT EXISTS idx_printed_checks_status  ON printed_checks(status);
-CREATE TABLE IF NOT EXISTS nacha_files (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    payment_batch_id UUID NOT NULL REFERENCES payment_batches(id),
-    filename VARCHAR(100) NOT NULL,
-    file_date DATE NOT NULL,
-    file_content TEXT NOT NULL,
-    status VARCHAR(20) DEFAULT 'Generated',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- =============================================================================
--- COMPANY_NACHA_SETTINGS TABLE
--- Stores company NACHA settings for ACH file generation
--- =============================================================================
-CREATE TABLE IF NOT EXISTS company_nacha_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    entity_id UUID NOT NULL REFERENCES entities(id),
-    settlement_account_id UUID,
-    company_name VARCHAR(100) NOT NULL,
-    company_id VARCHAR(10) NOT NULL,
-    originating_dfi_id VARCHAR(10) NOT NULL,
-    immediate_destination VARCHAR(10),
-    immediate_origin VARCHAR(10),
-    company_entry_description VARCHAR(10) DEFAULT 'PAYMENT',
-    is_production BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- =============================================================================
--- BANK_ACCOUNTS TABLE
--- Stores bank account information
--- =============================================================================
-CREATE TABLE IF NOT EXISTS bank_accounts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    entity_id UUID NOT NULL REFERENCES entities(id),
-    gl_account_id UUID REFERENCES accounts(id),
-    bank_name VARCHAR(100) NOT NULL,
-    account_name VARCHAR(100) NOT NULL,
-    account_number VARCHAR(50) NOT NULL,
-    routing_number VARCHAR(20) NOT NULL,
-    type VARCHAR(20) NOT NULL,
-    balance DECIMAL(15,2) DEFAULT 0.00,
-    last_reconciliation_date DATE,
-    status VARCHAR(20) DEFAULT 'Active',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- ---------------------------------------------------------------------------
--- Ensure new columns required by banking modules exist (idempotent)
--- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-    -- last_reconciliation_id ---------------------------------------------------
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'bank_accounts'
-          AND column_name = 'last_reconciliation_id'
-    ) THEN
-        ALTER TABLE bank_accounts
-            ADD COLUMN last_reconciliation_id UUID;
-    END IF;
-
-    -- reconciled_balance -------------------------------------------------------
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'bank_accounts'
-          AND column_name = 'reconciled_balance'
-    ) THEN
-        ALTER TABLE bank_accounts
-            ADD COLUMN reconciled_balance DECIMAL(15,2) DEFAULT 0.00;
-    END IF;
-END $$;
 
 -- =============================================================================
 -- BUDGETS TABLE
@@ -526,24 +543,6 @@ CREATE TABLE IF NOT EXISTS budgets (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(entity_id, fund_id, account_id, fiscal_year, period)
-);
-
--- =============================================================================
--- USERS TABLE
--- Stores user authentication and profile data
--- =============================================================================
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    first_name VARCHAR(50),
-    last_name VARCHAR(50),
-    role VARCHAR(20) NOT NULL DEFAULT 'user',
-    status VARCHAR(20) NOT NULL DEFAULT 'active',
-    last_login TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =============================================================================
@@ -600,7 +599,7 @@ ON CONFLICT (code) DO NOTHING;
 
 -- Update parent-child relationships
 -- NOTE: Avoid hard-coded UUIDs so the script can run even if the IDs were
--- generated differently on a previous run.  Look up the parent’s id by code.
+-- generated differently on a previous run.  Look up the parent's id by code.
 UPDATE entities       AS e
 SET    parent_entity_id = p.id
 FROM   entities        AS p
