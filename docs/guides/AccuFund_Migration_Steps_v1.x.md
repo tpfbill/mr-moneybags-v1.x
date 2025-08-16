@@ -87,49 +87,76 @@ Save all files in 📂 `/migration_exports/YYYY-MM-DD`.
 
 ---
 
-## 4  Database Migration Steps (≈ 3 hours)
+## 4  CSV Import (Postman) – From AccuFund Exports (≈ 1.5 – 3 hours)
 
-1. **Create staging schema**
+### Prerequisites
+* Entities, Chart of Accounts, and Funds **must already exist** in Mr. MoneyBags.  
+  • Use `npm run bootstrap:mac` or the Admin UI to create any missing codes.  
+* Files must be comma-separated CSV with headers.  
+* Recommended date format: **YYYY-MM-DD**. Amount columns may include `$` or `,`; these are stripped automatically.
 
-   💻  
-   ```
-   psql -U postgres -d mrmoneybags -f database/staging_schema.sql
-   ```
+### 4.1  Analyze your CSV
+|  | Setting | Value |
+|--|---------|-------|
+| Method | **POST** |
+| URL | `http://SERVER_IP:3000/api/import/analyze` |
+| Body | **form-data** → `file` *(type = File)* → choose your exported CSV |
 
-2. **Import CSVs**
+Response contains `headers`, `sampleData`, and a `suggestedMapping` object such as:
 
-   Example for COA:
+```json
+{
+  "transactionId": "TransactionID",
+  "entryDate": "Date",
+  "accountCode": "AccountCode",
+  "fundCode": "FundCode",
+  "debit": "Debit",
+  "credit": "Credit",
+  "description": "Description"
+}
+```
 
-   💻  
-   ```
-   \copy staging.gl_accounts FROM '/migration_exports/gl_accounts.csv' WITH CSV HEADER
-   ```
+### 4.2  Validate the CSV (no JSON conversion needed)
+|  | Setting | Value |
+|--|---------|-------|
+| Method | **POST** |
+| URL | `http://SERVER_IP:3000/api/import/validate-csv` |
+| Body | **form-data**  |
+|      | `file` → your CSV file |
+|      | `mapping` *(type = Text)* → paste JSON mapping from step 4.1 |
 
-   Repeat for each export.
+Response:
+```json
+{
+  "isValid": true,
+  "issues": [],
+  "summary": {
+    "totalRows": 1234,
+    "uniqueTransactions": 456,
+    "unbalancedTransactions": 0
+  }
+}
+```
 
-3. **Run validation routines**
+### 4.3  Process (import) the CSV
+Same body as **Validate**, but send to:
+`POST http://SERVER_IP:3000/api/import/process-csv`
 
-   💻  
-   ```
-   CALL sp_validate_staging_data();
-   ```
+Returns **202 Accepted** with `{ "importId": "uuid-here" }`.
 
-   ‑ Fix any errors listed in 📂 `logs/staging_validation.log`.
+### 4.4  Monitor progress
+`GET http://SERVER_IP:3000/api/import/status/:importId`  
+Shows `status`, `progress`, counters, and any errors.
 
-4. **Execute migration stored proc**
+### 4.5  Rollback if needed
+`POST http://SERVER_IP:3000/api/import/rollback/:importId`  
+Deletes all journal entries created by that import.
 
-   💻  
-   ```
-   CALL sp_promote_staging_to_prod();
-   ```
-
-5. **Rebuild balances**
-
-   💻 `CALL sp_rebuild_balances();`
-
-Pitfalls  
-* Wrong CSV delimiter (comma vs semicolon) ➜ adjust `WITH (DELIMITER ';')`.  
-* Account codes > 20 chars ➜ truncate or map in COA sheet first.
+#### Common pitfalls
+* **Account code not found** → create the code in Settings → Chart of Accounts or fix the CSV.  
+* **Unbalanced transaction** → lines sharing a Transaction ID must have equal debits & credits.  
+* **Date parse errors** → use YYYY-MM-DD.  
+* **Large files (100 k+ lines)** → split by fiscal year.
 
 ---
 
@@ -139,6 +166,8 @@ Pitfalls
 |---|--------|--------|------|
 | 5.1 | ☐ Import bank accounts (`bank_accounts.csv`) | Settings → Bank Accounts → Import |  |
 | 5.2 | ☐ Connect live feeds / upload first statements | Bank Reconciliation → Bank Statements |  |
+
+> **macOS local install** – you can run `npm run bootstrap:mac` to set up PostgreSQL, load the sample dataset, and create `.env` automatically.
 | 5.3 | ☐ Configure default check format (11-inch voucher) | Check Printing → Check Formats |  |
 | 5.4 | ☐ Enter opening cleared balances | Bank Reconciliation → New Reconciliation |  |
 
@@ -213,6 +242,7 @@ Pitfall: Copy-pasting passwords with trailing space ➜ login failure.
 | AccuFund 9.x | Latest | Data export |
 | Spreadsheet software | n/a | Mapping sheets |
 | bcrypt-cli | 2.x | Password hashing |
+| Postman | ≥ 10.0 | API testing / file uploads |
 
 ---
 

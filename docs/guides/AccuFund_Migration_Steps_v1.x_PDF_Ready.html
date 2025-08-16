@@ -381,7 +381,7 @@
         
         <div class="toc-entry toc-level-1">
             <div class="toc-number">4</div>
-            <div class="toc-title">Database Migration Steps</div>
+            <div class="toc-title">CSV Import Steps (Postman)</div>
             <div class="toc-page">4</div>
         </div>
         
@@ -646,49 +646,139 @@ docker compose up -d</pre>
     
     <div class="section-divider"></div>
     
-    <h1>4 Database Migration Steps (≈ 3 hours)</h1>
+    <h1>4 CSV Import Steps (Postman) (≈ 1.5 – 3 hours)</h1>
     
     <div class="no-break">
-        <ol>
-            <li>
-                <strong>Create staging schema</strong>
-                <pre><span class="command">💻</span>
-psql -U postgres -d mrmoneybags -f database/staging_schema.sql</pre>
+        <h2>Prerequisites</h2>
+        <ul>
+            <li>Entities, Chart of Accounts, and Funds <strong>must already exist</strong> in Mr. MoneyBags.
+                <ul>
+                    <li>Use <code>npm run bootstrap:mac</code> or the Admin UI to create any missing codes.</li>
+                </ul>
             </li>
-            
-            <li>
-                <strong>Import CSVs</strong>
-                <p>Example for COA:</p>
-                <pre><span class="command">💻</span>
-\copy staging.gl_accounts FROM '/migration_exports/gl_accounts.csv' WITH CSV HEADER</pre>
-                <p>Repeat for each export.</p>
-            </li>
-            
-            <li>
-                <strong>Run validation routines</strong>
-                <pre><span class="command">💻</span>
-CALL sp_validate_staging_data();</pre>
-                <p>‑ Fix any errors listed in <span class="path">📂</span> <code>logs/staging_validation.log</code>.</p>
-            </li>
-            
-            <li>
-                <strong>Execute migration stored proc</strong>
-                <pre><span class="command">💻</span>
-CALL sp_promote_staging_to_prod();</pre>
-            </li>
-            
-            <li>
-                <strong>Rebuild balances</strong>
-                <pre><span class="command">💻</span> CALL sp_rebuild_balances();</pre>
-            </li>
-        </ol>
+            <li>Files must be comma-separated CSV with headers.</li>
+            <li>Recommended date format: <strong>YYYY-MM-DD</strong>. Amount columns may include <code>$</code> or <code>,</code>; these are stripped automatically.</li>
+        </ul>
     </div>
     
     <div class="no-break">
-        <h3>Pitfalls</h3>
+        <h3>4.1 Analyze your CSV</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Setting</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Method</td>
+                    <td><strong>POST</strong></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>URL</td>
+                    <td><code>http://SERVER_IP:3000/api/import/analyze</code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>Body</td>
+                    <td><strong>form-data</strong> → <code>file</code> <em>(type = File)</em> → choose your exported CSV</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p>Response contains <code>headers</code>, <code>sampleData</code>, and a <code>suggestedMapping</code> object such as:</p>
+        
+        <pre>
+{
+  "transactionId": "TransactionID",
+  "entryDate": "Date",
+  "accountCode": "AccountCode",
+  "fundCode": "FundCode",
+  "debit": "Debit",
+  "credit": "Credit",
+  "description": "Description"
+}
+        </pre>
+    </div>
+    
+    <div class="no-break">
+        <h3>4.2 Validate the CSV (no JSON conversion needed)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Setting</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Method</td>
+                    <td><strong>POST</strong></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>URL</td>
+                    <td><code>http://SERVER_IP:3000/api/import/validate-csv</code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td rowspan="2">Body</td>
+                    <td><strong>form-data</strong></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td><code>file</code> → your CSV file<br><code>mapping</code> <em>(type = Text)</em> → paste JSON mapping from step 4.1</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p>Response:</p>
+        <pre>
+{
+  "isValid": true,
+  "issues": [],
+  "summary": {
+    "totalRows": 1234,
+    "uniqueTransactions": 456,
+    "unbalancedTransactions": 0
+  }
+}
+        </pre>
+    </div>
+    
+    <div class="no-break">
+        <h3>4.3 Process (import) the CSV</h3>
+        <p>Same body as <strong>Validate</strong>, but send to:<br>
+        <code>POST http://SERVER_IP:3000/api/import/process-csv</code></p>
+        
+        <p>Returns <strong>202 Accepted</strong> with <code>{ "importId": "uuid-here" }</code>.</p>
+    </div>
+    
+    <div class="no-break">
+        <h3>4.4 Monitor progress</h3>
+        <p><code>GET http://SERVER_IP:3000/api/import/status/:importId</code><br>
+        Shows <code>status</code>, <code>progress</code>, counters, and any errors.</p>
+    </div>
+    
+    <div class="no-break">
+        <h3>4.5 Rollback if needed</h3>
+        <p><code>POST http://SERVER_IP:3000/api/import/rollback/:importId</code><br>
+        Deletes all journal entries created by that import.</p>
+    </div>
+    
+    <div class="no-break">
+        <h3>Common pitfalls</h3>
         <ul>
-            <li>Wrong CSV delimiter (comma vs semicolon) ➜ adjust <code>WITH (DELIMITER ';')</code>.</li>
-            <li>Account codes > 20 chars ➜ truncate or map in COA sheet first.</li>
+            <li><strong>Account code not found</strong> → create the code in Settings → Chart of Accounts or fix the CSV.</li>
+            <li><strong>Unbalanced transaction</strong> → lines sharing a Transaction ID must have equal debits & credits.</li>
+            <li><strong>Date parse errors</strong> → use YYYY-MM-DD.</li>
+            <li><strong>Large files (100 k+ lines)</strong> → split by fiscal year.</li>
         </ul>
     </div>
     
@@ -697,6 +787,8 @@ CALL sp_promote_staging_to_prod();</pre>
     <h1>5 Banking Setup Steps (≈ 1 hour)</h1>
     
     <div class="no-break">
+        <p><em><strong>macOS local install</strong> – you can run <code>npm run bootstrap:mac</code> to set up PostgreSQL, load the sample dataset, and create <code>.env</code> automatically.</em></p>
+        
         <table>
             <thead>
                 <tr>
@@ -927,6 +1019,11 @@ npm run create-admin -- \
                     <td>bcrypt-cli</td>
                     <td>2.x</td>
                     <td>Password hashing</td>
+                </tr>
+                <tr>
+                    <td>Postman</td>
+                    <td>≥ 10.0</td>
+                    <td>API testing / file uploads</td>
                 </tr>
             </tbody>
         </table>

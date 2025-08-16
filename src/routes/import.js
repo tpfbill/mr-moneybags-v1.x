@@ -9,6 +9,25 @@ const path = require('path');
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 
+// ---------------------------------------------------------------------------
+// Helper utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Safely parse currency / numeric values coming from CSV text.
+ * Strips $ , and whitespace then falls back to 0 if parseFloat fails.
+ * @param {*} val
+ * @returns {number}
+ */
+function parseAmount(val) {
+    if (val === undefined || val === null || val === '') return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+        return parseFloat(val.replace(/[$,\\s]/g, '')) || 0;
+    }
+    return 0;
+}
+
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
@@ -133,6 +152,87 @@ router.post('/validate', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * -------------------------------------------------------------------------
+ *  NEW  ➜  POST /api/import/validate-csv
+ *  Accepts a CSV file + mapping JSON (form-data) and performs same validation
+ *  logic as /validate without requiring the client to convert CSV to JSON.
+ * -------------------------------------------------------------------------
+ */
+router.post('/validate-csv', upload.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    // Parse mapping from form-data
+    let mapping;
+    try {
+        mapping = req.body.mapping ? JSON.parse(req.body.mapping) : null;
+    } catch (err) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: 'Mapping must be valid JSON.' });
+    }
+
+    if (!mapping || !mapping.transactionId || !mapping.entryDate ||
+        (!mapping.debit && !mapping.credit) || !mapping.accountCode) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: 'Required mapping fields are missing. Expect keys: transactionId, entryDate, debit, credit, accountCode, (optional) fundCode, description.' });
+    }
+
+    // Read & parse CSV
+    const csvText = fs.readFileSync(req.file.path, 'utf8');
+    fs.unlinkSync(req.file.path); // cleanup temp file
+    const records = parse(csvText, { columns: true, skip_empty_lines: true });
+
+    // --- reuse validation logic with parseAmount ---
+    const issues = [];
+    records.forEach((row, index) => {
+        if (!row[mapping.transactionId]) {
+            issues.push(`Row ${index + 1}: Missing transaction ID.`);
+        }
+        if (!row[mapping.entryDate]) {
+            issues.push(`Row ${index + 1}: Missing entry date.`);
+        }
+        if (!row[mapping.accountCode]) {
+            issues.push(`Row ${index + 1}: Missing account code.`);
+        }
+        if ((parseAmount(row[mapping.debit]) === 0) && (parseAmount(row[mapping.credit]) === 0)) {
+            issues.push(`Row ${index + 1}: Missing both debit and credit amounts.`);
+        }
+    });
+
+    const transactions = {};
+    records.forEach(row => {
+        const txId = row[mapping.transactionId];
+        if (!transactions[txId]) {
+            transactions[txId] = { debit: 0, credit: 0 };
+        }
+        transactions[txId].debit += parseAmount(row[mapping.debit]);
+        transactions[txId].credit += parseAmount(row[mapping.credit]);
+    });
+
+    let unbalancedCount = 0;
+    for (const t in transactions) {
+        if (Math.abs(transactions[t].debit - transactions[t].credit) > 0.01) {
+            unbalancedCount++;
+        }
+    }
+
+    if (unbalancedCount > 0) {
+        issues.push(`${unbalancedCount} transactions are unbalanced (debits do not equal credits).`);
+    }
+
+    res.json({
+        isValid: issues.length === 0,
+        issues,
+        summary: {
+            totalRows: records.length,
+            uniqueTransactions: Object.keys(transactions).length,
+            unbalancedTransactions: unbalancedCount
+        }
+    });
+}));
+
+/**
  * POST /api/import/process
  * Starts the data import process
  */
@@ -238,6 +338,131 @@ router.post('/process', asyncHandler(async (req, res) => {
             client.release();
         }
     }, 100); // Start after 100ms
+}));
+
+/**
+ * -------------------------------------------------------------------------
+ * NEW  ➜ POST /api/import/process-csv
+ * Accepts CSV file + mapping JSON and processes in background identical to
+ * /process but without requiring client-side CSV→JSON conversion.
+ * -------------------------------------------------------------------------
+ */
+router.post('/process-csv', upload.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    // Parse mapping
+    let mapping;
+    try {
+        mapping = req.body.mapping ? JSON.parse(req.body.mapping) : null;
+    } catch {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: 'Mapping must be valid JSON.' });
+    }
+
+    if (!mapping || !mapping.transactionId || !mapping.entryDate ||
+        (!mapping.debit && !mapping.credit) || !mapping.accountCode) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: 'Required mapping fields are missing. Expect keys: transactionId, entryDate, debit, credit, accountCode, (optional) fundCode, description.' });
+    }
+
+    // Parse CSV
+    const csvText = fs.readFileSync(req.file.path, 'utf8');
+    fs.unlinkSync(req.file.path); // cleanup
+    const records = parse(csvText, { columns: true, skip_empty_lines: true });
+
+    // Create import job
+    const importId = crypto.randomUUID();
+    importJobs[importId] = {
+        id: importId,
+        status: 'processing',
+        progress: 0,
+        totalRecords: records.length,
+        processedRecords: 0,
+        errors: [],
+        startTime: new Date(),
+    };
+
+    res.status(202).json({ message: 'Import process started.', importId });
+
+    // --- background work ---
+    setTimeout(async () => {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const { transactionId, entryDate, debit, credit, accountCode, fundCode, description } = mapping;
+
+            const grouped = records.reduce((acc, row) => {
+                const txId = row[transactionId];
+                if (!acc[txId]) acc[txId] = [];
+                acc[txId].push(row);
+                return acc;
+            }, {});
+
+            const totalTx = Object.keys(grouped).length;
+            let processedTx = 0;
+
+            for (const txId in grouped) {
+                const lines = grouped[txId];
+                const first = lines[0];
+
+                const totalAmt = lines.reduce((sum, l) => sum + parseAmount(l[debit]), 0);
+
+                const jeRes = await client.query(
+                    `INSERT INTO journal_entries (reference_number, entry_date, description, total_amount, status, created_by, import_id)
+                     VALUES ($1, $2, $3, $4, 'Posted', 'AccuFund CSV Import', $5) RETURNING id`,
+                    [
+                        txId,
+                        new Date(first[entryDate]),
+                        first[description] || 'AccuFund CSV Import',
+                        totalAmt,
+                        importId
+                    ]
+                );
+                const journalEntryId = jeRes.rows[0].id;
+
+                for (const line of lines) {
+                    const acctCode = line[accountCode];
+                    const accountRes = await client.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [acctCode]);
+                    if (accountRes.rows.length === 0) {
+                        throw new Error(`Account code "${acctCode}" not found for transaction ${txId}.`);
+                    }
+                    const fundId = fundCode ? (await client.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [line[fundCode]])).rows[0]?.id : null;
+
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [
+                            journalEntryId,
+                            accountRes.rows[0].id,
+                            fundId,
+                            parseAmount(line[debit]),
+                            parseAmount(line[credit]),
+                            line[description] || ''
+                        ]
+                    );
+                }
+
+                processedTx++;
+                importJobs[importId].progress = Math.floor((processedTx / totalTx) * 100);
+                importJobs[importId].processedRecords += lines.length;
+            }
+
+            await client.query('COMMIT');
+            importJobs[importId].status = 'completed';
+            importJobs[importId].endTime = new Date();
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error(`Import ${importId} failed:`, err);
+            importJobs[importId].status = 'failed';
+            importJobs[importId].errors.push(err.message);
+            importJobs[importId].endTime = new Date();
+        } finally {
+            client.release();
+        }
+    }, 100);
 }));
 
 /**
