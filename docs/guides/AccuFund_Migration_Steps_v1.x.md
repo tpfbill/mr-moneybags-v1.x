@@ -95,6 +95,19 @@ Save all files in 📂 `/migration_exports/YYYY-MM-DD`.
 * Files must be comma-separated CSV with headers.  
 * Recommended date format: **YYYY-MM-DD**. Amount columns may include `$` or `,`; these are stripped automatically.
 
+### Authentication (required for Postman)
+Before calling any `/api/import/*` endpoints you must authenticate so that Postman stores the session cookie:
+
+|  | Setting | Value |
+|--|---------|-------|
+| Method | **POST** |
+| URL | `http://SERVER_IP:3000/api/auth/login` |
+| Headers | `Content-Type: application/json` |
+| Body (raw JSON) | `{ "username": "admin", "password": "yourPassword" }` |
+
+If the response is *200 OK* with `"Login successful"` Postman will capture the `mmb.sid` cookie automatically.  
+All subsequent requests in this collection will be sent with that cookie and be authenticated.
+
 ### 4.1  Analyze your CSV
 |  | Setting | Value |
 |--|---------|-------|

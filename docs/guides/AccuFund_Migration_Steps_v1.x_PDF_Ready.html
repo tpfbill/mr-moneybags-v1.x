@@ -661,6 +661,46 @@ docker compose up -d</pre>
         </ul>
     </div>
     
+    <!-- Authentication subsection -->
+    <div class="no-break">
+        <h3>Authentication (required for Postman)</h3>
+        <p>Before calling any <code>/api/import/*</code> endpoints you must authenticate so that Postman stores the session
+            cookie:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Setting</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Method</td>
+                    <td><strong>POST</strong></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>URL</td>
+                    <td><code>http://SERVER_IP:3000/api/auth/login</code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>Headers</td>
+                    <td><code>Content-Type: application/json</code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>Body (raw&nbsp;JSON)</td>
+                    <td><code>{ "username": "admin", "password": "yourPassword" }</code></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <p>If the response is <em>200&nbsp;OK</em> with “Login successful” Postman will capture the <code>mmb.sid</code> cookie
+            automatically. All subsequent requests in this collection will be sent with that cookie and be authenticated.</p>
+    </div>
+
     <div class="no-break">
         <h3>4.1 Analyze your CSV</h3>
         <table>
