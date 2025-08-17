@@ -1,8 +1,9 @@
-# AccuFund → Mr. MoneyBags v1.x  
+# AccuFund → Mr. MoneyBags v1.x (macOS)  
 **Step-by-Step Migration Checklist**
 
 > Use this document as a punch-list while you migrate.  
-> All commands assume Ubuntu 24 LTS unless noted.
+> All steps assume macOS (Apple Silicon or Intel).  
+> Wherever a command line is shown you may run it from the project root.
 
 ---
 
@@ -23,7 +24,7 @@
 | 1.5 |☐ Email downtime notice to users (template in 📂 `communications/`) | Comms |  |
 | 1.6 |☐ Snapshot AccuFund VM or run **Full Backup** utility | IT |  |
 | 1.7 |☐ Verify backup SHA-256 matches log | IT |  |
-| 1.8 |☐ Stage new Ubuntu 24 server (4 vCPU / 8 GB RAM / 100 GB SSD) | IT |  |
+| 1.8 |☐ Confirm local Mac target installation is ready (Mr. MoneyBags runs on this Mac) | IT |  |
 
 Common pitfalls  
 * Forgetting to lock end-users ➜ results in delta data loss.  
@@ -31,43 +32,47 @@ Common pitfalls
 
 ---
 
-## 2  Environment Setup Steps (≈ 1 hour)
+## 2  Local Mac Setup (≈ 30–45 min)
 
-1. **Install prerequisites**
-
-   💻  
-   ```
-   sudo apt update && sudo apt install -y git curl docker.io docker-compose
-   sudo systemctl enable --now docker
-   ```
+1. **Prerequisites (Homebrew)**
+   * Homebrew – install from <https://brew.sh/>
+   * Node.js LTS 18 or 20: `brew install node`
+   * Postman ≥ 10 for API testing
 
 2. **Clone repository**
 
-   💻 `git clone https://github.com/org/mr-moneybags.git /opt/mrmoneybags`
+   💻 `git clone https://github.com/org/mr-moneybags.git ~/mr-moneybags`
 
-3. **Create `.env`**
-
-   📂 `/opt/mrmoneybags/.env`
-   ```
-   NODE_ENV=production
-   DB_URL=postgres://mm_admin:Str0ng!@localhost:5432/mrmoneybags
-   SESSION_SECRET=$(openssl rand -hex 32)
-   ```
-
-4. **Launch stack**
+3. **Configure environment**
 
    💻  
    ```
-   cd /opt/mrmoneybags
-   docker compose up -d
+   cd ~/mr-moneybags
+   cp .env.example .env   # if not present
+   ```
+   Edit `.env`:
+   ```
+   PORT=3000
+   CORS_ORIGINS=http://localhost:3000
    ```
 
-5. **Verify**
+4. **Bootstrap database & sample data**
 
-   - Browse → `http://SERVER_IP:3000` should show login.  
-   - 💻 `docker compose ps` shows **server** & **db** healthy.
+   💻 `npm run bootstrap:mac`
 
-Pitfall: Firewall port 3000 blocked ➜ open with `sudo ufw allow 3000`.
+   – Installs PostgreSQL via Homebrew if missing  
+   – Creates database, schema version 2025-08-15-02  
+   – Loads Principle Foundation dataset by default  
+
+5. **Start the server**
+
+   💻 `npm run start`
+
+   Browse `http://localhost:3000` and log in with the admin credentials set during bootstrap.
+
+6. **Troubleshooting**
+   * Port 3000 busy → change `PORT` in `.env` then restart.
+   * CORS errors → ensure your origin is listed in `CORS_ORIGINS`.
 
 ---
 
@@ -101,7 +106,7 @@ Before calling any `/api/import/*` endpoints you must authenticate so that Postm
 |  | Setting | Value |
 |--|---------|-------|
 | Method | **POST** |
-| URL | `http://SERVER_IP:3000/api/auth/login` |
+| URL | `http://localhost:3000/api/auth/login` |
 | Headers | `Content-Type: application/json` |
 | Body (raw JSON) | `{ "username": "admin", "password": "yourPassword" }` |
 
@@ -112,7 +117,7 @@ All subsequent requests in this collection will be sent with that cookie and be 
 |  | Setting | Value |
 |--|---------|-------|
 | Method | **POST** |
-| URL | `http://SERVER_IP:3000/api/import/analyze` |
+| URL | `http://localhost:3000/api/import/analyze` |
 | Body | **form-data** → `file` *(type = File)* → choose your exported CSV |
 
 Response contains `headers`, `sampleData`, and a `suggestedMapping` object such as:
@@ -133,7 +138,7 @@ Response contains `headers`, `sampleData`, and a `suggestedMapping` object such 
 |  | Setting | Value |
 |--|---------|-------|
 | Method | **POST** |
-| URL | `http://SERVER_IP:3000/api/import/validate-csv` |
+| URL | `http://localhost:3000/api/import/validate-csv` |
 | Body | **form-data**  |
 |      | `file` → your CSV file |
 |      | `mapping` *(type = Text)* → paste JSON mapping from step 4.1 |
@@ -152,17 +157,17 @@ Response:
 ```
 
 ### 4.3  Process (import) the CSV
-Same body as **Validate**, but send to:
-`POST http://SERVER_IP:3000/api/import/process-csv`
+Same body as **Validate**, but send to:  
+`POST http://localhost:3000/api/import/process-csv`
 
 Returns **202 Accepted** with `{ "importId": "uuid-here" }`.
 
 ### 4.4  Monitor progress
-`GET http://SERVER_IP:3000/api/import/status/:importId`  
+`GET http://localhost:3000/api/import/status/:importId`  
 Shows `status`, `progress`, counters, and any errors.
 
 ### 4.5  Rollback if needed
-`POST http://SERVER_IP:3000/api/import/rollback/:importId`  
+`POST http://localhost:3000/api/import/rollback/:importId`  
 Deletes all journal entries created by that import.
 
 #### Common pitfalls
@@ -226,11 +231,11 @@ Pitfall: Copy-pasting passwords with trailing space ➜ login failure.
 ## 8  Go-Live Steps (≈ 2 hours)
 
 1. ☐ **Freeze** AccuFund data entry (set to read-only).  
-2. ☐ Export delta transactions (last 48 h) and import via staging.  
-3. ☐ Switch DNS or load balancer to new server IP.  
-4. ☐ Send “System Live” email with new URL & credentials.  
-5. ☐ Monitor server logs (`docker logs -f server`) for 2 hours.  
-6. ☐ Decommission AccuFund VM (snapshot + power off).
+2. ☐ Export delta transactions (last 48 h) and import via CSV using the Postman flow above.  
+3. ☐ Verify critical user logins and permissions on this Mac instance.  
+4. ☐ Send “System Live” email with local access instructions.  
+5. ☐ Monitor server output in Terminal (`npm run start`) for 2 hours.  
+6. ☐ Archive / retire AccuFund (create final snapshot, power off VM or server).
 
 ---
 
@@ -250,12 +255,13 @@ Pitfall: Copy-pasting passwords with trailing space ➜ login failure.
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Docker Engine | ≥ 24.0 | App containers |
-| PostgreSQL client (`psql`) | 16.x | DB import |
+| PostgreSQL client (`psql`) | 16.x | DB inspection / maintenance (optional) |
 | AccuFund 9.x | Latest | Data export |
 | Spreadsheet software | n/a | Mapping sheets |
 | bcrypt-cli | 2.x | Password hashing |
 | Postman | ≥ 10.0 | API testing / file uploads |
+| Homebrew | latest | Package manager (PostgreSQL install) |
+| Node.js LTS | 18.x or 20.x | Runtime for server & scripts |
 
 ---
 

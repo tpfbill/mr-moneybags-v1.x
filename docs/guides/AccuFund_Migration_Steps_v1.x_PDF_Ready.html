@@ -343,7 +343,7 @@
     <div class="cover-page">
         <div class="cover-content">
             <div class="cover-title">AccuFund Migration Steps</div>
-            <div class="cover-subtitle">Mr. MoneyBags v1.x</div>
+            <div class="cover-subtitle">Mr. MoneyBags v1.x — macOS Local Installation</div>
             <div class="cover-version">Step-by-Step Migration Checklist</div>
             <img src="/api/placeholder/200/80" alt="Mr. MoneyBags Logo" style="margin-top: 1in;">
         </div>
@@ -366,7 +366,7 @@
         
         <div class="toc-entry toc-level-1">
             <div class="toc-number">2</div>
-            <div class="toc-title">Environment Setup Steps</div>
+            <div class="toc-title">Local Mac Setup</div>
             <div class="toc-page">2</div>
         </div>
         
@@ -435,7 +435,7 @@
     <div>
         <blockquote>
             Use this document as a punch-list while you migrate.<br>
-            All commands assume Ubuntu 24 LTS unless noted.
+            All steps assume macOS (Apple Silicon or Intel).
         </blockquote>
         
         <h2>Legend</h2>
@@ -515,7 +515,7 @@
                 </tr>
                 <tr>
                     <td>1.8</td>
-                    <td><span class="checkbox"></span> Stage new Ubuntu 24 server (4 vCPU / 8 GB RAM / 100 GB SSD)</td>
+                    <td><span class="checkbox"></span> Confirm local Mac target installation is ready (Mr. MoneyBags runs on this Mac)</td>
                     <td>IT</td>
                     <td></td>
                 </tr>
@@ -533,49 +533,59 @@
     
     <div class="section-divider"></div>
     
-    <h1>2 Environment Setup Steps (≈ 1 hour)</h1>
+<h1>2 Local Mac Setup (≈ 30–45 min)</h1>
     
     <div class="no-break">
         <ol>
             <li>
-                <strong>Install prerequisites</strong>
-                <pre><span class="command">💻</span>
-sudo apt update && sudo apt install -y git curl docker.io docker-compose
-sudo systemctl enable --now docker</pre>
+                <strong>Prerequisites (Homebrew)</strong>
+                <ul>
+                    <li>Homebrew – install from <a href="https://brew.sh/">https://brew.sh/</a></li>
+                    <li>Node.js LTS 18 or 20:<br><pre><span class="command">💻</span> brew install node</pre></li>
+                    <li>Postman ≥ 10 for API testing</li>
+                </ul>
             </li>
-            
+
             <li>
                 <strong>Clone repository</strong>
-                <pre><span class="command">💻</span> git clone https://github.com/org/mr-moneybags.git /opt/mrmoneybags</pre>
+                <pre><span class="command">💻</span> git clone https://github.com/org/mr-moneybags.git ~/mr-moneybags</pre>
             </li>
-            
+
             <li>
-                <strong>Create <code>.env</code></strong>
-                <pre><span class="path">📂</span> /opt/mrmoneybags/.env
-NODE_ENV=production
-DB_URL=postgres://mm_admin:Str0ng!@localhost:5432/mrmoneybags
-SESSION_SECRET=$(openssl rand -hex 32)</pre>
+                <strong>Configure environment</strong>
+<pre><span class="command">💻</span>
+cd ~/mr-moneybags
+cp .env.example .env   # if not present
+</pre>
+                Edit <code>.env</code>:
+<pre>
+PORT=3000
+CORS_ORIGINS=http://localhost:3000
+</pre>
             </li>
-            
+
             <li>
-                <strong>Launch stack</strong>
-                <pre><span class="command">💻</span>
-cd /opt/mrmoneybags
-docker compose up -d</pre>
+                <strong>Bootstrap database & sample data</strong>
+                <pre><span class="command">💻</span> npm run bootstrap:mac</pre>
+                <p>• Installs PostgreSQL via Homebrew if missing<br>
+                   • Creates database (schema version 2025-08-15-02)<br>
+                   • Loads Principle Foundation dataset by default</p>
             </li>
-            
+
             <li>
-                <strong>Verify</strong>
+                <strong>Start the server</strong>
+                <pre><span class="command">💻</span> npm run start</pre>
+                <p>Browse <code>http://localhost:3000</code> and log in with the admin credentials set during bootstrap.</p>
+            </li>
+
+            <li>
+                <strong>Troubleshooting</strong>
                 <ul>
-                    <li>Browse → <code>http://SERVER_IP:3000</code> should show login.</li>
-                    <li><span class="command">💻</span> <code>docker compose ps</code> shows <strong>server</strong> & <strong>db</strong> healthy.</li>
+                    <li>Port 3000 busy → change <code>PORT</code> in <code>.env</code> then restart.</li>
+                    <li>CORS errors → ensure your origin is listed in <code>CORS_ORIGINS</code>.</li>
                 </ul>
             </li>
         </ol>
-    </div>
-    
-    <div class="no-break">
-        <p><strong>Pitfall:</strong> Firewall port 3000 blocked ➜ open with <code>sudo ufw allow 3000</code>.</p>
     </div>
     
     <div class="section-divider"></div>
@@ -679,7 +689,7 @@ docker compose up -d</pre>
                 </tr>
                 <tr>
                     <td>URL</td>
-                    <td><code>http://SERVER_IP:3000/api/auth/login</code></td>
+<td><code>http://localhost:3000/api/auth/login</code></td>
                     <td></td>
                 </tr>
                 <tr>
@@ -716,7 +726,7 @@ docker compose up -d</pre>
                 </tr>
                 <tr>
                     <td>URL</td>
-                    <td><code>http://SERVER_IP:3000/api/import/analyze</code></td>
+<td><code>http://localhost:3000/api/import/analyze</code></td>
                     <td></td>
                 </tr>
                 <tr>
@@ -760,7 +770,7 @@ docker compose up -d</pre>
                 </tr>
                 <tr>
                     <td>URL</td>
-                    <td><code>http://SERVER_IP:3000/api/import/validate-csv</code></td>
+<td><code>http://localhost:3000/api/import/validate-csv</code></td>
                     <td></td>
                 </tr>
                 <tr>
@@ -792,20 +802,20 @@ docker compose up -d</pre>
     <div class="no-break">
         <h3>4.3 Process (import) the CSV</h3>
         <p>Same body as <strong>Validate</strong>, but send to:<br>
-        <code>POST http://SERVER_IP:3000/api/import/process-csv</code></p>
+<code>POST http://localhost:3000/api/import/process-csv</code></p>
         
         <p>Returns <strong>202 Accepted</strong> with <code>{ "importId": "uuid-here" }</code>.</p>
     </div>
     
     <div class="no-break">
         <h3>4.4 Monitor progress</h3>
-        <p><code>GET http://SERVER_IP:3000/api/import/status/:importId</code><br>
+<p><code>GET http://localhost:3000/api/import/status/:importId</code><br>
         Shows <code>status</code>, <code>progress</code>, counters, and any errors.</p>
     </div>
     
     <div class="no-break">
         <h3>4.5 Rollback if needed</h3>
-        <p><code>POST http://SERVER_IP:3000/api/import/rollback/:importId</code><br>
+<p><code>POST http://localhost:3000/api/import/rollback/:importId</code><br>
         Deletes all journal entries created by that import.</p>
     </div>
     
@@ -961,11 +971,11 @@ npm run create-admin -- \
     <div class="no-break">
         <ol>
             <li><span class="checkbox"></span> <strong>Freeze</strong> AccuFund data entry (set to read-only).</li>
-            <li><span class="checkbox"></span> Export delta transactions (last 48 h) and import via staging.</li>
-            <li><span class="checkbox"></span> Switch DNS or load balancer to new server IP.</li>
-            <li><span class="checkbox"></span> Send "System Live" email with new URL & credentials.</li>
-            <li><span class="checkbox"></span> Monitor server logs (<code>docker logs -f server</code>) for 2 hours.</li>
-            <li><span class="checkbox"></span> Decommission AccuFund VM (snapshot + power off).</li>
+            <li><span class="checkbox"></span> Export delta transactions (last 48 h) and import via CSV using the Postman flow.</li>
+            <li><span class="checkbox"></span> Verify critical user logins and permissions on this Mac instance.</li>
+            <li><span class="checkbox"></span> Send “System Live” email with local access instructions.</li>
+            <li><span class="checkbox"></span> Monitor server output in Terminal (<code>npm run start</code>) for 2 hours.</li>
+            <li><span class="checkbox"></span> Archive / retire AccuFund (snapshot + power off).</li>
         </ol>
     </div>
     
@@ -1033,14 +1043,9 @@ npm run create-admin -- \
             </thead>
             <tbody>
                 <tr>
-                    <td>Docker Engine</td>
-                    <td>≥ 24.0</td>
-                    <td>App containers</td>
-                </tr>
-                <tr>
                     <td>PostgreSQL client (<code>psql</code>)</td>
                     <td>16.x</td>
-                    <td>DB import</td>
+                    <td>DB inspection / maintenance (optional)</td>
                 </tr>
                 <tr>
                     <td>AccuFund 9.x</td>
@@ -1061,6 +1066,16 @@ npm run create-admin -- \
                     <td>Postman</td>
                     <td>≥ 10.0</td>
                     <td>API testing / file uploads</td>
+                </tr>
+                <tr>
+                    <td>Homebrew</td>
+                    <td>latest</td>
+                    <td>Package manager (PostgreSQL install)</td>
+                </tr>
+                <tr>
+                    <td>Node.js LTS</td>
+                    <td>18.x or 20.x</td>
+                    <td>Runtime for server & scripts</td>
                 </tr>
             </tbody>
         </table>

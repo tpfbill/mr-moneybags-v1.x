@@ -1,0 +1,20 @@
+PDF Regeneration (macOS)
+========================
+
+If the CI job or automation cannot regenerate the PDF, use one of the following manual methods.
+
+1) Chrome GUI  
+   • Open `docs/guides/AccuFund_Migration_Steps_v1.x_PDF_Ready.html` in Google Chrome  
+   • Choose **File → Print…**  
+   • Destination: **Save as PDF** → **Save**
+
+2) Headless Chrome (Terminal)  
+   ```
+   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+     --headless --disable-gpu \
+     --print-to-pdf="$(pwd)/docs/guides/AccuFund_Migration_Steps_v1.x.pdf" \
+     "file://$(pwd)/docs/guides/AccuFund_Migration_Steps_v1.x_PDF_Ready.html"
+   ```
+
+Note: After generating, open the resulting PDF to verify that fonts and images rendered correctly.  
+If you notice missing glyphs or blank images, regenerate using the GUI method above.
