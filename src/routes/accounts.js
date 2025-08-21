@@ -52,7 +52,6 @@ router.post('/', asyncHandler(async (req, res) => {
         code,
         name,
         type,
-        description,
         status
     } = req.body;
     
@@ -98,17 +97,15 @@ router.post('/', asyncHandler(async (req, res) => {
             code,
             name,
             type,
-            description,
             status,
             balance
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ) VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
     `, [
         entity_id,
         code,
         name,
         type,
-        description || '',
         status || 'Active',
         0.00 // Initial balance
     ]);
@@ -127,7 +124,6 @@ router.put('/:id', asyncHandler(async (req, res) => {
         code,
         name,
         type,
-        description,
         status,
         balance
     } = req.body;
@@ -174,18 +170,16 @@ router.put('/:id', asyncHandler(async (req, res) => {
             code = $2,
             name = $3,
             type = $4,
-            description = $5,
-            status = $6,
-            balance = $7,
+            status = $5,
+            balance = $6,
             updated_at = NOW()
-        WHERE id = $8
+        WHERE id = $7
         RETURNING *
     `, [
         entity_id,
         code,
         name,
         type,
-        description,
         status,
         balance || 0.00,
         id

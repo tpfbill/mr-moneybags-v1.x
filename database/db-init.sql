@@ -63,7 +63,6 @@ CREATE TABLE IF NOT EXISTS accounts (
     name VARCHAR(100) NOT NULL,
     type VARCHAR(50) NOT NULL,
     subtype VARCHAR(50),
-    description TEXT,
     parent_id UUID REFERENCES accounts(id),
     balance DECIMAL(15,2) DEFAULT 0.00,
     is_active BOOLEAN DEFAULT TRUE,

@@ -118,11 +118,10 @@ async function saveAccount() {
     const name = document.getElementById('account-name-input').value;
     const type = document.getElementById('account-type-select').value;
     const status = document.getElementById('account-status-select').value;
-    const description = document.getElementById('account-description-textarea').value;
     
     // Validate
     if (!code) {
-        alert('Please enter an account code.');
+        alert('Please enter an account.');
         return;
     }
     
@@ -148,7 +147,6 @@ async function saveAccount() {
         name,
         type,
         status,
-        description,
         balance: id ? undefined : 0  // Only set initial balance for new accounts
     };
     

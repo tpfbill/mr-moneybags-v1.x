@@ -462,7 +462,6 @@ export async function openAccountModal(id) {
             form.elements['account-type'].value = account.type || '';
             form.elements['account-entity-id'].value = account.entity_id || '';
             form.elements['account-status'].value = account.status || 'Active';
-            form.elements['account-description'].value = account.description || '';
         } catch (error) {
             console.error('Error fetching account data:', error);
             showToast('Error loading account data', 'error');
@@ -492,8 +491,7 @@ export async function saveAccount(event) {
         name: form.elements['account-name'].value,
         type: form.elements['account-type'].value,
         entity_id: form.elements['account-entity-id'].value,
-        status: form.elements['account-status'].value,
-        description: form.elements['account-description'].value
+        status: form.elements['account-status'].value
     };
     
     try {

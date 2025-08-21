@@ -124,7 +124,6 @@
         document.getElementById('account-name-input').value = accountData.name || '';
         document.getElementById('account-type-select').value = accountData.type || 'Asset';
         document.getElementById('account-status-select').value = accountData.status || 'Active';
-        document.getElementById('account-description-textarea').value = accountData.description || '';
     }
 
     /**
