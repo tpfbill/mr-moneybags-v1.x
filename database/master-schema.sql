@@ -126,20 +126,20 @@ CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
     code VARCHAR(50) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    classifications VARCHAR(50) NOT NULL,
     subtype VARCHAR(50),
     is_contra BOOLEAN DEFAULT FALSE,
     balance DECIMAL(15,2) DEFAULT 0.00,
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT chk_account_type CHECK (type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
+    CONSTRAINT chk_account_classifications CHECK (classifications IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
     CONSTRAINT chk_account_status CHECK (status IN ('active', 'inactive', 'archived')),
     CONSTRAINT unique_account_code_entity UNIQUE(entity_id, code)
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_code ON accounts(code);
-CREATE INDEX IF NOT EXISTS idx_accounts_type ON accounts(type);
+CREATE INDEX IF NOT EXISTS idx_accounts_classifications ON accounts(classifications);
 CREATE INDEX IF NOT EXISTS idx_accounts_entity ON accounts(entity_id);
 COMMENT ON TABLE accounts IS 'Chart of accounts for the accounting system';
 
@@ -648,7 +648,7 @@ DECLARE
 BEGIN
     SELECT id INTO main_entity_id FROM entities WHERE code = 'TPF_MAIN';
 
-    INSERT INTO accounts (entity_id, code, name, type, balance, status)
+    INSERT INTO accounts (entity_id, code, description, classifications, balance, status)
     VALUES 
         (main_entity_id, '1000', 'Cash - Operating', 'Asset', 325000.00, 'active'),
         (main_entity_id, '1100', 'Cash - Savings', 'Asset', 750000.00, 'active'),

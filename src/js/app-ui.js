@@ -391,8 +391,8 @@ export function updateChartOfAccountsTable() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${account.code}</td>
-            <td>${account.name}</td>
-            <td>${account.type}</td>
+            <td>${account.description}</td>
+            <td>${account.classifications}</td>
             <td>${entityName}</td>
             <td>${formatCurrency(account.balance)}</td>
             <td><span class="status status-${account.status.toLowerCase()}">${account.status}</span></td>

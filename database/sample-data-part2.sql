@@ -37,7 +37,7 @@ SET row_security = off;
 -- -----------------------------------------------------------------------------
 
 -- Insert TPF-ES entity accounts (remaining)
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
     ('3d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '1100', 'Accounts Receivable', 'Asset', 2500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
     ('4d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '1200', 'Inventory', 'Asset', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
@@ -51,7 +51,7 @@ VALUES
     ('cd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4200', 'Grants', 'Revenue', 35000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
 
 -- Insert TPF-ES and IFCSN entity accounts
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
     ('dd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4300', 'Program Service Fees', 'Revenue', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
     ('ed9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5000', 'Expenses', 'Expense', 75000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
@@ -65,7 +65,7 @@ VALUES
     ('6e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1010', 'Checking Account', 'Asset', 7500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
 
 -- Insert IFCSN entity accounts
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
     ('7e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1020', 'Savings Account', 'Asset', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
     ('8e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1100', 'Accounts Receivable', 'Asset', 1000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),

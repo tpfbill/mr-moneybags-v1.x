@@ -115,8 +115,8 @@ async function saveAccount() {
     // Get form values
     const id = document.getElementById('edit-account-id-input').value;
     const code = document.getElementById('account-code-input').value;
-    const name = document.getElementById('account-name-input').value;
-    const type = document.getElementById('account-type-select').value;
+    const description = document.getElementById('account-description-input').value;
+    const classifications = document.getElementById('account-classifications-select').value;
     const status = document.getElementById('account-status-select').value;
     
     // Validate
@@ -125,8 +125,8 @@ async function saveAccount() {
         return;
     }
     
-    if (!name) {
-        alert('Please enter an account name.');
+    if (!description) {
+        alert('Please enter an account description.');
         return;
     }
     
@@ -144,8 +144,8 @@ async function saveAccount() {
         id: id || null,
         entityId,
         code,
-        name,
-        type,
+        description,
+        classifications,
         status,
         balance: id ? undefined : 0  // Only set initial balance for new accounts
     };

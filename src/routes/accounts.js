@@ -9,7 +9,7 @@ const { asyncHandler } = require('../utils/helpers');
  * Returns all accounts, optionally filtered by entity_id
  */
 router.get('/', asyncHandler(async (req, res) => {
-    const { entity_id, type, status } = req.query;
+    const { entity_id, classifications, status } = req.query;
     
     let query = `
         SELECT a.*, e.name as entity_name
@@ -26,9 +26,9 @@ router.get('/', asyncHandler(async (req, res) => {
         params.push(entity_id);
     }
     
-    if (type) {
-        query += ` AND a.type = $${paramIndex++}`;
-        params.push(type);
+    if (classifications) {
+        query += ` AND a.classifications = $${paramIndex++}`;
+        params.push(classifications);
     }
     
     if (status) {
@@ -36,7 +36,7 @@ router.get('/', asyncHandler(async (req, res) => {
         params.push(status);
     }
     
-    query += ` ORDER BY a.code, a.name`;
+    query += ` ORDER BY a.code, a.description`;
     
     const { rows } = await pool.query(query, params);
     res.json(rows);
@@ -50,8 +50,8 @@ router.post('/', asyncHandler(async (req, res) => {
     const {
         entity_id,
         code,
-        name,
-        type,
+        description,
+        classifications,
         status
     } = req.body;
     
@@ -64,12 +64,12 @@ router.post('/', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Account code is required' });
     }
     
-    if (!name) {
-        return res.status(400).json({ error: 'Account name is required' });
+    if (!description) {
+        return res.status(400).json({ error: 'Account description is required' });
     }
     
-    if (!type) {
-        return res.status(400).json({ error: 'Account type is required' });
+    if (!classifications) {
+        return res.status(400).json({ error: 'Account classifications is required' });
     }
     
     // Validate entity exists
@@ -95,8 +95,8 @@ router.post('/', asyncHandler(async (req, res) => {
         INSERT INTO accounts (
             entity_id,
             code,
-            name,
-            type,
+            description,
+            classifications,
             status,
             balance
         ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -104,8 +104,8 @@ router.post('/', asyncHandler(async (req, res) => {
     `, [
         entity_id,
         code,
-        name,
-        type,
+        description,
+        classifications,
         status || 'Active',
         0.00 // Initial balance
     ]);
@@ -122,8 +122,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
     const {
         entity_id,
         code,
-        name,
-        type,
+        description,
+        classifications,
         status,
         balance
     } = req.body;
@@ -137,12 +137,12 @@ router.put('/:id', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Account code is required' });
     }
     
-    if (!name) {
-        return res.status(400).json({ error: 'Account name is required' });
+    if (!description) {
+        return res.status(400).json({ error: 'Account description is required' });
     }
     
-    if (!type) {
-        return res.status(400).json({ error: 'Account type is required' });
+    if (!classifications) {
+        return res.status(400).json({ error: 'Account classifications is required' });
     }
     
     // Check if account exists
@@ -168,8 +168,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
         UPDATE accounts
         SET entity_id = $1,
             code = $2,
-            name = $3,
-            type = $4,
+            description = $3,
+            classifications = $4,
             status = $5,
             balance = $6,
             updated_at = NOW()
@@ -178,8 +178,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
     `, [
         entity_id,
         code,
-        name,
-        type,
+        description,
+        classifications,
         status,
         balance || 0.00,
         id

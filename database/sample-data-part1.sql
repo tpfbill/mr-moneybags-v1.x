@@ -115,7 +115,7 @@ VALUES
 -- -----------------------------------------------------------------------------
 
 -- Insert TPF entity accounts (first set)
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
     ('0b9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7f33bfee-14fb-4562-8634-3e5ff8fc94ef', '1000', 'Cash', 'Asset', 10000.0000, 'active', 
      '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
@@ -157,7 +157,7 @@ VALUES
      '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
 
 -- Insert TPF entity accounts (second set)
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
     ('3c9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7f33bfee-14fb-4562-8634-3e5ff8fc94ef', '3200', 'Temporarily Restricted Net Assets', 'Equity', 20000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
     ('4c9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7f33bfee-14fb-4562-8634-3e5ff8fc94ef', '3300', 'Permanently Restricted Net Assets', 'Equity', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),

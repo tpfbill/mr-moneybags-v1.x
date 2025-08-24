@@ -310,9 +310,9 @@ async function fetchGLAccounts() {
         }
 
         const data = await response.json();
-        // Keep only Asset and Revenue account types
+        // Keep only Asset and Revenue classifications
         state.glAccounts = data.filter(acc =>
-            acc.type === 'Asset' || acc.type === 'Revenue'
+            acc.classifications === 'Asset' || acc.classifications === 'Revenue'
         );
 
         updateGLAccountDropdowns();
@@ -822,7 +822,7 @@ function updateGLAccountDropdowns() {
     
     sortedAccounts.forEach(account => {
         if (account.status === 'Active') {
-            options += `<option value="${account.id}">${account.code} - ${account.name}</option>`;
+            options += `<option value="${account.id}">${account.code} - ${account.description}</option>`;
         }
     });
     
@@ -868,7 +868,7 @@ function updateDepositItemsTable() {
         let glAccountName = 'Unknown Account';
         const glAccount = state.glAccounts.find(acc => acc.id === item.gl_account_id);
         if (glAccount) {
-            glAccountName = `${glAccount.code} - ${glAccount.name}`;
+            glAccountName = `${glAccount.code} - ${glAccount.description}`;
         }
         
         return `
@@ -943,7 +943,7 @@ function updateViewDepositModal(deposit) {
                     <td>${item.check_number || '-'}</td>
                     <td>${formattedCheckDate}</td>
                     <td>${item.payer_name || '-'}</td>
-                    <td>${item.account_name ? `${item.account_code} - ${item.account_name}` : 'Unknown'}</td>
+                    <td>${item.account_description ? `${item.account_code} - ${item.account_description}` : 'Unknown'}</td>
                     <td>${item.description || '-'}</td>
                 </tr>
             `;

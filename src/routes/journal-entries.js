@@ -81,7 +81,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     // Get the journal entry lines
     const linesResult = await pool.query(`
         SELECT jel.*, 
-               a.name as account_name,
+               a.description as account_description,
                a.code as account_code,
                f.name as fund_name,
                f.code as fund_code
@@ -108,7 +108,7 @@ router.get('/:id/lines', asyncHandler(async (req, res) => {
     
     const { rows } = await pool.query(`
         SELECT jel.*, 
-               a.name as account_name,
+               a.description as account_description,
                a.code as account_code,
                f.name as fund_name,
                f.code as fund_code
@@ -293,7 +293,7 @@ router.post('/', asyncHandler(async (req, res) => {
         // Get the lines
         const linesResult = await pool.query(`
             SELECT jel.*, 
-                   a.name as account_name,
+                   a.description as account_description,
                    a.code as account_code,
                    f.name as fund_name,
                    f.code as fund_code

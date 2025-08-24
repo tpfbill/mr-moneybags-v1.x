@@ -239,7 +239,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     
     // Get deposit items
     const itemsQuery = await pool.query(`
-        SELECT di.*, a.name as account_name, a.code as account_code
+        SELECT di.*, a.description as account_description, a.code as account_code
         FROM bank_deposit_items di
         LEFT JOIN accounts a ON di.gl_account_id = a.id
         WHERE di.deposit_id = $1
@@ -439,7 +439,7 @@ router.get('/:id/items', asyncHandler(async (req, res) => {
     
     // Get deposit items with account information
     const { rows } = await pool.query(`
-        SELECT di.*, a.name as account_name, a.code as account_code
+        SELECT di.*, a.description as account_description, a.code as account_code
         FROM bank_deposit_items di
         LEFT JOIN accounts a ON di.gl_account_id = a.id
         WHERE di.deposit_id = $1
