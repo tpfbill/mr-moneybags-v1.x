@@ -60,10 +60,9 @@ CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     entity_id UUID NOT NULL REFERENCES entities(id),
     code VARCHAR(20) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    type VARCHAR(50) NOT NULL,
+    description VARCHAR(100) NOT NULL,
+    classifications VARCHAR(50) NOT NULL,
     subtype VARCHAR(50),
-    description TEXT,
     parent_id UUID REFERENCES accounts(id),
     balance DECIMAL(15,2) DEFAULT 0.00,
     is_active BOOLEAN DEFAULT TRUE,
@@ -621,7 +620,7 @@ WHERE  p.code = 'TPF_PARENT'
   AND  e.parent_entity_id IS NULL;
 
 -- Sample Accounts
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status)
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status)
 VALUES
     ('a1b2c3d4-e5f6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1000', 'Cash - Operating', 'Asset', 100000.00, 'Active'),
     ('b2c3d4e5-f6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1200', 'Accounts Receivable', 'Asset', 25000.00, 'Active'),

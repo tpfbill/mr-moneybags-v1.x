@@ -458,11 +458,10 @@ export async function openAccountModal(id) {
             const account = await fetchData(`accounts/${id}`);
             
             form.elements['account-code'].value = account.code || '';
-            form.elements['account-name'].value = account.name || '';
-            form.elements['account-type'].value = account.type || '';
+            form.elements['account-description'].value = account.description || '';
+            form.elements['account-classifications'].value = account.classifications || '';
             form.elements['account-entity-id'].value = account.entity_id || '';
             form.elements['account-status'].value = account.status || 'Active';
-            form.elements['account-description'].value = account.description || '';
         } catch (error) {
             console.error('Error fetching account data:', error);
             showToast('Error loading account data', 'error');
@@ -489,11 +488,10 @@ export async function saveAccount(event) {
     // Get form data
     const data = {
         code: form.elements['account-code'].value,
-        name: form.elements['account-name'].value,
-        type: form.elements['account-type'].value,
+        description: form.elements['account-description'].value,
+        classifications: form.elements['account-classifications'].value,
         entity_id: form.elements['account-entity-id'].value,
-        status: form.elements['account-status'].value,
-        description: form.elements['account-description'].value
+        status: form.elements['account-status'].value
     };
     
     try {
@@ -632,7 +630,7 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     // Populate accounts dropdown
     let accountsOptions = '<option value="">Select Account</option>';
     appState.accounts.forEach(account => {
-        accountsOptions += `<option value="${account.id}">${account.code} - ${account.name}</option>`;
+        accountsOptions += `<option value="${account.id}">${account.code} - ${account.description}</option>`;
     });
     
     // Populate funds dropdown

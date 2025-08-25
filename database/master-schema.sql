@@ -126,21 +126,20 @@ CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
     code VARCHAR(50) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    type VARCHAR(50) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    classifications VARCHAR(50) NOT NULL,
     subtype VARCHAR(50),
     is_contra BOOLEAN DEFAULT FALSE,
     balance DECIMAL(15,2) DEFAULT 0.00,
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT chk_account_type CHECK (type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
+    CONSTRAINT chk_account_classifications CHECK (classifications IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
     CONSTRAINT chk_account_status CHECK (status IN ('active', 'inactive', 'archived')),
     CONSTRAINT unique_account_code_entity UNIQUE(entity_id, code)
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_code ON accounts(code);
-CREATE INDEX IF NOT EXISTS idx_accounts_type ON accounts(type);
+CREATE INDEX IF NOT EXISTS idx_accounts_classifications ON accounts(classifications);
 CREATE INDEX IF NOT EXISTS idx_accounts_entity ON accounts(entity_id);
 COMMENT ON TABLE accounts IS 'Chart of accounts for the accounting system';
 
@@ -649,42 +648,25 @@ DECLARE
 BEGIN
     SELECT id INTO main_entity_id FROM entities WHERE code = 'TPF_MAIN';
 
-    INSERT INTO accounts (entity_id, code, name, type, description, balance, status)
+    INSERT INTO accounts (entity_id, code, description, classifications, balance, status)
     VALUES 
-        (main_entity_id, '1000', 'Cash - Operating', 'Asset',
-         'Primary operating cash account', 325000.00, 'active'),
-        (main_entity_id, '1100', 'Cash - Savings', 'Asset',
-         'Savings account', 750000.00, 'active'),
-        (main_entity_id, '1200', 'Accounts Receivable', 'Asset',
-         'Amounts owed to the organization', 15000.00, 'active'),
-        (main_entity_id, '1500', 'Fixed Assets', 'Asset',
-         'Property and equipment', 500000.00, 'active'),
-        (main_entity_id, '2000', 'Accounts Payable', 'Liability',
-         'Amounts owed by the organization', 12500.00, 'active'),
-        (main_entity_id, '2100', 'Accrued Expenses', 'Liability',
-         'Expenses incurred but not yet paid', 7500.00, 'active'),
-        (main_entity_id, '3000', 'Unrestricted Net Assets', 'Equity',
-         'Unrestricted fund balance', 500000.00, 'active'),
-        (main_entity_id, '3100', 'Temporarily Restricted Net Assets', 'Equity',
-         'Temporarily restricted fund balance', 75000.00, 'active'),
-        (main_entity_id, '3200', 'Permanently Restricted Net Assets', 'Equity',
-         'Permanently restricted fund balance', 1000000.00, 'active'),
-        (main_entity_id, '4000', 'Contribution Revenue', 'Revenue',
-         'Donations and contributions', 0.00, 'active'),
-        (main_entity_id, '4100', 'Grant Revenue', 'Revenue',
-         'Foundation and government grants', 0.00, 'active'),
-        (main_entity_id, '4200', 'Program Service Revenue', 'Revenue',
-         'Fees for services', 0.00, 'active'),
-        (main_entity_id, '5000', 'Salaries Expense', 'Expense',
-         'Staff salaries', 0.00, 'active'),
-        (main_entity_id, '5100', 'Benefits Expense', 'Expense',
-         'Employee benefits', 0.00, 'active'),
-        (main_entity_id, '5200', 'Rent Expense', 'Expense',
-         'Office rent', 0.00, 'active'),
-        (main_entity_id, '5300', 'Utilities Expense', 'Expense',
-         'Utilities for facilities', 0.00, 'active'),
-        (main_entity_id, '5400', 'Program Expense', 'Expense',
-         'Direct program expenses', 0.00, 'active')
+        (main_entity_id, '1000', 'Cash - Operating', 'Asset', 325000.00, 'active'),
+        (main_entity_id, '1100', 'Cash - Savings', 'Asset', 750000.00, 'active'),
+        (main_entity_id, '1200', 'Accounts Receivable', 'Asset', 15000.00, 'active'),
+        (main_entity_id, '1500', 'Fixed Assets', 'Asset', 500000.00, 'active'),
+        (main_entity_id, '2000', 'Accounts Payable', 'Liability', 12500.00, 'active'),
+        (main_entity_id, '2100', 'Accrued Expenses', 'Liability', 7500.00, 'active'),
+        (main_entity_id, '3000', 'Unrestricted Net Assets', 'Equity', 500000.00, 'active'),
+        (main_entity_id, '3100', 'Temporarily Restricted Net Assets', 'Equity', 75000.00, 'active'),
+        (main_entity_id, '3200', 'Permanently Restricted Net Assets', 'Equity', 1000000.00, 'active'),
+        (main_entity_id, '4000', 'Contribution Revenue', 'Revenue', 0.00, 'active'),
+        (main_entity_id, '4100', 'Grant Revenue', 'Revenue', 0.00, 'active'),
+        (main_entity_id, '4200', 'Program Service Revenue', 'Revenue', 0.00, 'active'),
+        (main_entity_id, '5000', 'Salaries Expense', 'Expense', 0.00, 'active'),
+        (main_entity_id, '5100', 'Benefits Expense', 'Expense', 0.00, 'active'),
+        (main_entity_id, '5200', 'Rent Expense', 'Expense', 0.00, 'active'),
+        (main_entity_id, '5300', 'Utilities Expense', 'Expense', 0.00, 'active'),
+        (main_entity_id, '5400', 'Program Expense', 'Expense', 0.00, 'active')
     ON CONFLICT (entity_id, code) DO NOTHING;
 END $$;
 

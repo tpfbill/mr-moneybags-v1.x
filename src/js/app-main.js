@@ -532,7 +532,7 @@ async function loadFundActivityLines(fundId, fromDate, toDate) {
                     description:
                         l.description || entry.description || '—',
                     account_code: l.account_code,
-                    account_name: l.account_name,
+                    account_description: l.account_description,
                     debit: parseFloat(l.debit || 0),
                     credit: parseFloat(l.credit || 0)
                 });
@@ -564,7 +564,7 @@ async function renderFundActivityReport(fundId, fromDate, toDate) {
             totalCredit += l.credit;
             return `<tr>
                 <td>${formatDate(l.entry_date)}</td>
-                <td>${l.account_code} - ${l.account_name}</td>
+                <td>${l.account_code} - ${l.account_description}</td>
                 <td>${l.description}</td>
                 <td class="text-right">${l.debit ? formatCurrency(l.debit) : ''}</td>
                 <td class="text-right">${l.credit ? formatCurrency(l.credit) : ''}</td>
@@ -608,7 +608,7 @@ async function renderFundStatementReport(fundId, fromDate, toDate) {
 
     // Map account_code to type via appState.accounts
     const acctTypeMap = {};
-    appState.accounts.forEach(a => (acctTypeMap[a.code] = a.type));
+    appState.accounts.forEach(a => (acctTypeMap[a.code] = a.classifications));
 
     let revenue = 0;
     let expense = 0;

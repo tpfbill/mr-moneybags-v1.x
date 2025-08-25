@@ -37,86 +37,51 @@ SET row_security = off;
 -- -----------------------------------------------------------------------------
 
 -- Insert TPF-ES entity accounts (remaining)
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, description, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
-    ('3d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '1100', 'Accounts Receivable', 'Asset', 2500.0000, 'active', 
-     'Amounts owed by customers', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('4d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '1200', 'Inventory', 'Asset', 5000.0000, 'active', 
-     'Goods for sale', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('5d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '2000', 'Accounts Payable', 'Liability', 5000.0000, 'active', 
-     'Amounts owed to vendors', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('6d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '2100', 'Accrued Expenses', 'Liability', 2500.0000, 'active', 
-     'Expenses incurred but not yet paid', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('7d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '3000', 'Net Assets', 'Equity', 50000.0000, 'active', 
-     'Net assets', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('8d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '3100', 'Unrestricted Net Assets', 'Equity', 35000.0000, 'active', 
-     'Unrestricted net assets', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('9d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '3200', 'Temporarily Restricted Net Assets', 'Equity', 15000.0000, 'active', 
-     'Temporarily restricted net assets', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('ad9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4000', 'Revenue', 'Revenue', 100000.0000, 'active', 
-     'Revenue', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('bd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4100', 'Donations', 'Revenue', 50000.0000, 'active', 
-     'Donations', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('cd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4200', 'Grants', 'Revenue', 35000.0000, 'active', 
-     'Grant revenue', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
+    ('3d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '1100', 'Accounts Receivable', 'Asset', 2500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('4d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '1200', 'Inventory', 'Asset', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('5d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '2000', 'Accounts Payable', 'Liability', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('6d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '2100', 'Accrued Expenses', 'Liability', 2500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('7d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '3000', 'Net Assets', 'Equity', 50000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('8d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '3100', 'Unrestricted Net Assets', 'Equity', 35000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('9d9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '3200', 'Temporarily Restricted Net Assets', 'Equity', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('ad9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4000', 'Revenue', 'Revenue', 100000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('bd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4100', 'Donations', 'Revenue', 50000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('cd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4200', 'Grants', 'Revenue', 35000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
 
 -- Insert TPF-ES and IFCSN entity accounts
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, description, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
-    ('dd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4300', 'Program Service Fees', 'Revenue', 15000.0000, 'active', 
-     'Program service fees', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('ed9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5000', 'Expenses', 'Expense', 75000.0000, 'active', 
-     'Expenses', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('fd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5100', 'Salaries and Wages', 'Expense', 35000.0000, 'active', 
-     'Salaries and wages', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('0e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5200', 'Employee Benefits', 'Expense', 15000.0000, 'active', 
-     'Employee benefits', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('1e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5300', 'Rent', 'Expense', 10000.0000, 'active', 
-     'Rent expense', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('2e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5400', 'Utilities', 'Expense', 5000.0000, 'active', 
-     'Utilities expense', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('3e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5500', 'Supplies', 'Expense', 5000.0000, 'active', 
-     'Supplies expense', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('4e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5600', 'Professional Fees', 'Expense', 5000.0000, 'active', 
-     'Professional fees', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('5e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1000', 'Cash', 'Asset', 2500.0000, 'active', 
-     'Cash on hand', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('6e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1010', 'Checking Account', 'Asset', 7500.0000, 'active', 
-     'Main checking account', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
+    ('dd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '4300', 'Program Service Fees', 'Revenue', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('ed9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5000', 'Expenses', 'Expense', 75000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('fd9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5100', 'Salaries and Wages', 'Expense', 35000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('0e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5200', 'Employee Benefits', 'Expense', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('1e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5300', 'Rent', 'Expense', 10000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('2e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5400', 'Utilities', 'Expense', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('3e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5500', 'Supplies', 'Expense', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('4e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', '7c44acde-ecc6-4029-972e-2e5fae1c1f93', '5600', 'Professional Fees', 'Expense', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('5e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1000', 'Cash', 'Asset', 2500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('6e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1010', 'Checking Account', 'Asset', 7500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
 
 -- Insert IFCSN entity accounts
-INSERT INTO accounts (id, entity_id, code, name, type, balance, status, description, created_at, updated_at) 
+INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status, created_at, updated_at) 
 VALUES 
-    ('7e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1020', 'Savings Account', 'Asset', 15000.0000, 'active', 
-     'Savings account', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('8e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1100', 'Accounts Receivable', 'Asset', 1000.0000, 'active', 
-     'Amounts owed by customers', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('9e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '2000', 'Accounts Payable', 'Liability', 2500.0000, 'active', 
-     'Amounts owed to vendors', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('ae9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '2100', 'Accrued Expenses', 'Liability', 1000.0000, 'active', 
-     'Expenses incurred but not yet paid', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('be9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '3000', 'Net Assets', 'Equity', 25000.0000, 'active', 
-     'Net assets', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('ce9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '3100', 'Unrestricted Net Assets', 'Equity', 15000.0000, 'active', 
-     'Unrestricted net assets', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('de9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '3200', 'Temporarily Restricted Net Assets', 'Equity', 10000.0000, 'active', 
-     'Temporarily restricted net assets', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('ee9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4000', 'Revenue', 'Revenue', 50000.0000, 'active', 
-     'Revenue', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('fe9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4100', 'Donations', 'Revenue', 25000.0000, 'active', 
-     'Donations', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('0f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4200', 'Grants', 'Revenue', 15000.0000, 'active', 
-     'Grant revenue', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('1f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4300', 'Program Service Fees', 'Revenue', 10000.0000, 'active', 
-     'Program service fees', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('2f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5000', 'Expenses', 'Expense', 35000.0000, 'active', 
-     'Expenses', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('3f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5100', 'Salaries and Wages', 'Expense', 15000.0000, 'active', 
-     'Salaries and wages', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('4f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5200', 'Employee Benefits', 'Expense', 7500.0000, 'active', 
-     'Employee benefits', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
-    ('5f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5300', 'Rent', 'Expense', 5000.0000, 'active', 
-     'Rent expense', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
+    ('7e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1020', 'Savings Account', 'Asset', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('8e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '1100', 'Accounts Receivable', 'Asset', 1000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('9e9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '2000', 'Accounts Payable', 'Liability', 2500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('ae9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '2100', 'Accrued Expenses', 'Liability', 1000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('be9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '3000', 'Net Assets', 'Equity', 25000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('ce9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '3100', 'Unrestricted Net Assets', 'Equity', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('de9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '3200', 'Temporarily Restricted Net Assets', 'Equity', 10000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('ee9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4000', 'Revenue', 'Revenue', 50000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('fe9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4100', 'Donations', 'Revenue', 25000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('0f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4200', 'Grants', 'Revenue', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('1f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '4300', 'Program Service Fees', 'Revenue', 10000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('2f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5000', 'Expenses', 'Expense', 35000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('3f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5100', 'Salaries and Wages', 'Expense', 15000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('4f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5200', 'Employee Benefits', 'Expense', 7500.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839'),
+    ('5f9e8c56-8c0f-4a7b-a7c0-3c7e6e2d7c0f', 'c3f07c5d-c40f-4559-8875-111df6bf4248', '5300', 'Rent', 'Expense', 5000.0000, 'active', '2025-08-05 20:02:58.415839', '2025-08-05 20:02:58.415839');
 
 -- -----------------------------------------------------------------------------
 -- JOURNAL ENTRIES DATA
