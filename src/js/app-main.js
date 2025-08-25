@@ -398,6 +398,38 @@ function initializeFundReportsTabs() {
         });
     });
 
+    /* ------------------------------------------------------------------
+     * Fallback: event-delegation in case individual listeners fail
+     * This guarantees tab switching even if dynamic DOM mutations
+     * replace the original <div.tab-item> elements after initial bind.
+     * -----------------------------------------------------------------*/
+    container.addEventListener('click', e => {
+        const btn = e.target.closest('.tab-item');
+        if (!btn || !container.contains(btn)) return;
+
+        const tab = btn.dataset.tab;
+        if (!tab) return;
+
+        tabButtons.forEach(b => b.classList.toggle('active', b === btn));
+        tabContents.forEach(p => p.classList.toggle('active', p.id === tab));
+    }, /* useCapture = */ false);
+
+    /* ------------------------------------------------------------------
+     * Ensure initial sync between an active tab button and its panel.
+     * If none marked active, default to first button/panel.
+     * -----------------------------------------------------------------*/
+    const activeBtn =
+        Array.from(tabButtons).find(b => b.classList.contains('active')) ||
+        tabButtons[0];
+
+    if (activeBtn) {
+        const targetId = activeBtn.dataset.tab;
+        tabButtons.forEach(b => b.classList.toggle('active', b === activeBtn));
+        tabContents.forEach(p =>
+            p.classList.toggle('active', p.id === targetId)
+        );
+    }
+
     // ensure default active remains selected on first bind
 }
 
