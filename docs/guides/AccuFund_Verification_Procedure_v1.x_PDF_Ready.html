@@ -373,7 +373,6 @@
             <div class="cover-title">AccuFund Verification Procedure</div>
             <div class="cover-subtitle">Mr. MoneyBags v1.x</div>
             <div class="cover-version">Comprehensive Verification & Acceptance</div>
-            <img src="/api/placeholder/200/80" alt="Mr. MoneyBags Logo" style="margin-top: 1in;">
         </div>
         <div class="cover-footer">
             © 2025 San Francisco AI Factory<br>
@@ -672,7 +671,7 @@
                 <tr>
                     <td>1.1</td>
                     <td>System Requirements Confirmed</td>
-                    <td>Check Ubuntu 24 LTS, Docker ≥ 24, 8 GB RAM, 4 vCPU</td>
+                    <td>Ensure Node.js ≥ 20, PostgreSQL ≥ 15, 8 GB RAM, 4 CPU (macOS/Windows/Linux supported)</td>
                     <td>Meets or exceeds specs</td>
                     <td>A</td>
                     <td><span class="checkbox"></span></td>
@@ -704,16 +703,16 @@
                 <tr>
                     <td>1.5</td>
                     <td>Network Configuration</td>
-                    <td>Verify ports 3000, 5432 accessible</td>
-                    <td>Telnet connection succeeds</td>
+                    <td>Verify ports 8080 (frontend) and 3000 (API) are accessible</td>
+                    <td>Connections succeed</td>
                     <td>A</td>
                     <td><span class="checkbox"></span></td>
                 </tr>
                 <tr>
                     <td>1.6</td>
-                    <td>SSL Certificate</td>
-                    <td>Verify SSL certificate installed & valid</td>
-                    <td>HTTPS connection works</td>
+                    <td>Application Startup Verified</td>
+                    <td>Run <code>npm run setup</code> then <code>npm run dev</code></td>
+                    <td>Login screen loads at http://localhost:8080</td>
                     <td>A</td>
                     <td><span class="checkbox"></span></td>
                 </tr>
@@ -748,9 +747,9 @@
                 </tr>
                 <tr>
                     <td>2.2</td>
-                    <td>Session Timeout</td>
-                    <td>Login as finance, stay idle 35 min</td>
-                    <td>Redirect to login page</td>
+                    <td>Session Persistence</td>
+                    <td>Login as finance; navigate across multiple pages and tabs</td>
+                    <td>Session maintained</td>
                     <td>F</td>
                     <td><span class="checkbox"></span></td>
                 </tr>
@@ -764,17 +763,9 @@
                 </tr>
                 <tr>
                     <td>2.4</td>
-                    <td>Failed Login Attempts</td>
-                    <td>Enter wrong password 5 times</td>
-                    <td>Account locked for 15 min</td>
-                    <td>A</td>
-                    <td><span class="checkbox"></span></td>
-                </tr>
-                <tr>
-                    <td>2.5</td>
-                    <td>Password Reset</td>
-                    <td>Use "Forgot Password" link</td>
-                    <td>Reset email sent</td>
+                    <td>Change Password minimum length</td>
+                    <td>Open Change Password, try a 6-character password</td>
+                    <td>Rejected; requires ≥ 8 chars</td>
                     <td>F</td>
                     <td><span class="checkbox"></span></td>
                 </tr>
@@ -824,14 +815,6 @@
                     <td>Logout, try back button</td>
                     <td>Login page, not app</td>
                     <td>F</td>
-                    <td><span class="checkbox"></span></td>
-                </tr>
-                <tr>
-                    <td>2.12</td>
-                    <td>CSRF Protection</td>
-                    <td>Inspect forms for CSRF tokens</td>
-                    <td>Token present in all forms</td>
-                    <td>A</td>
                     <td><span class="checkbox"></span></td>
                 </tr>
                 <tr>
@@ -942,14 +925,14 @@
                 </tr>
                 <tr>
                     <td>3.1.6</td>
-                    <td>Filter accounts by type</td>
+                    <td>Filter accounts by classifications</td>
                     <td>Only matching accounts shown</td>
                     <td>F</td>
                     <td><span class="checkbox"></span></td>
                 </tr>
                 <tr>
                     <td>3.1.7</td>
-                    <td>Search for account by name</td>
+                    <td>Search for account by description</td>
                     <td>Matching accounts shown</td>
                     <td>F</td>
                     <td><span class="checkbox"></span></td>

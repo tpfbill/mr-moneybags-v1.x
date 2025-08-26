@@ -28,12 +28,12 @@ Mark each check ☐/☑, record evidence (screenshot #/file), note issues, and o
 ## 1  Pre-Verification Setup
 | # | Task | Steps | Expected | Role | Result |
 |---|------|-------|----------|------|--------|
-|1.1|System Requirements Confirmed|Check Ubuntu 24 LTS, Docker ≥ 24, 8 GB RAM, 4 vCPU|Meets or exceeds specs|A|☐|
+|1.1|System Requirements Confirmed|Ensure Node.js ≥ 20, PostgreSQL ≥ 15, 8 GB RAM, 4 CPU (macOS/Windows/Linux supported)|Meets or exceeds specs|A|☐|
 |1.2|Access Accounts Created|Ensure **admin**, **finance1**, **viewer1** logins exist|All three users can reach login screen|A|☐|
 |1.3|Backup Snapshot|Run `pg_dump -Fc` and VM snapshot|Files saved & hash logged|A|☐|
 |1.4|Sample Data Verification|Verify all 24 tables have sample data|Each table has ≥ 5 records|A|☐|
-|1.5|Network Configuration|Verify ports 3000, 5432 accessible|Telnet connection succeeds|A|☐|
-|1.6|SSL Certificate|Verify SSL certificate installed & valid|HTTPS connection works|A|☐|
+|1.5|Network Configuration|Verify ports 8080 (frontend) and 3000 (API) are accessible|Connections succeed|A|☐|
+|1.6|Application Startup Verified|Run `npm run setup` then `npm run dev`|Login screen loads at http://localhost:8080|A|☐|
 
 ---
 
@@ -41,17 +41,14 @@ Mark each check ☐/☑, record evidence (screenshot #/file), note issues, and o
 | # | Test Case | Steps | Expected | Role | ✔ |
 |---|-----------|-------|----------|------|---|
 |2.1|Password Hashing|Inspect `users.password_hash` length 60|Bcrypt hash present|A|☐|
-|2.2|Session Timeout|Login as finance, stay idle 35 min|Redirect to login page|F|☐|
+|2.2|Session Persistence|Login as finance; navigate across multiple pages and tabs|Session maintained|F|☐|
 |2.3|Role Visibility|Settings tab hidden for viewer|No nav item|V|☐|
-|2.4|Failed Login Attempts|Enter wrong password 5 times|Account locked for 15 min|A|☐|
-|2.5|Password Reset|Use "Forgot Password" link|Reset email sent|F|☐|
-|2.6|Password Complexity|Try "password123" as new password|Rejected as too weak|F|☐|
+|2.4|Change Password minimum length|Open Change Password, try a 6-character password|Rejected; requires ≥ 8 chars|F|☐|
 |2.7|Session Persistence|Login, navigate to 5 different pages|Session maintained|F|☐|
 |2.8|Cross-Site Access|Login, open new tab, access app|Session recognized|F|☐|
 |2.9|Role Separation|Viewer attempts to access admin route directly|403 Forbidden|V|☐|
 |2.10|Logout Function|Click logout button|Redirected to login page|A|☐|
 |2.11|Session Invalidation|Logout, try back button|Login page, not app|F|☐|
-|2.12|CSRF Protection|Inspect forms for CSRF tokens|Token present in all forms|A|☐|
 |2.13|XSS Protection|Enter `<script>alert('test')</script>` in description|Rendered as text, not executed|F|☐|
 |2.14|SQL Injection Protection|Enter `' OR 1=1 --` in search field|No data leak, proper error|F|☐|
 |2.15|Admin Role Access|Admin accesses Settings → Users|Full CRUD access|A|☐|
@@ -74,8 +71,8 @@ Troubleshooting
 |3.1.3|Attempt to inactivate account; cancel|Status unchanged|F|☐|
 |3.1.4|Create new account|Successfully added|A|☐|
 |3.1.5|Edit existing account|Changes saved|A|☐|
-|3.1.6|Filter accounts by type|Only matching accounts shown|F|☐|
-|3.1.7|Search for account by name|Matching accounts shown|F|☐|
+|3.1.6|Filter accounts by classifications|Only matching accounts shown|F|☐|
+|3.1.7|Search for account by description|Matching accounts shown|F|☐|
 |3.1.8|Export account list to CSV|File downloads with all accounts|A|☐|
 |3.1.9|Attempt to delete account with transactions|Error message shown|A|☐|
 |3.1.10|Inactivate unused account|Status changes to Inactive|A|☐|

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccuFund → Mr. MoneyBags v1.x — Combined Migration Guide</title>
+    <style>
+        /* Print-friendly styling */
+        @page {
+            size: letter;
+            margin: 1in;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+            color: #333;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 0.5in;
+        }
+        
+        h1, h2, h3, h4 {
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            page-break-after: avoid;
+        }
+        
+        h1 {
+            font-size: 24pt;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 0.5em;
+            margin-bottom: 1em;
+        }
+        
+        h2 {
+            font-size: 18pt;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.3em;
+            page-break-before: always;
+        }
+        
+        h3 {
+            font-size: 14pt;
+        }
+        
+        p, li {
+            font-size: 11pt;
+            margin-bottom: 0.5em;
+        }
+        
+        hr {
+            border: none;
+            border-top: 1px solid #ddd;
+            margin: 2em 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+            page-break-inside: avoid;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 10pt;
+        }
+        
+        th {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        
+        code, pre {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f5f5f5;
+            border-radius: 3px;
+            font-size: 10pt;
+        }
+        
+        code {
+            padding: 2px 4px;
+        }
+        
+        pre {
+            padding: 1em;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            page-break-inside: avoid;
+        }
+        
+        ul, ol {
+            padding-left: 2em;
+        }
+        
+        .note {
+            background-color: #f8f8f8;
+            border-left: 4px solid #2c3e50;
+            padding: 0.5em 1em;
+            margin: 1em 0;
+            page-break-inside: avoid;
+        }
+        
+        .footer {
+            margin-top: 2em;
+            border-top: 1px solid #eee;
+            padding-top: 1em;
+            font-size: 9pt;
+            color: #777;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            a {
+                text-decoration: none;
+                color: #000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>AccuFund → Mr. MoneyBags v1.x — Combined Migration Guide<br>
+    <small>(Step-by-Step + Reference)</small></h1>
+
+    <hr>
+
+    <h2>1 Executive Summary</h2>
+    <p>Mr. MoneyBags v1.x delivers a modern, web-based, multi-entity fund-accounting platform with integrated banking, robust reporting, and role-based security.<br>
+    This guide merges the former <em>Migration Guide</em> and <em>Step-by-Step Checklist</em> into one concise document that:</p>
+
+    <ul>
+        <li>Describes the end-to-end migration flow from AccuFund to the current application.</li>
+        <li>Provides actionable checklists, commands, and validation steps.</li>
+        <li>Reflects the present data model (Account, Description, Classifications).</li>
+    </ul>
+
+    <hr>
+
+    <h2>2 Scope & Assumptions</h2>
+    <ul>
+        <li>Source system: AccuFund 9.x (on-prem).</li>
+        <li>Target system: Mr. MoneyBags v1.x (current repo state).</li>
+        <li>Field model updates
+            <ul>
+                <li><strong>Account (code)</strong> — primary key (formerly <em>Account Code</em> label).</li>
+                <li><strong>Description</strong> — replaces legacy <em>name</em>.</li>
+                <li><strong>Classifications</strong> — replaces legacy <em>type</em> (Asset / Liability / …).</li>
+            </ul>
+        </li>
+        <li>Default deployment: Node 20+ & PostgreSQL 16+ on any OS.<br>
+        Containers are optional; instructions show non-container flow.</li>
+    </ul>
+
+    <hr>
+
+    <h2>3 Pre-Migration Planning (condensed)</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Role</th>
+                <th>Responsibility</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Executive Sponsor</td>
+                <td>Approves timeline & budget</td>
+            </tr>
+            <tr>
+                <td>Finance Lead</td>
+                <td>Chart-of-Accounts & fund mapping</td>
+            </tr>
+            <tr>
+                <td>IT Lead</td>
+                <td>Environment setup, data extraction, validation</td>
+            </tr>
+            <tr>
+                <td>Training / Comms</td>
+                <td>User notices & training sessions</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>Checklist (☐ = pending, ☑ = done)</p>
+    <ul>
+        <li>☐ Inventory AccuFund modules & custom reports</li>
+        <li>☐ Identify integrations (bank feeds, payroll, CRM)</li>
+        <li>☐ Capture full & differential backups of AccuFund DB</li>
+        <li>☐ Schedule migration window and notify users</li>
+        <li>☐ Verify hardware / cloud resources for target stack</li>
+    </ul>
+
+    <hr>
+
+    <h2>4 Environment Setup (current repo)</h2>
+
+    <p>Prerequisites</p>
+    <ul>
+        <li>Node 20 or newer, npm 10+</li>
+        <li>PostgreSQL 16+ (server & psql client)</li>
+        <li>Git</li>
+    </ul>
+
+    <p>Commands (≈ 5 min):</p>
+
+    <pre><code>git clone https://github.com/ORG/mr-moneybags-v1.x.git
+cd mr-moneybags-v1.x
+npm install                       # install dependencies
+npm run setup                     # create schema + load sample data
+npm run dev                       # runs API :3000 + client :8080</code></pre>
+
+    <p>Optional utilities</p>
+    <ul>
+        <li><code>npm run db:recreate</code> – drop & recreate database</li>
+        <li><code>npm run db:seed</code> – reload sample data only</li>
+        <li><code>npm run db:verify</code> – integrity checks</li>
+    </ul>
+
+    <hr>
+
+    <h2>5 Data Extraction from AccuFund</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Export</th>
+                <th>AccuFund Path</th>
+                <th>Output File</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>GL Accounts</td>
+                <td>GL → Export → Chart of Accounts</td>
+                <td><code>gl_accounts.csv</code></td>
+            </tr>
+            <tr>
+                <td>Funds</td>
+                <td>Funds → Export</td>
+                <td><code>funds.csv</code></td>
+            </tr>
+            <tr>
+                <td>Vendors</td>
+                <td>AP → Vendors</td>
+                <td><code>vendors.csv</code></td>
+            </tr>
+            <tr>
+                <td>Bank Accounts</td>
+                <td>Banking → Bank Accounts</td>
+                <td><code>bank_accounts.csv</code></td>
+            </tr>
+            <tr>
+                <td>Journal Detail (per FY)</td>
+                <td>Reports → GL Detail</td>
+                <td><code>je_YYYY.csv</code></td>
+            </tr>
+            <tr>
+                <td>Outstanding Checks</td>
+                <td>AP → Checks</td>
+                <td><code>open_checks.csv</code></td>
+            </tr>
+            <tr>
+                <td>Open Deposits</td>
+                <td>Cash Receipt → Deposits</td>
+                <td><code>open_deposits.csv</code></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>Save all files in <code>migration_exports/YYYY-MM-DD/</code>.</p>
+
+    <hr>
+
+    <h2>6 Mapping & Data Model Updates</h2>
+
+    <ul>
+        <li><strong>COA Mapping Sheet</strong> (create or use <code>templates/coa-mapping.xlsx</code>)
+            <table>
+                <thead>
+                    <tr>
+                        <th>Old Field</th>
+                        <th>New Field</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Account #</td>
+                        <td>Account (code)</td>
+                        <td>May truncate/format</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Name</strong></td>
+                        <td><strong>Description</strong></td>
+                        <td>Required</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Type</strong></td>
+                        <td><strong>Classifications</strong></td>
+                        <td>Asset / Revenue / …</td>
+                    </tr>
+                </tbody>
+            </table>
+        </li>
+        <li><strong>Fund Types</strong> remain unchanged (Unrestricted / Temp. Restricted / Perm. Restricted).</li>
+        <li><strong>Users & Roles</strong>
+            <ul>
+                <li>Administrator → <code>admin</code></li>
+                <li>General Ledger → <code>finance</code></li>
+                <li>View Only → <code>viewer</code></li>
+            </ul>
+        </li>
+    </ul>
+
+    <hr>
+
+    <h2>7 Staging & Import Workflow</h2>
+
+    <ol>
+        <li><strong>Load CSVs</strong> into staging schema (use <code>\copy</code> or <code>/api/*/bulk-import</code>).</li>
+        <li><strong>Validate</strong>
+            <ul>
+                <li>Record counts match exports</li>
+                <li>Required fields not null</li>
+                <li>Balanced journal entry totals</li>
+            </ul>
+        </li>
+        <li><strong>Promote</strong> — run <code>CALL sp_promote_staging_to_prod();</code> or POST <code>/api/migrate/promote</code>.</li>
+        <li><strong>Rebuild Balances</strong> — <code>CALL sp_rebuild_balances();</code> to refresh aggregates.</li>
+    </ol>
+
+    <p>Common validations</p>
+    <ul>
+        <li>Account codes unique per entity</li>
+        <li>Funds linked to valid entities</li>
+        <li>Debits = Credits on each JE</li>
+    </ul>
+
+    <hr>
+
+    <h2>8 Banking Modules Setup</h2>
+
+    <ul>
+        <li><strong>Bank Accounts</strong> → Settings › Bank Accounts › Import CSV.</li>
+        <li><strong>Statements Upload</strong> → Bank Reconciliation › Statements › Upload (.OFX/.CSV).</li>
+        <li><strong>Check Formats</strong> → Check Printing › Check Formats (align & save).</li>
+        <li><strong>Deposits</strong> → Bank Deposits › New Deposit → Add items → Post.</li>
+    </ul>
+
+    <hr>
+
+    <h2>9 Authentication & Users</h2>
+
+    <ol>
+        <li>Create initial admin:
+            <pre><code>npm run create-admin -- --user admin --email admin@example.org --password 'TempP@ss1'</code></pre>
+        </li>
+        <li>Bulk-import users (CSV: full_name,email,role).</li>
+        <li>Audit roles in <strong>Settings › Users</strong>; only <code>admin</code> sees <strong>Settings</strong> nav.</li>
+    </ol>
+
+    <hr>
+
+    <h2>10 Reports & Verification</h2>
+
+    <p>Standard Reports</p>
+    <ul>
+        <li>Trial Balance</li>
+        <li>Fund Balance / Activity / Statement</li>
+        <li>Funds Comparison</li>
+    </ul>
+
+    <p>Advanced Tools</p>
+    <ul>
+        <li><strong>Custom Reports</strong> builder</li>
+        <li><strong>Natural Language Queries</strong> (Ask Questions page)</li>
+    </ul>
+
+    <hr>
+
+    <h2>11 Testing & Go-Live Checklist</h2>
+
+    <p>Validation</p>
+    <ul>
+        <li>☐ Record counts staging vs prod</li>
+        <li>☐ Trial balance per entity = AccuFund</li>
+        <li>☐ Bank reconciliation ending balance matches statement</li>
+        <li>☐ Random JE drill-downs (5 per month migrated)</li>
+        <li>☐ Role-based UI access correct</li>
+    </ul>
+
+    <p>Go-Live</p>
+    <ol>
+        <li>Freeze AccuFund data entry (read-only).</li>
+        <li>Export & import delta transactions (last 48 h).</li>
+        <li>Switch DNS / URL to new server.</li>
+        <li>Monitor API & DB logs for 48 h, resolve errors.</li>
+        <li>Decommission AccuFund (archive backups).</li>
+    </ol>
+
+    <hr>
+
+    <h2>12 Appendix A — Useful Commands</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Purpose</th>
+                <th>Command</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Setup schema & sample data</td>
+                <td><code>npm run setup</code></td>
+            </tr>
+            <tr>
+                <td>Full DB rebuild</td>
+                <td><code>npm run db:recreate</code></td>
+            </tr>
+            <tr>
+                <td>Verify integrity</td>
+                <td><code>npm run db:verify</code></td>
+            </tr>
+            <tr>
+                <td>Start dev servers</td>
+                <td><code>npm run dev</code></td>
+            </tr>
+            <tr>
+                <td>Dump prod DB</td>
+                <td><code>pg_dump -U postgres -Fc mrmoneybags > dump_$(date +%F).pgc</code></td>
+            </tr>
+            <tr>
+                <td>Restore dump</td>
+                <td><code>pg_restore -U postgres -d mrmoneybags dump.pgc</code></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>13 Appendix B — Data Templates</h2>
+
+    <p>If <code>templates/coa-mapping.xlsx</code> is present, use it.<br>
+    Otherwise create a spreadsheet with columns:</p>
+
+    <ol>
+        <li><code>old_account_number</code></li>
+        <li><code>new_account_code</code></li>
+        <li><code>description</code></li>
+        <li><code>classifications</code> (Asset / Liability / Equity / Revenue / Expense)</li>
+        <li><code>entity_code</code> (optional for multi-entity orgs)</li>
+    </ol>
+
+    <hr>
+
+    <div class="note">
+        <p><strong>Notes</strong></p>
+        <ul>
+            <li>All UI labels now show <strong>Account</strong> (not "Account Code").</li>
+            <li>Documentation formerly referencing <em>name/type</em> now uses <strong>Description / Classifications</strong>.</li>
+            <li>Commands are OS-agnostic; adjust paths and service names as needed.</li>
+            <li>Containers remain supported (<code>docker compose up -d</code>) but are not required.</li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 San Francisco AI Factory — All rights reserved.</p>
+    </div>
+</body>
+</html>
