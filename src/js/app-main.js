@@ -384,21 +384,50 @@ function initializeSettingsTabs() {
  */
 function initializeFundReportsTabs() {
     const container = document.querySelector('#fund-reports-page .tab-container');
-    if (!container || container.__bound) return;
+    if (!container || container.__bound) return;          // idempotent bind
     container.__bound = true;
 
+    const menu        = container.querySelector('.tab-menu');
     const tabButtons  = container.querySelectorAll('.tab-item');
     const tabContents = container.querySelectorAll('.tab-panel');
 
-    tabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            tabButtons.forEach(b => b.classList.toggle('active', b === btn));
-            tabContents.forEach(p => p.classList.toggle('active', p.id === tab));
-        });
-    });
+    /**
+     * Activates the given tab id – toggles .active on both buttons & panels
+     * @param {string} tabId
+     */
+    function activate(tabId) {
+        if (!tabId) return;
+        tabButtons.forEach(btn =>
+            btn.classList.toggle('active', btn.dataset.tab === tabId)
+        );
+        tabContents.forEach(panel =>
+            panel.classList.toggle('active', panel.id === tabId)
+        );
+    }
 
-    // ensure default active remains selected on first bind
+    /* ------------------------------------------------------------------
+     * Delegated click handler (single listener) – works even if buttons
+     * are re-rendered later.
+     * -----------------------------------------------------------------*/
+    if (menu) {
+        menu.addEventListener('click', e => {
+            const target = e.target.closest('.tab-item');
+            if (!target || !menu.contains(target)) return;
+            e.preventDefault();
+            const tabId = target.dataset.tab;
+            if (tabId) activate(tabId);
+        });
+    }
+
+    /* ------------------------------------------------------------------
+     * Initial state sync – ensure panels reflect whichever button is
+     * already marked .active (fallback to the first button).
+     * -----------------------------------------------------------------*/
+    const defaultBtn =
+        container.querySelector('.tab-item.active') || tabButtons[0];
+    if (defaultBtn) {
+        activate(defaultBtn.dataset.tab);
+    }
 }
 
 /**

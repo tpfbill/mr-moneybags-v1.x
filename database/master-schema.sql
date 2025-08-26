@@ -180,7 +180,14 @@ CREATE TABLE IF NOT EXISTS journal_entry_items (
     debit DECIMAL(15,4)  DEFAULT 0,
     credit DECIMAL(15,4) DEFAULT 0,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Ensure non-negative amounts
+    CONSTRAINT chk_jei_non_negative CHECK (debit >= 0 AND credit >= 0),
+    -- Exactly one side of the entry must be greater than zero
+    CONSTRAINT chk_jei_one_sided CHECK (
+        (debit  > 0 AND credit = 0) OR
+        (credit > 0 AND debit  = 0)
+    )
 );
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_je      ON journal_entry_items(journal_entry_id);
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_account ON journal_entry_items(account_id);
@@ -522,6 +529,8 @@ CREATE TABLE IF NOT EXISTS bank_deposit_items (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
+    -- Deposit item amounts must be strictly positive
+    CONSTRAINT chk_bdi_amount_positive CHECK (amount > 0),
     CONSTRAINT chk_deposit_item_method CHECK (payment_method IN ('Check', 'Cash', 'ACH', 'Wire', 'Credit Card', 'Other'))
 );
 CREATE INDEX IF NOT EXISTS idx_bank_deposit_items_deposit ON bank_deposit_items(deposit_id);

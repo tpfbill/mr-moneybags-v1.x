@@ -166,7 +166,13 @@ CREATE TABLE IF NOT EXISTS journal_entry_items (
     debit DECIMAL(15, 2) DEFAULT 0.00,
     credit DECIMAL(15, 2) DEFAULT 0.00,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Data-integrity constraints
+    CONSTRAINT chk_jei_non_negative CHECK (debit  >= 0 AND credit >= 0),
+    CONSTRAINT chk_jei_one_sided   CHECK (
+        (debit  > 0 AND credit = 0) OR
+        (credit > 0 AND debit  = 0)
+    )
 );
 
 -- Add comment to journal_entry_items table
@@ -336,7 +342,9 @@ CREATE TABLE IF NOT EXISTS bank_deposit_items (
     fund_id UUID REFERENCES funds(id),
     account_id UUID REFERENCES accounts(id),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Deposit item amounts must be strictly positive
+    CONSTRAINT chk_bdi_amount_positive CHECK (amount > 0)
 );
 
 -- Add comment to bank_deposit_items table

@@ -109,14 +109,22 @@ app.use(requestLogger); // Log all requests
 // ---------------------------------------------------------------------------
 // Session configuration (24-hour expiry, PostgreSQL store)
 // ---------------------------------------------------------------------------
-app.use(
-  session({
-    store: new PgSession({
+// Allow swapping to in-memory session store for tests or when explicitly set
+const useMemoryStore =
+  process.env.USE_MEMORY_SESSION === 'true' || process.env.NODE_ENV === 'test';
+
+const sessionStore = useMemoryStore
+  ? new session.MemoryStore()
+  : new PgSession({
       pool,                         // Re-use existing PG pool
       tableName: 'user_sessions',   // Session table
       createTableIfMissing: true,   // Auto-create table
       pruneSessionInterval: 60 * 60 // Cleanup every hour
-    }),
+    });
+
+app.use(
+  session({
+    store: sessionStore,
     name: 'mmb.sid',
     secret: process.env.SESSION_SECRET || 'ChangeMeInProduction',
     resave: false,
@@ -208,6 +216,10 @@ app.use(express.static(path.join(__dirname)));
 // Start the server
 const startServer = async () => {
   try {
+    const skipDbChecks = process.env.SKIP_DB_CHECKS === 'true';
+
+    // Only verify DB when not explicitly skipped (e.g., tests)
+    if (!skipDbChecks) {
     // Test database connection before starting server
     const dbConnected = await testConnection();
     
@@ -217,6 +229,7 @@ const startServer = async () => {
     }
     // Ensure database schema version matches application requirements
     await checkSchemaVersion();
+    }
     
     // Start the server if database connection is successful
     app.listen(PORT, '0.0.0.0', () => {
@@ -231,5 +244,10 @@ const startServer = async () => {
   }
 };
 
-// Start the server
-startServer();
+// Only auto-start when this file is executed directly (not imported by tests)
+if (require.main === module) {
+  startServer();
+}
+
+// Export for integration testing
+module.exports = { app, startServer };
