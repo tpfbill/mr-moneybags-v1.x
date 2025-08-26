@@ -44,31 +44,31 @@ const CONFIG = {
   },
   // Standard chart of accounts for nonprofit organizations
   ACCOUNTS: [
-    { code: '1000', name: 'Cash', type: 'Asset' },
-    { code: '1100', name: 'Accounts Receivable', type: 'Asset' },
-    { code: '1200', name: 'Prepaid Expenses', type: 'Asset' },
-    { code: '1300', name: 'Investments', type: 'Asset' },
-    { code: '2000', name: 'Accounts Payable', type: 'Liability' },
-    { code: '2100', name: 'Accrued Expenses', type: 'Liability' },
-    { code: '2200', name: 'Deferred Revenue', type: 'Liability' },
-    { code: '3000', name: 'Net Assets - Unrestricted', type: 'Equity' },
-    { code: '3100', name: 'Net Assets - Temporarily Restricted', type: 'Equity' },
-    { code: '3200', name: 'Net Assets - Permanently Restricted', type: 'Equity' },
-    { code: '4000', name: 'Contributions - Unrestricted', type: 'Revenue' },
-    { code: '4100', name: 'Contributions - Restricted', type: 'Revenue' },
-    { code: '4200', name: 'Grant Revenue', type: 'Revenue' },
-    { code: '4300', name: 'Program Service Fees', type: 'Revenue' },
-    { code: '4400', name: 'Investment Income', type: 'Revenue' },
-    { code: '5000', name: 'Salaries and Wages', type: 'Expense' },
-    { code: '5100', name: 'Employee Benefits', type: 'Expense' },
-    { code: '5200', name: 'Office Supplies', type: 'Expense' },
-    { code: '5300', name: 'Professional Services', type: 'Expense' },
-    { code: '5400', name: 'Rent', type: 'Expense' },
-    { code: '5500', name: 'Travel', type: 'Expense' },
-    { code: '5600', name: 'Program Expenses', type: 'Expense' },
-    { code: '5700', name: 'Grants and Assistance', type: 'Expense' },
+    { code: '1000', description: 'Cash', classifications: 'Asset' },
+    { code: '1100', description: 'Accounts Receivable', classifications: 'Asset' },
+    { code: '1200', description: 'Prepaid Expenses', classifications: 'Asset' },
+    { code: '1300', description: 'Investments', classifications: 'Asset' },
+    { code: '2000', description: 'Accounts Payable', classifications: 'Liability' },
+    { code: '2100', description: 'Accrued Expenses', classifications: 'Liability' },
+    { code: '2200', description: 'Deferred Revenue', classifications: 'Liability' },
+    { code: '3000', description: 'Net Assets - Unrestricted', classifications: 'Equity' },
+    { code: '3100', description: 'Net Assets - Temporarily Restricted', classifications: 'Equity' },
+    { code: '3200', description: 'Net Assets - Permanently Restricted', classifications: 'Equity' },
+    { code: '4000', description: 'Contributions - Unrestricted', classifications: 'Revenue' },
+    { code: '4100', description: 'Contributions - Restricted', classifications: 'Revenue' },
+    { code: '4200', description: 'Grant Revenue', classifications: 'Revenue' },
+    { code: '4300', description: 'Program Service Fees', classifications: 'Revenue' },
+    { code: '4400', description: 'Investment Income', classifications: 'Revenue' },
+    { code: '5000', description: 'Salaries and Wages', classifications: 'Expense' },
+    { code: '5100', description: 'Employee Benefits', classifications: 'Expense' },
+    { code: '5200', description: 'Office Supplies', classifications: 'Expense' },
+    { code: '5300', description: 'Professional Services', classifications: 'Expense' },
+    { code: '5400', description: 'Rent', classifications: 'Expense' },
+    { code: '5500', description: 'Travel', classifications: 'Expense' },
+    { code: '5600', description: 'Program Expenses', classifications: 'Expense' },
+    { code: '5700', description: 'Grants and Assistance', classifications: 'Expense' },
     // Use a valid type accepted by the `accounts_type_check` constraint
-    { code: '9100', name: 'Inter-Entity Transfers', type: 'Expense' }
+    { code: '9100', description: 'Inter-Entity Transfers', classifications: 'Expense' }
   ],
   // Standard funds
   FUNDS: {
@@ -263,11 +263,11 @@ async function createChartOfAccounts(client, entityIds) {
         // Create new account
         const accountId = generateId();
         await client.query(
-          'INSERT INTO accounts (id, entity_id, code, name, type) VALUES ($1, $2, $3, $4, $5)',
-          [accountId, entityId, account.code, account.name, account.type]
+          'INSERT INTO accounts (id, entity_id, code, description, classifications) VALUES ($1, $2, $3, $4, $5)',
+          [accountId, entityId, account.code, account.description, account.classifications]
         );
         accountIds[entityKey][account.code] = accountId;
-        logInfo(`Created account ${account.code} - ${account.name} for ${CONFIG.ENTITIES[entityKey].name}`);
+        logInfo(`Created account ${account.code} - ${account.description} for ${CONFIG.ENTITIES[entityKey].name}`);
       } else {
         // Store existing account ID
         accountIds[entityKey][account.code] = checkResult.rows[0].id;
