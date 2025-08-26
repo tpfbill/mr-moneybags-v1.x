@@ -15,6 +15,7 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const path = require('path');
 const { getDbConfig } = require('../src/db/db-config');
+const os = require('os'); // May be useful for future platform checks
 
 // Import the Principle Foundation data loader
 const { loadPrincipleFoundationData } = require('./load-principle-foundation-data');
@@ -62,6 +63,9 @@ async function setupComplete() {
   printInfo('Starting setup process...');
 
   try {
+    // Ensure .env file exists before anything else
+    ensureEnvFile();
+
     // Step 1: Check database connection
     await checkDatabaseConnection();
 
@@ -70,6 +74,9 @@ async function setupComplete() {
 
     // Step 3: Load The Principle Foundation test data
     await loadTestData();
+
+    // Step 4: Sync REQUIRED_SCHEMA_VERSION in .env with latest DB version
+    await syncRequiredSchemaVersion();
 
     // Setup complete
     printHeader('SETUP COMPLETE');
@@ -87,6 +94,87 @@ async function setupComplete() {
       console.error(COLORS.dim + error.stack + COLORS.reset);
     }
     return { success: false, error };
+  }
+}
+
+/**
+ * Ensure .env file exists (copy from .env.example if missing)
+ */
+function ensureEnvFile() {
+  const envPath        = path.join(__dirname, '..', '.env');
+  const envExamplePath = path.join(__dirname, '..', '.env.example');
+
+  if (fs.existsSync(envPath)) {
+    printSuccess('.env file found');
+    return;
+  }
+
+  if (!fs.existsSync(envExamplePath)) {
+    printWarning('.env.example not found – skipping creation of .env');
+    return;
+  }
+
+  try {
+    fs.copyFileSync(envExamplePath, envPath);
+    printSuccess('Created .env from .env.example');
+  } catch (err) {
+    printWarning(`Failed to create .env: ${err.message}`);
+  }
+}
+
+/**
+ * Sync REQUIRED_SCHEMA_VERSION in .env with latest version in schema_meta
+ */
+async function syncRequiredSchemaVersion() {
+  printInfo('Synchronizing REQUIRED_SCHEMA_VERSION in .env...');
+
+  const dbConfig = getDbConfig();
+  const client   = new Client(dbConfig);
+
+  try {
+    await client.connect();
+
+    const { rows } = await client.query(
+      `SELECT version
+         FROM schema_meta
+        ORDER BY applied_at DESC NULLS LAST, version DESC
+        LIMIT 1`
+    );
+
+    if (rows.length === 0) {
+      printWarning('schema_meta table empty – skipping REQUIRED_SCHEMA_VERSION sync');
+      return;
+    }
+
+    const latestVersion = rows[0].version;
+    const envPath = path.join(__dirname, '..', '.env');
+
+    if (!fs.existsSync(envPath)) {
+      printWarning('.env not found – cannot update REQUIRED_SCHEMA_VERSION');
+      return;
+    }
+
+    let envContent = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    let found = false;
+
+    envContent = envContent.map(line => {
+      if (line.startsWith('REQUIRED_SCHEMA_VERSION=')) {
+        found = true;
+        return `REQUIRED_SCHEMA_VERSION=${latestVersion}`;
+      }
+      return line;
+    });
+
+    if (!found) {
+      envContent.push(`REQUIRED_SCHEMA_VERSION=${latestVersion}`);
+    }
+
+    fs.writeFileSync(envPath, envContent.join(os.EOL));
+    printSuccess(`REQUIRED_SCHEMA_VERSION synced to ${latestVersion}`);
+  } catch (err) {
+    printWarning(`Could not sync REQUIRED_SCHEMA_VERSION: ${err.message}`);
+  } finally {
+    await client.end();
   }
 }
 

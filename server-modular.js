@@ -78,7 +78,15 @@ function corsOriginCallback(origin, cb) {
   try {
     const { hostname, port, protocol } = new URL(origin);
     const devPorts = ['8080', '8081'];
-    if (devPorts.includes(port) && ['http:', 'https:'].includes(protocol)) {
+    // 1) Explicit dev ports (8080/8081)        → allow
+    // 2) Same-origin requests that hit the API
+    //    port itself (usually 3000 unless overridden) → allow
+    const apiPort = String(PORT); // ensure string comparison
+
+    if (
+      (devPorts.includes(port) && ['http:', 'https:'].includes(protocol)) ||
+      (port === apiPort && ['http:', 'https:'].includes(protocol))
+    ) {
       return cb(null, true);
     }
   } catch {
