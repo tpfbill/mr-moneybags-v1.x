@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr. MoneyBags v1.x - macOS Clean Installation Guide</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3, h4 {
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24pt;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            font-size: 18pt;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        h3 {
+            font-size: 14pt;
+        }
+        h4 {
+            font-size: 12pt;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 90%;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+            margin: 15px 0;
+        }
+        .command {
+            background-color: #f1f8ff;
+            border-left: 4px solid #2980b9;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .note {
+            background-color: #fff8dc;
+            border-left: 4px solid #f0ad4e;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+        .warning {
+            background-color: #fff0f0;
+            border-left: 4px solid #d9534f;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+        .success {
+            background-color: #f0fff0;
+            border-left: 4px solid #5cb85c;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+        .header-info {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 10pt;
+            margin-bottom: 30px;
+        }
+        .toc {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .toc li {
+            margin-bottom: 5px;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        @media print {
+            body {
+                font-size: 11pt;
+            }
+            pre, code {
+                font-size: 9pt;
+            }
+            .no-print {
+                display: none;
+            }
+            a {
+                color: #000;
+                text-decoration: none;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Mr. MoneyBags v1.x</h1>
+    <div class="header-info">
+        <p>macOS Clean Installation Guide</p>
+        <p>Version 1.x | August 2025</p>
+    </div>
+
+    <div class="toc">
+        <h2 id="table-of-contents">Table of Contents</h2>
+        <ul>
+            <li><a href="#introduction">1. Introduction</a></li>
+            <li><a href="#prerequisites">2. Prerequisites</a></li>
+            <li><a href="#quick-start">3. Quick Start</a></li>
+            <li><a href="#step-by-step">4. Step-by-Step Installation</a>
+                <ul>
+                    <li><a href="#clone-repository">4.1. Clone the Repository</a></li>
+                    <li><a href="#install-dependencies">4.2. Install Dependencies</a></li>
+                    <li><a href="#bootstrap-database">4.3. Bootstrap Database</a></li>
+                    <li><a href="#start-application">4.4. Start the Application</a></li>
+                </ul>
+            </li>
+            <li><a href="#verify-installation">5. Verify Installation</a></li>
+            <li><a href="#troubleshooting">6. Troubleshooting</a></li>
+            <li><a href="#appendix">7. Appendix: Common Commands</a></li>
+        </ul>
+    </div>
+
+    <h2 id="introduction">1. Introduction</h2>
+    <p>This guide provides step-by-step instructions for installing Mr. MoneyBags v1.x on macOS, including setup of The Principle Foundation (TPF) sample data. Mr. MoneyBags is a comprehensive fund accounting system designed for nonprofit organizations.</p>
+
+    <h2 id="prerequisites">2. Prerequisites</h2>
+    <p>Before beginning the installation, ensure your system meets the following requirements:</p>
+    <table>
+        <tr>
+            <th>Requirement</th>
+            <th>Minimum Version</th>
+            <th>Notes</th>
+        </tr>
+        <tr>
+            <td>Operating System</td>
+            <td>macOS 12+</td>
+            <td>Monterey or newer recommended</td>
+        </tr>
+        <tr>
+            <td>Homebrew</td>
+            <td>Latest</td>
+            <td>Package manager for macOS</td>
+        </tr>
+        <tr>
+            <td>Node.js</td>
+            <td>20.x or newer</td>
+            <td>LTS version recommended</td>
+        </tr>
+        <tr>
+            <td>Git</td>
+            <td>Latest</td>
+            <td>For repository cloning</td>
+        </tr>
+        <tr>
+            <td>PostgreSQL</td>
+            <td>15.x or newer</td>
+            <td>Will be installed by bootstrap script if not present</td>
+        </tr>
+        <tr>
+            <td>Google Chrome</td>
+            <td>Latest</td>
+            <td>Optional, for PDF generation</td>
+        </tr>
+    </table>
+
+    <p>If you don't have these prerequisites installed, here are the commands to install them:</p>
+
+    <h4>Install Homebrew:</h4>
+    <pre class="command"><code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</code></pre>
+
+    <h4>Install Node.js:</h4>
+    <pre class="command"><code>brew install node@20
+echo 'export PATH="/usr/local/opt/node@20/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc</code></pre>
+
+    <h4>Install Git:</h4>
+    <pre class="command"><code>brew install git</code></pre>
+
+    <h2 id="quick-start">3. Quick Start</h2>
+    <p>For experienced users who want to get up and running quickly, here's the complete installation process in a single block:</p>
+
+    <pre class="command"><code># Clone the repository
+git clone https://github.com/tpfbill/mr-moneybags-v1.x.git
+cd mr-moneybags-v1.x
+
+# Install dependencies
+npm install
+
+# Ensure .env exists and defaults to development
+[ -f .env ] || cp .env.example .env
+sed -i.bak 's/^NODE_ENV=.*/NODE_ENV=development/' .env && rm -f .env.bak
+
+# Bootstrap the database (PostgreSQL will be installed if needed)
+npm run bootstrap:mac
+
+# Start the application (API server and frontend)
+npm run dev</code></pre>
+
+    <p>After running these commands, access the application at <a href="http://localhost:8080">http://localhost:8080</a> and log in with:</p>
+    <ul>
+        <li><strong>Username:</strong> admin</li>
+        <li><strong>Password:</strong> admin</li>
+    </ul>
+
+    <div class="note">
+        <p><strong>Note:</strong> If you encounter issues with the TPF data loader, you can set <code>LOAD_TPF_DATA=false</code> before running the bootstrap command:</p>
+        <pre class="command"><code>LOAD_TPF_DATA=false npm run bootstrap:mac</code></pre>
+        <p>This is usually not necessary as the <code>db-init.sql</code> script already includes TPF sample data.</p>
+    </div>
+
+    <h2 id="step-by-step">4. Step-by-Step Installation</h2>
+    <p>This section provides detailed step-by-step instructions for installing Mr. MoneyBags v1.x.</p>
+
+    <h3 id="clone-repository">4.1. Clone the Repository</h3>
+    <p>First, clone the repository from GitHub:</p>
+    <pre class="command"><code>git clone https://github.com/tpfbill/mr-moneybags-v1.x.git
+cd mr-moneybags-v1.x</code></pre>
+
+    <h3 id="install-dependencies">4.2. Install Dependencies</h3>
+    <p>Install the required Node.js dependencies:</p>
+    <pre class="command"><code>npm install</code></pre>
+
+    <p>This will install all dependencies defined in the <code>package.json</code> file, including:</p>
+
+<div class="note">
+    <p><strong>Important:</strong> After installing, make sure your <code>.env</code> file exists and has <code>NODE_ENV=development</code> for local use.  If <code>.env</code> is missing you can create it from the example:</p>
+    <pre class="command"><code># create .env if needed
+[ -f .env ] || cp .env.example .env
+
+# force development mode for local HTTP
+sed -i.bak 's/^NODE_ENV=.*/NODE_ENV=development/' .env && rm -f .env.bak</code></pre>
+</div>
+
+    <ul>
+        <li>Express.js (API server)</li>
+        <li>PostgreSQL client libraries</li>
+        <li>HTTP server for frontend</li>
+        <li>Other required packages</li>
+    </ul>
+
+    <h3 id="bootstrap-database">4.3. Bootstrap Database</h3>
+    <p>The bootstrap script will:</p>
+    <ul>
+        <li>Install PostgreSQL via Homebrew if not already installed</li>
+        <li>Create the necessary database user and permissions</li>
+        <li>Create and initialize the database with schema and sample data</li>
+        <li>Configure environment variables</li>
+    </ul>
+
+    <p>Run the bootstrap script:</p>
+    <pre class="command"><code>npm run bootstrap:mac</code></pre>
+
+    <p>If you encounter issues with the TPF data loader, you can disable it:</p>
+    <pre class="command"><code>LOAD_TPF_DATA=false npm run bootstrap:mac</code></pre>
+
+    <div class="note">
+        <p><strong>Note:</strong> The bootstrap script uses the following default database settings:</p>
+        <ul>
+            <li>Host: localhost</li>
+            <li>Port: 5432</li>
+            <li>User: postgres</li>
+            <li>Password: npfa123</li>
+            <li>Database: fund_accounting_db</li>
+        </ul>
+        <p>These can be overridden by setting environment variables (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE) before running the script.</p>
+    </div>
+
+    <h3 id="start-application">4.4. Start the Application</h3>
+    <p>Start both the API server and frontend development server with a single command:</p>
+    <pre class="command"><code>npm run dev</code></pre>
+
+    <p>This will start:</p>
+    <ul>
+        <li>The API server on port 3000 (<a href="http://localhost:3000">http://localhost:3000</a>)</li>
+        <li>The frontend server on port 8080 (<a href="http://localhost:8080">http://localhost:8080</a>)</li>
+    </ul>
+
+    <p>You should see output similar to:</p>
+    <pre><code>Starting servers...
+[0] Server running on port 3000 (bound to 0.0.0.0)
+[0] Local  : http://localhost:3000
+[0] Remote : http://&lt;this-host-IP-or-Tailscale-hostname&gt;:3000
+[0] Server is ready to accept connections
+[1] Starting up http-server, serving .
+[1] Available on:
+[1]   http://127.0.0.1:8080
+[1]   http://192.168.1.x:8080
+[1] Hit CTRL-C to stop the server</code></pre>
+
+    <h2 id="verify-installation">5. Verify Installation</h2>
+    <p>To verify that the installation was successful:</p>
+
+    <ol>
+        <li>Open your web browser and navigate to <a href="http://localhost:8080">http://localhost:8080</a></li>
+        <li>You should see the Mr. MoneyBags login screen</li>
+        <li>Log in with the default credentials:
+            <ul>
+                <li><strong>Username:</strong> admin</li>
+                <li><strong>Password:</strong> admin</li>
+            </ul>
+        </li>
+        <li>After logging in, you should see the dashboard with The Principle Foundation sample data</li>
+        <li>Verify that you can navigate to different sections of the application:
+            <ul>
+                <li>Chart of Accounts</li>
+                <li>Funds</li>
+                <li>Journal Entries</li>
+                <li>Fund Reports</li>
+            </ul>
+        </li>
+    </ol>
+
+    <div class="success">
+        <p><strong>Success:</strong> If you can log in and see the sample data, your installation is complete and working correctly!</p>
+    </div>
+
+    <h2 id="troubleshooting">6. Troubleshooting</h2>
+    <p>Here are solutions to common issues you might encounter during installation:</p>
+
+    <h3>TPF Data Loader Issues</h3>
+    <div class="warning">
+        <p><strong>Problem:</strong> The bootstrap process warns about TPF loader failures.</p>
+        <p><strong>Solution:</strong> This is usually not critical as the <code>db-init.sql</code> script already includes TPF sample data. You can safely ignore these warnings or disable the loader:</p>
+        <pre class="command"><code>LOAD_TPF_DATA=false npm run bootstrap:mac</code></pre>
+    </div>
+
+    <h3>Port Conflicts</h3>
+    <div class="warning">
+        <p><strong>Problem:</strong> The application fails to start because ports 3000 or 8080 are already in use.</p>
+        <p><strong>Solution:</strong> Change the ports by setting environment variables:</p>
+        <pre class="command"><code># For API server (default: 3000)
+PORT=3001 npm run start
+
+# For frontend server (default: 8080)
+# Edit package.json and change the "client" script port</code></pre>
+    </div>
+
+    <h3>PostgreSQL Connection Issues</h3>
+    <div class="warning">
+        <p><strong>Problem:</strong> The application cannot connect to PostgreSQL.</p>
+        <p><strong>Solution:</strong> Verify PostgreSQL is running and check connection settings in <code>.env</code> file:</p>
+        <pre class="command"><code># Check if PostgreSQL is running
+brew services list | grep postgres
+
+# Start PostgreSQL if needed
+brew services start postgresql@16
+
+# Verify connection
+psql -h localhost -U postgres -d fund_accounting_db</code></pre>
+    </div>
+
+    <h3>Node.js Version Issues</h3>
+    <div class="warning">
+        <p><strong>Problem:</strong> Errors related to Node.js version compatibility.</p>
+        <p><strong>Solution:</strong> Ensure you're using Node.js 20 or newer:</p>
+        <pre class="command"><code># Check Node.js version
+node --version
+
+# Install correct version if needed
+brew install node@20
+echo 'export PATH="/usr/local/opt/node@20/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc</code></pre>
+    </div>
+
+    <h3>Login shows success then returns to login (401)</h3>
+    <div class="warning">
+        <p><strong>Problem:</strong> After entering correct credentials you see the green “Login successful” toast but the page immediately returns to the login screen and the console shows <code>401 Unauthorized</code> for <code>/api/auth/user</code>.</p>
+        <p><strong>Cause:</strong> Your <code>.env</code> has <code>NODE_ENV=production</code>.  In production mode the session cookie is marked <code>Secure</code> and is therefore blocked on plain <code>http://localhost</code>.</p>
+        <p><strong>Solution:</strong> Switch back to development mode and restart:</p>
+        <pre class="command"><code># from project root
+sed -i.bak 's/^NODE_ENV=.*/NODE_ENV=development/' .env && rm -f .env.bak
+
+# restart servers
+npm run dev</code></pre>
+    </div>
+
+    <h2 id="appendix">7. Appendix: Common Commands</h2>
+    <p>Here are some common commands you might need during development:</p>
+
+    <h3>Database Operations</h3>
+    <pre class="command"><code># Recreate the database (drops and recreates)
+npm run db:recreate
+
+# Seed the database with sample data
+npm run db:seed
+
+# Verify database data
+npm run db:verify</code></pre>
+
+    <h3>Application Management</h3>
+    <pre class="command"><code># Start API server only
+npm run start
+
+# Start frontend server only
+npm run client
+
+# Start both (development mode)
+npm run dev</code></pre>
+
+    <h3>PostgreSQL Direct Access</h3>
+    <pre class="command"><code># Connect to the database
+psql -h localhost -U postgres -d fund_accounting_db
+
+# Common psql commands:
+# \dt - List tables
+# \d tablename - Describe table
+# \q - Quit psql</code></pre>
+
+    <div class="note">
+        <p><strong>Note:</strong> For production deployments, make sure to change default passwords and configure proper security settings in the <code>.env</code> file.</p>
+    </div>
+
+    <footer style="margin-top: 50px; text-align: center; font-size: 10pt; color: #7f8c8d;">
+        <p>Mr. MoneyBags v1.x | macOS Clean Installation Guide | August 2025</p>
+    </footer>
+</body>
+</html>
