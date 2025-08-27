@@ -12,62 +12,54 @@ const { getUserById, requireAuth } = require('../middleware/auth');
  */
 router.post('/login', asyncHandler(async (req, res) => {
     const { username, password } = req.body;
-    
+
     // Validate input
     if (!username || !password) {
-        return res.status(400).json({ 
-            error: 'Username and password are required' 
-        });
+        return res.status(400).json({ error: 'Username and password are required' });
     }
-    
+
     // Find user by username
-    const userResult = await pool.query(
-        'SELECT * FROM users WHERE username = $1',
-        [username]
-    );
-    
+    const userResult = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     if (userResult.rows.length === 0) {
-        return res.status(401).json({ 
-            error: 'Invalid username or password' 
-        });
+        return res.status(401).json({ error: 'Invalid username or password' });
     }
-    
     const user = userResult.rows[0];
-    
+
     // Check if user is active
     if ((user.status || '').toLowerCase() !== 'active') {
-        return res.status(401).json({ 
-            error: 'Account is inactive. Please contact an administrator.' 
-        });
+        return res.status(401).json({ error: 'Account is inactive. Please contact an administrator.' });
     }
-    
+
     // Verify password
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
-    
     if (!passwordMatch) {
-        return res.status(401).json({ 
-            error: 'Invalid username or password' 
-        });
+        return res.status(401).json({ error: 'Invalid username or password' });
     }
-    
-    // Create session
-    req.session.userId = user.id;
-    
-    // Update last login timestamp
-    await pool.query(
-        'UPDATE users SET last_login = NOW() WHERE id = $1',
-        [user.id]
-    );
-    
-    // Return user info (excluding password)
-    const { password_hash, ...userInfo } = user;
-    
-    // Add display name
-    userInfo.name = `${user.first_name} ${user.last_name}`.trim();
-    
-    res.json({
-        message: 'Login successful',
-        user: userInfo
+
+    // Regenerate and persist the session before responding (prevents store race conditions)
+    req.session.regenerate(async (regenErr) => {
+        if (regenErr) {
+            console.error('Session regenerate error:', regenErr);
+            return res.status(500).json({ error: 'Failed to start session' });
+        }
+        req.session.userId = user.id;
+
+        // Update last_login (non-blocking)
+        try {
+            await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+        } catch (dbErr) {
+            console.warn('Failed to update last_login:', dbErr.message);
+        }
+
+        req.session.save((saveErr) => {
+            if (saveErr) {
+                console.error('Session save error:', saveErr);
+                return res.status(500).json({ error: 'Failed to persist session' });
+            }
+            const { password_hash, ...userInfo } = user;
+            userInfo.name = `${user.first_name} ${user.last_name}`.trim();
+            return res.json({ message: 'Login successful', user: userInfo });
+        });
     });
 }));
 
