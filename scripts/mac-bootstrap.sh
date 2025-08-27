@@ -5,6 +5,21 @@
 # Exit on error, unset variable reference, or pipe failure
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Default PostgreSQL connection parameters (available before first use)
+# ---------------------------------------------------------------------------
+# These mirror the defaults in src/db/db-config.js and other helper scripts
+# so every reference below is guaranteed to have a value even when the user
+# has not exported the variables beforehand.
+PGHOST="${PGHOST:-localhost}"
+PGPORT="${PGPORT:-5432}"
+PGUSER="${PGUSER:-postgres}"
+PGPASSWORD="${PGPASSWORD:-npfa123}"
+PGDATABASE="${PGDATABASE:-fund_accounting_db}"
+
+# Export password for non-interactive authentication as early as possible
+export PGPASSWORD
+
 # Terminal colors
 BOLD="\033[1m"
 GREEN="\033[0;32m"
@@ -100,16 +115,6 @@ else
         fi
     fi
 fi
-
-# Set database connection parameters (same as db-seed.sh)
-PGHOST="${PGHOST:-localhost}"
-PGPORT="${PGPORT:-5432}"
-PGUSER="${PGUSER:-postgres}"
-PGPASSWORD="${PGPASSWORD:-npfa123}"
-PGDATABASE="${PGDATABASE:-fund_accounting_db}"
-
-# Export password for psql (non-interactive authentication)
-export PGPASSWORD
 
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL to be ready..."
