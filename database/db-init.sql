@@ -565,13 +565,29 @@ CREATE TABLE IF NOT EXISTS custom_report_definitions (
 -- =============================================================================
 
 -- Journal Entry Items constraints with updated column names
-ALTER TABLE IF EXISTS journal_entry_items 
-ADD CONSTRAINT chk_debit_credit_not_both_zero 
-CHECK (debit > 0 OR credit > 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'chk_debit_credit_not_both_zero'
+    ) THEN
+        ALTER TABLE journal_entry_items
+            ADD CONSTRAINT chk_debit_credit_not_both_zero
+            CHECK (debit > 0 OR credit > 0);
+    END IF;
+END $$;
 
-ALTER TABLE IF EXISTS journal_entry_items 
-ADD CONSTRAINT chk_debit_or_credit_only 
-CHECK ((debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0));
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'chk_debit_or_credit_only'
+    ) THEN
+        ALTER TABLE journal_entry_items
+            ADD CONSTRAINT chk_debit_or_credit_only
+            CHECK ((debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0));
+    END IF;
+END $$;
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_journal_entries_entity_id ON journal_entries(entity_id);

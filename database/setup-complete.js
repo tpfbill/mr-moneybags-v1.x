@@ -218,7 +218,9 @@ async function initializeDatabaseSchema() {
   
   try {
     const dbConfig = getDbConfig();
-    const command = `PGPASSWORD=${dbConfig.password} psql -U ${dbConfig.user} -h ${dbConfig.host} -p ${dbConfig.port} -d ${dbConfig.database} -f ${dbInitPath}`;
+    // Build command with conditional PGPASSWORD prefix
+    const pwdPrefix = dbConfig.password ? `PGPASSWORD=${dbConfig.password} ` : '';
+    const command   = `${pwdPrefix}psql -U ${dbConfig.user} -h ${dbConfig.host} -p ${dbConfig.port} -d ${dbConfig.database} -f ${dbInitPath}`;
     
     printInfo('Executing db-init.sql...');
     const output = execSync(command, { encoding: 'utf8' });
