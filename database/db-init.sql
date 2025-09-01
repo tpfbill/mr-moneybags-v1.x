@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 
 -- Record current schema version for this seed
 INSERT INTO schema_meta (version)
-VALUES ('2025-08-15-02')
+VALUES ('2025-08-31-01')
 ON CONFLICT (version) DO NOTHING;
 
 -- =============================================================================
@@ -139,39 +139,128 @@ CREATE TABLE IF NOT EXISTS vendors (
     entity_id UUID NOT NULL REFERENCES entities(id),
     vendor_code VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
+    name_detail TEXT,
     tax_id VARCHAR(20),
     contact_name VARCHAR(100),
     email VARCHAR(100),
     phone VARCHAR(20),
-    address_line1 VARCHAR(100),
-    address_line2 VARCHAR(100),
+    street_1 VARCHAR(100),
+    street_2 VARCHAR(100),
     city VARCHAR(50),
     state VARCHAR(50),
-    postal_code VARCHAR(20),
+    zip VARCHAR(20),
     country VARCHAR(50) DEFAULT 'USA',
+    vendor_type VARCHAR(50),
+    subject_to_1099 BOOLEAN DEFAULT FALSE,
+    bank_account_type VARCHAR(20),
+    bank_routing_number VARCHAR(20),
+    bank_account_number VARCHAR(50),
+    last_used DATE NOT NULL DEFAULT CURRENT_DATE,
     status VARCHAR(20) DEFAULT 'Active',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(entity_id, vendor_code)
 );
 
--- =============================================================================
--- VENDOR_BANK_ACCOUNTS TABLE
--- Stores vendor bank account information for electronic payments
--- =============================================================================
-CREATE TABLE IF NOT EXISTS vendor_bank_accounts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
-    account_name VARCHAR(100) NOT NULL,
-    account_number VARCHAR(50) NOT NULL,
-    routing_number VARCHAR(20) NOT NULL,
-    account_type VARCHAR(20) NOT NULL,
-    bank_name VARCHAR(100),
-    is_primary BOOLEAN DEFAULT FALSE,
-    status VARCHAR(20) DEFAULT 'Active',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+-- ---------------------------------------------------------------------------
+-- Vendors post-create migration / column back-fill & constraint
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+    /* ----------------------------------------------------------------------
+     * Rename legacy address columns → new names (idempotent)
+     * --------------------------------------------------------------------*/
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'vendors' AND column_name = 'address_line1'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'vendors' AND column_name = 'street_1'
+    ) THEN
+        ALTER TABLE vendors RENAME COLUMN address_line1 TO street_1;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'vendors' AND column_name = 'address_line2'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'vendors' AND column_name = 'street_2'
+    ) THEN
+        ALTER TABLE vendors RENAME COLUMN address_line2 TO street_2;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'vendors' AND column_name = 'postal_code'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'vendors' AND column_name = 'zip'
+    ) THEN
+        ALTER TABLE vendors RENAME COLUMN postal_code TO zip;
+    END IF;
+
+    /* ----------------------------------------------------------------------
+     * Add new columns if they do not exist
+     * --------------------------------------------------------------------*/
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='name_detail';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN name_detail TEXT;
+    END IF;
+
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='vendor_type';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN vendor_type VARCHAR(50);
+    END IF;
+
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='subject_to_1099';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN subject_to_1099 BOOLEAN DEFAULT FALSE;
+    END IF;
+
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='bank_account_type';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN bank_account_type VARCHAR(20);
+    END IF;
+
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='bank_routing_number';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN bank_routing_number VARCHAR(20);
+    END IF;
+
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='bank_account_number';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN bank_account_number VARCHAR(50);
+    END IF;
+
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='last_used';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN last_used DATE NOT NULL DEFAULT CURRENT_DATE;
+    END IF;
+
+    /* ----------------------------------------------------------------------
+     * Status CHECK constraint (Active/Inactive, case-insensitive)
+     * --------------------------------------------------------------------*/
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_vendor_status_values'
+    ) THEN
+        ALTER TABLE vendors
+            ADD CONSTRAINT chk_vendor_status_values
+            CHECK (LOWER(status) IN ('active','inactive'));
+    END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Cleanup legacy vendor_bank_accounts table (no longer used)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS vendor_bank_accounts CASCADE;
 
 -- =============================================================================
 -- PAYMENT_BATCHES TABLE
@@ -200,7 +289,6 @@ CREATE TABLE IF NOT EXISTS payment_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     payment_batch_id UUID NOT NULL REFERENCES payment_batches(id) ON DELETE CASCADE,
     vendor_id UUID NOT NULL REFERENCES vendors(id),
-    vendor_bank_account_id UUID REFERENCES vendor_bank_accounts(id),
     journal_entry_id UUID REFERENCES journal_entries(id),
     amount DECIMAL(15,2) NOT NULL,
     description TEXT,
@@ -208,6 +296,20 @@ CREATE TABLE IF NOT EXISTS payment_items (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ---------------------------------------------------------------------------
+-- Payment Items migration: drop obsolete vendor_bank_account_id
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='payment_items' AND column_name='vendor_bank_account_id'
+    ) THEN
+        ALTER TABLE payment_items
+            DROP COLUMN vendor_bank_account_id;
+    END IF;
+END $$;
 
 -- =============================================================================
 -- NACHA_FILES TABLE
@@ -691,13 +793,6 @@ VALUES
     ('71e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'EDUSUP-001', 'Educational Supplies Inc', '12-3456789', 'John Smith', 'john@edusupplies.com', 'Active'),
     ('72e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'OFFSUPP-002', 'Office Supplies Co', '98-7654321', 'Jane Doe', 'jane@officesupplies.com', 'Active')
 ON CONFLICT (entity_id, vendor_code) DO NOTHING;
-
--- Sample Vendor Bank Accounts
-INSERT INTO vendor_bank_accounts (vendor_id, account_name, account_number, routing_number, account_type, is_primary)
-VALUES
-    ((SELECT id FROM vendors WHERE vendor_code = 'EDUSUP-001'), 'Operating Account', '123456789', '021000021', 'Checking', TRUE),
-    ((SELECT id FROM vendors WHERE vendor_code = 'OFFSUPP-002'), 'Main Account', '987654321', '021000021', 'Checking', TRUE)
-ON CONFLICT DO NOTHING;
 
 -- Sample Bank Accounts
 INSERT INTO bank_accounts (entity_id, gl_account_id, bank_name, account_name, account_number, routing_number, type, balance, status)

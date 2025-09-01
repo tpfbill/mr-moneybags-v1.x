@@ -24,44 +24,62 @@ router.post('/', asyncHandler(async (req, res) => {
     entity_id,
     vendor_code,
     name,
+    name_detail,
     contact_name,
     email,
     phone,
-    address_line1,
-    address_line2,
+    street_1,
+    street_2,
     city,
     state,
-    postal_code,
+    zip,
     country,
     tax_id,
     vendor_type,
+    subject_to_1099,
+    bank_account_type,
+    bank_routing_number,
+    bank_account_number,
     status,
     notes
   } = req.body;
 
+  const statusVal = status ? status.toLowerCase() : 'active';
+
   const { rows } = await pool.query(
     `INSERT INTO vendors
-      (entity_id, vendor_code, name, contact_name, email, phone,
-       address_line1, address_line2, city, state, postal_code, country,
-       tax_id, vendor_type, status, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      (entity_id, vendor_code, name, name_detail, contact_name, email, phone,
+       street_1, street_2, city, state, zip, country,
+       tax_id, vendor_type, subject_to_1099,
+       bank_account_type, bank_routing_number, bank_account_number,
+       status, notes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,
+             $8,$9,$10,$11,$12,$13,
+             $14,$15,$16,
+             $17,$18,$19,
+             $20,$21)
      RETURNING *`,
     [
       entity_id,
       vendor_code,
       name,
+      name_detail,
       contact_name,
       email,
       phone,
-      address_line1,
-      address_line2,
+      street_1,
+      street_2,
       city,
       state,
-      postal_code,
+      zip,
       country ?? 'USA',
       tax_id,
       vendor_type,
-      status ?? 'active',
+      subject_to_1099 ?? false,
+      bank_account_type,
+      bank_routing_number,
+      bank_account_number,
+      statusVal,
       notes || ''
     ]
   );
@@ -78,58 +96,75 @@ router.put('/:id', asyncHandler(async (req, res) => {
     entity_id,
     vendor_code,
     name,
+    name_detail,
     contact_name,
     email,
     phone,
-    address_line1,
-    address_line2,
+    street_1,
+    street_2,
     city,
     state,
-    postal_code,
+    zip,
     country,
     tax_id,
     vendor_type,
+    subject_to_1099,
+    bank_account_type,
+    bank_routing_number,
+    bank_account_number,
     status,
     notes
   } = req.body;
 
+  const statusVal = status ? status.toLowerCase() : 'active';
+
   const { rows } = await pool.query(
     `UPDATE vendors
-        SET entity_id     = $1,
-            vendor_code   = $2,
-            name          = $3,
-            contact_name  = $4,
-            email         = $5,
-            phone         = $6,
-            address_line1 = $7,
-            address_line2 = $8,
-            city          = $9,
-            state         = $10,
-            postal_code   = $11,
-            country       = $12,
-            tax_id        = $13,
-            vendor_type   = $14,
-            status        = $15,
-            notes         = $16,
-            updated_at    = NOW()
-      WHERE id = $17
+        SET entity_id            = $1,
+            vendor_code          = $2,
+            name                 = $3,
+            name_detail          = $4,
+            contact_name         = $5,
+            email                = $6,
+            phone                = $7,
+            street_1             = $8,
+            street_2             = $9,
+            city                 = $10,
+            state                = $11,
+            zip                  = $12,
+            country              = $13,
+            tax_id               = $14,
+            vendor_type          = $15,
+            subject_to_1099      = $16,
+            bank_account_type    = $17,
+            bank_routing_number  = $18,
+            bank_account_number  = $19,
+            status               = $20,
+            notes                = $21,
+            updated_at           = NOW()
+      WHERE id = $22
       RETURNING *`,
     [
       entity_id,
       vendor_code,
       name,
+      name_detail,
       contact_name,
       email,
       phone,
-      address_line1,
-      address_line2,
+      street_1,
+      street_2,
       city,
       state,
-      postal_code,
+      zip,
       country ?? 'USA',
       tax_id,
       vendor_type,
-      status ?? 'active',
+      subject_to_1099 ?? false,
+      bank_account_type,
+      bank_routing_number,
+      bank_account_number,
+      statusVal,
       notes || '',
       id
     ]
@@ -145,21 +180,6 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   await pool.query('DELETE FROM vendors WHERE id = $1', [id]);
   res.status(204).send();
-}));
-
-/**
- * GET /api/vendors/:id/bank-accounts
- * Returns bank accounts for a specific vendor.
- */
-router.get('/:id/bank-accounts', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { rows } = await pool.query(
-    `SELECT * FROM vendor_bank_accounts 
-     WHERE vendor_id = $1
-     ORDER BY is_primary DESC, account_name`,
-    [id]
-  );
-  res.json(rows);
 }));
 
 module.exports = router;

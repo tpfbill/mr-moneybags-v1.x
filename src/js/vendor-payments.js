@@ -503,7 +503,7 @@ function renderVendorsTable() {
     
     if (!vendors || vendors.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="8" class="text-center">No vendors found</td>';
+        row.innerHTML = '<td colspan="9" class="text-center">No vendors found</td>';
         tableBody.appendChild(row);
         return;
     }
@@ -515,12 +515,13 @@ function renderVendorsTable() {
         const row = document.createElement('tr');
         row.dataset.id = vendor.id;
 
-        const code        = vendor.vendor_code ?? '';
-        const name        = vendor.name ?? '';
-        const contactName = vendor.contact_name ?? '—';
-        const email       = vendor.email ?? '—';
-        const phone       = vendor.phone ?? '—';
-        const bankAccounts = '—'; // Placeholder for bank accounts count
+        const id          = vendor.id;
+        const nameDetail  = vendor.name_detail ?? '';
+        const accountType = vendor.bank_account_type ?? '—';
+        const vendorType  = vendor.vendor_type ?? '—';
+        const city        = vendor.city ?? '—';
+        const state       = vendor.state ?? '—';
+        const country     = vendor.country ?? '—';
         const statusCls   = getStatusBadgeClass(vendor.status);
         const statusBadge = `<span class="badge ${statusCls} text-capitalize">${(vendor.status || '')
                                 .replace('_', ' ')}</span>`;
@@ -538,12 +539,13 @@ function renderVendorsTable() {
         `;
 
         row.innerHTML = `
-            <td>${code}</td>
-            <td>${name}</td>
-            <td>${contactName}</td>
-            <td>${email}</td>
-            <td>${phone}</td>
-            <td>${bankAccounts}</td>
+            <td>${id}</td>
+            <td>${nameDetail}</td>
+            <td>${accountType}</td>
+            <td>${vendorType}</td>
+            <td>${city}</td>
+            <td>${state}</td>
+            <td>${country}</td>
             <td>${statusBadge}</td>
             <td class="text-center">${actions}</td>
         `;
@@ -707,6 +709,21 @@ function openEditVendor(vendorId) {
     document.getElementById('editVendorPhone').value = vendor.phone || '';
     document.getElementById('editVendorStatus').value = vendor.status || 'active';
     document.getElementById('editVendorNotes').value = vendor.notes || '';
+
+    // Populate extended fields
+    document.getElementById('editNameDetail').value        = vendor.name_detail || '';
+    document.getElementById('editTaxId').value             = vendor.tax_id || '';
+    document.getElementById('editVendorType').value        = vendor.vendor_type || '';
+    document.getElementById('editStreet1').value           = vendor.street_1 || '';
+    document.getElementById('editStreet2').value           = vendor.street_2 || '';
+    document.getElementById('editCity').value              = vendor.city || '';
+    document.getElementById('editState').value             = vendor.state || '';
+    document.getElementById('editZip').value               = vendor.zip || '';
+    document.getElementById('editCountry').value           = vendor.country || 'USA';
+    document.getElementById('editSubjectTo1099').value     = vendor.subject_to_1099 ? 'true' : 'false';
+    document.getElementById('editBankAccountType').value   = vendor.bank_account_type || '';
+    document.getElementById('editBankRoutingNumber').value = vendor.bank_routing_number || '';
+    document.getElementById('editBankAccountNumber').value = vendor.bank_account_number || '';
 
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('editVendorModal'));
@@ -1305,6 +1322,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const status = document.getElementById('vendorStatus').value;
                 const notes = document.getElementById('vendorNotes').value;
                 
+                /* extended fields */
+                const nameDetail        = document.getElementById('nameDetail').value;
+                const taxId             = document.getElementById('taxId').value;
+                const vendorType        = document.getElementById('vendorType').value;
+                const street1           = document.getElementById('street1').value;
+                const street2           = document.getElementById('street2').value;
+                const city              = document.getElementById('city').value;
+                const state             = document.getElementById('state').value;
+                const zip               = document.getElementById('zip').value;
+                const country           = document.getElementById('country').value;
+                const subjectTo1099     = document.getElementById('subjectTo1099').value === 'true';
+                const bankAccountType   = document.getElementById('bankAccountType').value;
+                const bankRoutingNumber = document.getElementById('bankRoutingNumber').value;
+                const bankAccountNumber = document.getElementById('bankAccountNumber').value;
+
                 // Validation
                 if (!entityId) return showToast('Validation', 'Please select an entity', true);
                 if (!vendorCode) return showToast('Validation', 'Please enter a vendor code', true);
@@ -1318,7 +1350,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                     email,
                     phone,
                     status,
-                    notes
+                    notes,
+                    /* new fields */
+                    name_detail: nameDetail,
+                    tax_id: taxId,
+                    vendor_type: vendorType,
+                    street_1: street1,
+                    street_2: street2,
+                    city,
+                    state,
+                    zip,
+                    country,
+                    subject_to_1099: subjectTo1099,
+                    bank_account_type: bankAccountType,
+                    bank_routing_number: bankRoutingNumber,
+                    bank_account_number: bankAccountNumber
                 };
                 
                 try {
@@ -1344,6 +1390,20 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const phone = document.getElementById('editVendorPhone').value;
                 const status = document.getElementById('editVendorStatus').value;
                 const notes = document.getElementById('editVendorNotes').value;
+                /* extended fields */
+                const nameDetail = document.getElementById('editNameDetail').value;
+                const taxId = document.getElementById('editTaxId').value;
+                const vendorType = document.getElementById('editVendorType').value;
+                const street1 = document.getElementById('editStreet1').value;
+                const street2 = document.getElementById('editStreet2').value;
+                const city = document.getElementById('editCity').value;
+                const state = document.getElementById('editState').value;
+                const zip = document.getElementById('editZip').value;
+                const country = document.getElementById('editCountry').value;
+                const subjectTo1099 = document.getElementById('editSubjectTo1099').value === 'true';
+                const bankAccountType = document.getElementById('editBankAccountType').value;
+                const bankRoutingNumber = document.getElementById('editBankRoutingNumber').value;
+                const bankAccountNumber = document.getElementById('editBankAccountNumber').value;
                 
                 // Validation
                 if (!vendorId) return showToast('Validation', 'Vendor ID is missing', true);
@@ -1360,6 +1420,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                     phone,
                     status,
                     notes
+                    ,
+                    /* new fields */
+                    name_detail: nameDetail,
+                    tax_id: taxId,
+                    vendor_type: vendorType,
+                    street_1: street1,
+                    street_2: street2,
+                    city,
+                    state,
+                    zip,
+                    country,
+                    subject_to_1099: subjectTo1099,
+                    bank_account_type: bankAccountType,
+                    bank_routing_number: bankRoutingNumber,
+                    bank_account_number: bankAccountNumber
                 };
                 
                 try {
