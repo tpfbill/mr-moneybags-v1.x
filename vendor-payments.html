@@ -283,18 +283,27 @@
                 <form id="createVendorForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="entityId" class="form-label">Entity*</label>
-                            <select id="entityId" class="form-select" required>
-                                <option value="">-- Select Entity --</option>
+                            <label for="vendorName" class="form-label">Vendor Name*</label>
+                            <input type="text" id="vendorName" class="form-control" required />
+                        </div>
+                        <!-- New core vendor fields -->
+                        <div class="mb-3">
+                            <label for="accountType" class="form-label">Account Type*</label>
+                            <select id="accountType" class="form-select" required>
+                                <option value="Individual">Individual</option>
+                                <option value="Business">Business</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="vendorCode" class="form-label">Vendor Code*</label>
-                            <input type="text" id="vendorCode" class="form-control" required />
-                        </div>
-                        <div class="mb-3">
-                            <label for="vendorName" class="form-label">Vendor Name*</label>
-                            <input type="text" id="vendorName" class="form-control" required />
+                            <label for="paymentType" class="form-label">Payment Type*</label>
+                            <select id="paymentType" class="form-select" required>
+                                <option value="EFT">EFT</option>
+                                <option value="Check">Check</option>
+                                <option value="PayPal">PayPal</option>
+                                <option value="Autodraft">Autodraft</option>
+                                <option value="Cap One">Cap One</option>
+                                <option value="Convera">Convera</option>
+                            </select>
                         </div>
                         <!-- New extended vendor fields -->
                         <div class="mb-3">
@@ -371,10 +380,6 @@
                             <input type="email" id="vendorEmail" class="form-control" />
                         </div>
                         <div class="mb-3">
-                            <label for="vendorPhone" class="form-label">Phone</label>
-                            <input type="text" id="vendorPhone" class="form-control" />
-                        </div>
-                        <div class="mb-3">
                             <label for="vendorStatus" class="form-label">Status</label>
                             <select id="vendorStatus" class="form-select">
                                 <option value="active">Active</option>
@@ -406,14 +411,7 @@
                 <form id="editVendorForm">
                     <div class="modal-body">
                         <input type="hidden" id="editVendorId" />
-                        <div class="mb-3">
-                            <label for="editEntityId" class="form-label">Entity*</label>
-                            <select id="editEntityId" class="form-select" required></select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editVendorCode" class="form-label">Vendor Code*</label>
-                            <input type="text" id="editVendorCode" class="form-control" required />
-                        </div>
+                        <!-- Entity and Vendor Code fields removed per new requirements -->
                         <div class="mb-3">
                             <label for="editVendorName" class="form-label">Vendor Name*</label>
                             <input type="text" id="editVendorName" class="form-control" required />
@@ -433,6 +431,25 @@
                                 <option value="contractor">Contractor</option>
                                 <option value="employee">Employee</option>
                                 <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <!-- New Account & Payment type fields -->
+                        <div class="mb-3">
+                            <label for="editAccountType" class="form-label">Account Type*</label>
+                            <select id="editAccountType" class="form-select" required>
+                                <option value="Individual">Individual</option>
+                                <option value="Business">Business</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPaymentType" class="form-label">Payment Type*</label>
+                            <select id="editPaymentType" class="form-select" required>
+                                <option value="EFT">EFT</option>
+                                <option value="Check">Check</option>
+                                <option value="PayPal">PayPal</option>
+                                <option value="Autodraft">Autodraft</option>
+                                <option value="Cap One">Cap One</option>
+                                <option value="Convera">Convera</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -491,10 +508,7 @@
                             <label for="editVendorEmail" class="form-label">Email</label>
                             <input type="email" id="editVendorEmail" class="form-control" />
                         </div>
-                        <div class="mb-3">
-                            <label for="editVendorPhone" class="form-label">Phone</label>
-                            <input type="text" id="editVendorPhone" class="form-control" />
-                        </div>
+                        <!-- Phone field removed per new requirements -->
                         <div class="mb-3">
                             <label for="editVendorStatus" class="form-label">Status</label>
                             <select id="editVendorStatus" class="form-select">

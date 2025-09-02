@@ -259,7 +259,7 @@ async function fetchVendors() {
             vendors.forEach(vendor => {
                 const option = document.createElement('option');
                 option.value = vendor.id;
-                option.textContent = `${vendor.name} (${vendor.vendor_code})`;
+                option.textContent = (vendor.name_detail || vendor.name || '').toString().trim();
                 select.appendChild(option);
             });
         });
@@ -517,7 +517,7 @@ function renderVendorsTable() {
 
         const id          = vendor.id;
         const nameDetail  = vendor.name_detail ?? '';
-        const accountType = vendor.bank_account_type ?? '—';
+        const accountType = vendor.account_type ?? '—';
         const vendorType  = vendor.vendor_type ?? '—';
         const city        = vendor.city ?? '—';
         const state       = vendor.state ?? '—';
@@ -701,12 +701,9 @@ function openEditVendor(vendorId) {
 
     // Populate form fields
     document.getElementById('editVendorId').value = vendor.id;
-    document.getElementById('editEntityId').value = vendor.entity_id;
-    document.getElementById('editVendorCode').value = vendor.vendor_code;
     document.getElementById('editVendorName').value = vendor.name;
     document.getElementById('editContactName').value = vendor.contact_name || '';
     document.getElementById('editVendorEmail').value = vendor.email || '';
-    document.getElementById('editVendorPhone').value = vendor.phone || '';
     document.getElementById('editVendorStatus').value = vendor.status || 'active';
     document.getElementById('editVendorNotes').value = vendor.notes || '';
 
@@ -724,6 +721,9 @@ function openEditVendor(vendorId) {
     document.getElementById('editBankAccountType').value   = vendor.bank_account_type || '';
     document.getElementById('editBankRoutingNumber').value = vendor.bank_routing_number || '';
     document.getElementById('editBankAccountNumber').value = vendor.bank_account_number || '';
+    // New enum fields
+    document.getElementById('editAccountType').value       = vendor.account_type || 'Individual';
+    document.getElementById('editPaymentType').value       = vendor.payment_type || 'EFT';
 
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('editVendorModal'));
@@ -1312,13 +1312,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (createVendorForm) {
             createVendorForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
-                const entityId = document.getElementById('entityId').value;
-                const vendorCode = document.getElementById('vendorCode').value;
+
                 const name = document.getElementById('vendorName').value;
+                const accountType = document.getElementById('accountType').value;
+                const paymentType = document.getElementById('paymentType').value;
                 const contactName = document.getElementById('contactName').value;
                 const email = document.getElementById('vendorEmail').value;
-                const phone = document.getElementById('vendorPhone').value;
                 const status = document.getElementById('vendorStatus').value;
                 const notes = document.getElementById('vendorNotes').value;
                 
@@ -1338,17 +1337,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const bankAccountNumber = document.getElementById('bankAccountNumber').value;
 
                 // Validation
-                if (!entityId) return showToast('Validation', 'Please select an entity', true);
-                if (!vendorCode) return showToast('Validation', 'Please enter a vendor code', true);
                 if (!name) return showToast('Validation', 'Please enter a vendor name', true);
+                if (!accountType) return showToast('Validation', 'Please select an account type', true);
+                if (!paymentType) return showToast('Validation', 'Please select a payment type', true);
                 
                 const vendorData = {
-                    entity_id: entityId,
-                    vendor_code: vendorCode,
                     name,
                     contact_name: contactName,
                     email,
-                    phone,
                     status,
                     notes,
                     /* new fields */
@@ -1364,7 +1360,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     subject_to_1099: subjectTo1099,
                     bank_account_type: bankAccountType,
                     bank_routing_number: bankRoutingNumber,
-                    bank_account_number: bankAccountNumber
+                    bank_account_number: bankAccountNumber,
+                    account_type: accountType,
+                    payment_type: paymentType
                 };
                 
                 try {
@@ -1382,12 +1380,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 e.preventDefault();
                 
                 const vendorId = document.getElementById('editVendorId').value;
-                const entityId = document.getElementById('editEntityId').value;
-                const vendorCode = document.getElementById('editVendorCode').value;
                 const name = document.getElementById('editVendorName').value;
+                const accountType = document.getElementById('editAccountType').value;
+                const paymentType = document.getElementById('editPaymentType').value;
                 const contactName = document.getElementById('editContactName').value;
                 const email = document.getElementById('editVendorEmail').value;
-                const phone = document.getElementById('editVendorPhone').value;
                 const status = document.getElementById('editVendorStatus').value;
                 const notes = document.getElementById('editVendorNotes').value;
                 /* extended fields */
@@ -1407,17 +1404,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 
                 // Validation
                 if (!vendorId) return showToast('Validation', 'Vendor ID is missing', true);
-                if (!entityId) return showToast('Validation', 'Please select an entity', true);
-                if (!vendorCode) return showToast('Validation', 'Please enter a vendor code', true);
                 if (!name) return showToast('Validation', 'Please enter a vendor name', true);
+                if (!accountType) return showToast('Validation', 'Please select an account type', true);
+                if (!paymentType) return showToast('Validation', 'Please select a payment type', true);
                 
                 const vendorData = {
-                    entity_id: entityId,
-                    vendor_code: vendorCode,
                     name,
                     contact_name: contactName,
                     email,
-                    phone,
                     status,
                     notes
                     ,
@@ -1434,7 +1428,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     subject_to_1099: subjectTo1099,
                     bank_account_type: bankAccountType,
                     bank_routing_number: bankRoutingNumber,
-                    bank_account_number: bankAccountNumber
+                    bank_account_number: bankAccountNumber,
+                    account_type: accountType,
+                    payment_type: paymentType
                 };
                 
                 try {

@@ -80,7 +80,6 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const itemsResult = await pool.query(`
         SELECT pi.*, 
                v.name               AS vendor_name,
-               v.vendor_code,
                v.bank_account_number,
                v.bank_account_type
         FROM payment_items pi
@@ -243,7 +242,6 @@ router.get('/:id/items', asyncHandler(async (req, res) => {
     const { rows } = await pool.query(`
         SELECT pi.*, 
                v.name               AS vendor_name,
-               v.vendor_code,
                v.bank_account_number,
                v.bank_account_type
         FROM payment_items pi
@@ -328,7 +326,6 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
         const { rows } = await pool.query(`
             SELECT pi.*, 
                    v.name  AS vendor_name,
-                   v.vendor_code,
                    v.bank_account_number,
                    v.bank_account_type
             FROM payment_items pi

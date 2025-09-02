@@ -136,14 +136,13 @@ CREATE TABLE IF NOT EXISTS journal_entry_items (
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS vendors (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    entity_id UUID NOT NULL REFERENCES entities(id),
-    vendor_code VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
     name_detail TEXT,
+    account_type VARCHAR(100) NOT NULL,
+    payment_type VARCHAR(100) NOT NULL,
     tax_id VARCHAR(20),
     contact_name VARCHAR(100),
     email VARCHAR(100),
-    phone VARCHAR(20),
     street_1 VARCHAR(100),
     street_2 VARCHAR(100),
     city VARCHAR(50),
@@ -156,10 +155,7 @@ CREATE TABLE IF NOT EXISTS vendors (
     bank_routing_number VARCHAR(20),
     bank_account_number VARCHAR(50),
     last_used DATE NOT NULL DEFAULT CURRENT_DATE,
-    status VARCHAR(20) DEFAULT 'Active',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(entity_id, vendor_code)
+    status VARCHAR(20) DEFAULT 'Active'
 );
 
 -- ---------------------------------------------------------------------------
@@ -239,6 +235,61 @@ BEGIN
         ALTER TABLE vendors ADD COLUMN bank_account_number VARCHAR(50);
     END IF;
 
+    /* ------------------------------------------------------------------
+     * Ensure notes column exists
+     * ----------------------------------------------------------------*/
+    PERFORM 1 FROM information_schema.columns
+      WHERE table_name='vendors' AND column_name='notes';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors ADD COLUMN notes TEXT;
+    END IF;
+
+    /* ----------------------------------------------------------------------
+     * Remove obsolete columns / constraints (idempotent)
+     * --------------------------------------------------------------------*/
+    -- old unique constraint
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'vendors_entity_id_vendor_code_key') THEN
+        ALTER TABLE vendors DROP CONSTRAINT vendors_entity_id_vendor_code_key;
+    END IF;
+
+    -- columns to drop safely
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vendors' AND column_name='entity_id') THEN
+        ALTER TABLE vendors DROP COLUMN entity_id;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vendors' AND column_name='vendor_code') THEN
+        ALTER TABLE vendors DROP COLUMN vendor_code;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vendors' AND column_name='phone') THEN
+        ALTER TABLE vendors DROP COLUMN phone;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vendors' AND column_name='created_at') THEN
+        ALTER TABLE vendors DROP COLUMN created_at;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vendors' AND column_name='updated_at') THEN
+        ALTER TABLE vendors DROP COLUMN updated_at;
+    END IF;
+
+    /* ----------------------------------------------------------------------
+     * Add account_type & payment_type columns with NOT NULL requirement
+     * --------------------------------------------------------------------*/
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='vendors' AND column_name='account_type'
+    ) THEN
+        ALTER TABLE vendors ADD COLUMN account_type VARCHAR(100);
+        UPDATE vendors SET account_type = 'Individual' WHERE account_type IS NULL;
+        ALTER TABLE vendors ALTER COLUMN account_type SET NOT NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='vendors' AND column_name='payment_type'
+    ) THEN
+        ALTER TABLE vendors ADD COLUMN payment_type VARCHAR(100);
+        UPDATE vendors SET payment_type = 'EFT' WHERE payment_type IS NULL;
+        ALTER TABLE vendors ALTER COLUMN payment_type SET NOT NULL;
+    END IF;
+
     PERFORM 1 FROM information_schema.columns
       WHERE table_name='vendors' AND column_name='last_used';
     IF NOT FOUND THEN
@@ -255,7 +306,31 @@ BEGIN
             ADD CONSTRAINT chk_vendor_status_values
             CHECK (LOWER(status) IN ('active','inactive'));
     END IF;
+
+    /* ----------------------------------------------------------------------
+     * New ENUM-like checks for account_type & payment_type
+     * --------------------------------------------------------------------*/
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_vendor_account_type_enum'
+    ) THEN
+        ALTER TABLE vendors
+            ADD CONSTRAINT chk_vendor_account_type_enum
+            CHECK (LOWER(account_type) IN ('individual','business'));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_vendor_payment_type_enum'
+    ) THEN
+        ALTER TABLE vendors
+            ADD CONSTRAINT chk_vendor_payment_type_enum
+            CHECK (LOWER(payment_type) IN ('eft','check','paypal','autodraft','cap one','convera'));
+    END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Index on account_type for quick filtering
+-- ---------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_vendors_account_type ON vendors(account_type);
 
 -- ---------------------------------------------------------------------------
 -- Cleanup legacy vendor_bank_accounts table (no longer used)
@@ -699,7 +774,6 @@ CREATE INDEX IF NOT EXISTS idx_journal_entry_items_account_id ON journal_entry_i
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_fund_id ON journal_entry_items(fund_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_entity_id ON accounts(entity_id);
 CREATE INDEX IF NOT EXISTS idx_funds_entity_id ON funds(entity_id);
-CREATE INDEX IF NOT EXISTS idx_vendors_entity_id ON vendors(entity_id);
 CREATE INDEX IF NOT EXISTS idx_payment_items_payment_batch_id ON payment_items(payment_batch_id);
 
 -- =============================================================================
@@ -788,11 +862,11 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Sample Vendors
-INSERT INTO vendors (id, entity_id, vendor_code, name, tax_id, contact_name, email, status)
+INSERT INTO vendors (id, name, account_type, payment_type, tax_id, contact_name, email, status)
 VALUES
-    ('71e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'EDUSUP-001', 'Educational Supplies Inc', '12-3456789', 'John Smith', 'john@edusupplies.com', 'Active'),
-    ('72e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'OFFSUPP-002', 'Office Supplies Co', '98-7654321', 'Jane Doe', 'jane@officesupplies.com', 'Active')
-ON CONFLICT (entity_id, vendor_code) DO NOTHING;
+    ('71e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'Educational Supplies Inc', 'Business', 'EFT', '12-3456789', 'John Smith', 'john@edusupplies.com', 'Active'),
+    ('72e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'Office Supplies Co',        'Business', 'EFT', '98-7654321', 'Jane Doe',  'jane@officesupplies.com', 'Active')
+ON CONFLICT (id) DO NOTHING;
 
 -- Sample Bank Accounts
 INSERT INTO bank_accounts (entity_id, gl_account_id, bank_name, account_name, account_number, routing_number, type, balance, status)
