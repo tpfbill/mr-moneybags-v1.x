@@ -70,6 +70,14 @@ function maskAccountNumber(accountNumber) {
     return masked + visible;
 }
 
+function maskTaxId(taxId) {
+    if(!taxId) return '';
+    const digits = String(taxId).replace(/\D/g,'');
+    if(digits.length <= 4) return '*'.repeat(digits.length);
+    const last4 = digits.slice(-4);
+    return `***-**-${last4}`;
+}
+
 function getStatusBadgeClass(status) {
     switch (status) {
         case 'draft': return 'bg-secondary';
@@ -503,7 +511,7 @@ function renderVendorsTable() {
     
     if (!vendors || vendors.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="9" class="text-center">No vendors found</td>';
+        row.innerHTML = '<td colspan="21" class="text-center">No vendors found</td>';
         tableBody.appendChild(row);
         return;
     }
@@ -515,13 +523,6 @@ function renderVendorsTable() {
         const row = document.createElement('tr');
         row.dataset.id = vendor.id;
 
-        const id          = vendor.id;
-        const nameDetail  = vendor.name_detail ?? '';
-        const accountType = vendor.account_type ?? '—';
-        const vendorType  = vendor.vendor_type ?? '—';
-        const city        = vendor.city ?? '—';
-        const state       = vendor.state ?? '—';
-        const country     = vendor.country ?? '—';
         const statusCls   = getStatusBadgeClass(vendor.status);
         const statusBadge = `<span class="badge ${statusCls} text-capitalize">${(vendor.status || '')
                                 .replace('_', ' ')}</span>`;
@@ -539,13 +540,25 @@ function renderVendorsTable() {
         `;
 
         row.innerHTML = `
-            <td>${id}</td>
-            <td>${nameDetail}</td>
-            <td>${accountType}</td>
-            <td>${vendorType}</td>
-            <td>${city}</td>
-            <td>${state}</td>
-            <td>${country}</td>
+            <td class="sticky-col-1">${vendor.id}</td>
+            <td class="sticky-col-2">${vendor.name || ''}</td>
+            <td>${vendor.name_detail || ''}</td>
+            <td>${vendor.account_type || '—'}</td>
+            <td>${vendor.vendor_type || '—'}</td>
+            <td>${maskTaxId(vendor.tax_id)}</td>
+            <td>${vendor.email || '—'}</td>
+            <td>${vendor.street_1 || '—'}</td>
+            <td>${vendor.street_2 || '—'}</td>
+            <td>${vendor.city || '—'}</td>
+            <td>${vendor.state || '—'}</td>
+            <td>${vendor.zip || '—'}</td>
+            <td>${vendor.country || '—'}</td>
+            <td>${vendor.subject_to_1099 ? 'Yes' : 'No'}</td>
+            <td>${vendor.payment_type || '—'}</td>
+            <td>${vendor.bank_account_type || '—'}</td>
+            <td>${vendor.bank_routing_number || '—'}</td>
+            <td>${maskAccountNumber(vendor.bank_account_number)}</td>
+            <td>${formatDate(vendor.last_used)}</td>
             <td>${statusBadge}</td>
             <td class="text-center">${actions}</td>
         `;

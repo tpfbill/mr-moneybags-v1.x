@@ -76,3 +76,40 @@
 .action-button:hover {
     background-color: #43a047;
 }
+
+/* Vendor table horizontal scrolling and sticky columns */
+#vendorsTable th, #vendorsTable td {
+    white-space: nowrap;
+}
+
+#vendorsTable {
+    min-width: 1800px;
+}
+
+th.sticky-col-1, td.sticky-col-1 {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 2;
+}
+
+th.sticky-col-2, td.sticky-col-2 {
+    position: sticky;
+    left: 220px;
+    background: #fff;
+    z-index: 2;
+}
+
+#vendorsTable th.sticky-col-1, #vendorsTable td.sticky-col-1 {
+    width: 220px;
+}
+
+#vendorsTable th.sticky-col-2, #vendorsTable td.sticky-col-2 {
+    width: 240px;
+}
+
+/* Add background colors for sticky columns when in striped tables */
+#vendorsTable tbody tr:nth-child(odd) td.sticky-col-1,
+#vendorsTable tbody tr:nth-child(odd) td.sticky-col-2 {
+    background-color: #f2f2f2;
+}
