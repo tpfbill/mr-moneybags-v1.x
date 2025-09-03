@@ -3,6 +3,45 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
+const multer = require('multer');
+const fs = require('fs');
+const { parse } = require('csv-parse/sync');
+
+// ---------------------------------------------------------------------------
+// File-upload helper (stores uploads/uuid.tmp, auto-removed after parse)
+// ---------------------------------------------------------------------------
+const upload = multer({ dest: 'uploads/' });
+
+// ---------------------------------------------------------------------------
+// Normalisers for CSV fields
+// ---------------------------------------------------------------------------
+function normalizeStatus(v) {
+  const s = (v || '').toString().trim().toLowerCase();
+  return s === 'inactive' ? 'inactive' : 'active';
+}
+
+function normalizeBool1099(v) {
+  if (v === true || v === false) return v;
+  const val = (v || '').toString().trim().toLowerCase();
+  return val === '1' || val === 'yes' || val === 'y' ? true : false;
+}
+
+function normalizeAccountType(v) {
+  const t = (v || '').toString().trim().toLowerCase();
+  return t === 'business' ? 'Business' : 'Individual';
+}
+
+const VALID_PMT = ['eft', 'check', 'paypal', 'autodraft', 'cap one', 'convera'];
+function normalizePaymentType(v) {
+  const t = (v || '').toString().trim().toLowerCase();
+  return VALID_PMT.includes(t) ? (t === 'cap one' ? 'Cap One' : t.charAt(0).toUpperCase() + t.slice(1)) : 'EFT';
+}
+
+function toDateYYYYMMDD(v) {
+  // Expect YYYY-MM-DD or blank; fallback today
+  const d = v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v) : new Date();
+  return d.toISOString().split('T')[0];
+}
 
 /**
  * GET /api/vendors
@@ -177,5 +216,117 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM vendors WHERE id = $1', [id]);
   res.status(204).send();
 }));
+
+// ---------------------------------------------------------------------------
+// POST /api/vendors/import  (CSV upload)
+// ---------------------------------------------------------------------------
+router.post('/import',
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = req.file.path;
+    let csv;
+    try {
+      csv = fs.readFileSync(filePath, 'utf8');
+    } finally {
+      // Cleanup temp file
+      fs.unlink(filePath, () => {});
+    }
+
+    // Parse CSV
+    let records;
+    try {
+      records = parse(csv, { columns: true, skip_empty_lines: true, trim: true });
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid CSV format', message: err.message });
+    }
+
+    let inserted = 0, updated = 0, failed = 0;
+    const errors = [];
+
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i];
+      try {
+        const name = (r.name || '').trim();
+        if (!name) throw new Error('Missing name');
+
+        // Prepare fields with requested defaults/normalisation
+        const row = {
+          name,
+          name_detail: (r.name_detail || '').trim() || null,
+          contact_name: null,
+          email: (r.email || '').trim() || null,
+          street_1: (r.street_1 || '').trim() || null,
+          street_2: (r.street_2 || '').trim() || null,
+          city: (r.city || '').trim() || null,
+          state: (r.state || '').trim() || null,
+          zip: (r.zip || '').trim() || null,
+          country: (r.country || '').trim() || 'USA',
+          tax_id: (r.tax_id || '').trim() || null,
+          vendor_type: (r.vendor_type || '').trim() || null,
+          subject_to_1099: normalizeBool1099(r.subject_to_1099),
+          bank_account_type: (r.bank_account_type || '').trim() || null,
+          bank_routing_number: (r.bank_routing_number || '').trim() || null,
+          bank_account_number: (r.bank_account_number || '').trim() || null,
+          last_used: toDateYYYYMMDD(r.last_used),
+          status: normalizeStatus(r.status),
+          account_type: normalizeAccountType(r.account_type),
+          payment_type: normalizePaymentType(r.payment_type)
+        };
+
+        // Upsert by name (case-insensitive)
+        const existing = await pool.query(
+          'SELECT id FROM vendors WHERE LOWER(name) = LOWER($1) LIMIT 1',
+          [row.name]
+        );
+
+        if (existing.rows.length) {
+          const id = existing.rows[0].id;
+          await pool.query(
+            `UPDATE vendors
+               SET name=$1, name_detail=$2, contact_name=$3, email=$4,
+                   street_1=$5, street_2=$6, city=$7, state=$8, zip=$9, country=$10,
+                   tax_id=$11, vendor_type=$12, subject_to_1099=$13,
+                   bank_account_type=$14, bank_routing_number=$15, bank_account_number=$16,
+                   last_used=$17, status=$18, account_type=$19, payment_type=$20
+             WHERE id=$21`,
+            [...Object.values(row), id]
+          );
+          updated++;
+        } else {
+          await pool.query(
+            `INSERT INTO vendors
+              (name, name_detail, contact_name, email,
+               street_1, street_2, city, state, zip, country,
+               tax_id, vendor_type, subject_to_1099,
+               bank_account_type, bank_routing_number, bank_account_number,
+               last_used, status, account_type, payment_type)
+             VALUES ($1,$2,$3,$4,
+                     $5,$6,$7,$8,$9,$10,
+                     $11,$12,$13,
+                     $14,$15,$16,
+                     $17,$18,$19,$20)`,
+            Object.values(row)
+          );
+          inserted++;
+        }
+      } catch (err) {
+        failed++;
+        errors.push(`Row ${i + 1}: ${err.message}`);
+      }
+    }
+
+    res.json({
+      total: records.length,
+      inserted,
+      updated,
+      failed,
+      sampleErrors: errors.slice(0, 20)
+    });
+  })
+);
 
 module.exports = router;
