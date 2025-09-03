@@ -70,6 +70,14 @@ function maskAccountNumber(accountNumber) {
     return masked + visible;
 }
 
+function maskTaxId(taxId) {
+    if(!taxId) return '';
+    const digits = String(taxId).replace(/\D/g,'');
+    if(digits.length <= 4) return '*'.repeat(digits.length);
+    const last4 = digits.slice(-4);
+    return `***-**-${last4}`;
+}
+
 function getStatusBadgeClass(status) {
     switch (status) {
         case 'draft': return 'bg-secondary';
@@ -259,7 +267,7 @@ async function fetchVendors() {
             vendors.forEach(vendor => {
                 const option = document.createElement('option');
                 option.value = vendor.id;
-                option.textContent = `${vendor.name} (${vendor.vendor_code})`;
+                option.textContent = (vendor.name_detail || vendor.name || '').toString().trim();
                 select.appendChild(option);
             });
         });
@@ -503,7 +511,7 @@ function renderVendorsTable() {
     
     if (!vendors || vendors.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="8" class="text-center">No vendors found</td>';
+        row.innerHTML = '<td colspan="21" class="text-center">No vendors found</td>';
         tableBody.appendChild(row);
         return;
     }
@@ -515,12 +523,6 @@ function renderVendorsTable() {
         const row = document.createElement('tr');
         row.dataset.id = vendor.id;
 
-        const code        = vendor.vendor_code ?? '';
-        const name        = vendor.name ?? '';
-        const contactName = vendor.contact_name ?? '—';
-        const email       = vendor.email ?? '—';
-        const phone       = vendor.phone ?? '—';
-        const bankAccounts = '—'; // Placeholder for bank accounts count
         const statusCls   = getStatusBadgeClass(vendor.status);
         const statusBadge = `<span class="badge ${statusCls} text-capitalize">${(vendor.status || '')
                                 .replace('_', ' ')}</span>`;
@@ -538,12 +540,25 @@ function renderVendorsTable() {
         `;
 
         row.innerHTML = `
-            <td>${code}</td>
-            <td>${name}</td>
-            <td>${contactName}</td>
-            <td>${email}</td>
-            <td>${phone}</td>
-            <td>${bankAccounts}</td>
+            <td class="sticky-col-1">${vendor.id}</td>
+            <td class="sticky-col-2">${vendor.name || ''}</td>
+            <td>${vendor.name_detail || ''}</td>
+            <td>${vendor.account_type || '—'}</td>
+            <td>${vendor.vendor_type || '—'}</td>
+            <td>${maskTaxId(vendor.tax_id)}</td>
+            <td>${vendor.email || '—'}</td>
+            <td>${vendor.street_1 || '—'}</td>
+            <td>${vendor.street_2 || '—'}</td>
+            <td>${vendor.city || '—'}</td>
+            <td>${vendor.state || '—'}</td>
+            <td>${vendor.zip || '—'}</td>
+            <td>${vendor.country || '—'}</td>
+            <td>${vendor.subject_to_1099 ? 'Yes' : 'No'}</td>
+            <td>${vendor.payment_type || '—'}</td>
+            <td>${vendor.bank_account_type || '—'}</td>
+            <td>${vendor.bank_routing_number || '—'}</td>
+            <td>${maskAccountNumber(vendor.bank_account_number)}</td>
+            <td>${formatDate(vendor.last_used)}</td>
             <td>${statusBadge}</td>
             <td class="text-center">${actions}</td>
         `;
@@ -699,14 +714,29 @@ function openEditVendor(vendorId) {
 
     // Populate form fields
     document.getElementById('editVendorId').value = vendor.id;
-    document.getElementById('editEntityId').value = vendor.entity_id;
-    document.getElementById('editVendorCode').value = vendor.vendor_code;
     document.getElementById('editVendorName').value = vendor.name;
     document.getElementById('editContactName').value = vendor.contact_name || '';
     document.getElementById('editVendorEmail').value = vendor.email || '';
-    document.getElementById('editVendorPhone').value = vendor.phone || '';
     document.getElementById('editVendorStatus').value = vendor.status || 'active';
     document.getElementById('editVendorNotes').value = vendor.notes || '';
+
+    // Populate extended fields
+    document.getElementById('editNameDetail').value        = vendor.name_detail || '';
+    document.getElementById('editTaxId').value             = vendor.tax_id || '';
+    document.getElementById('editVendorType').value        = vendor.vendor_type || '';
+    document.getElementById('editStreet1').value           = vendor.street_1 || '';
+    document.getElementById('editStreet2').value           = vendor.street_2 || '';
+    document.getElementById('editCity').value              = vendor.city || '';
+    document.getElementById('editState').value             = vendor.state || '';
+    document.getElementById('editZip').value               = vendor.zip || '';
+    document.getElementById('editCountry').value           = vendor.country || 'USA';
+    document.getElementById('editSubjectTo1099').value     = vendor.subject_to_1099 ? 'true' : 'false';
+    document.getElementById('editBankAccountType').value   = vendor.bank_account_type || '';
+    document.getElementById('editBankRoutingNumber').value = vendor.bank_routing_number || '';
+    document.getElementById('editBankAccountNumber').value = vendor.bank_account_number || '';
+    // New enum fields
+    document.getElementById('editAccountType').value       = vendor.account_type || 'Individual';
+    document.getElementById('editPaymentType').value       = vendor.payment_type || 'EFT';
 
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('editVendorModal'));
@@ -1295,30 +1325,57 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (createVendorForm) {
             createVendorForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
-                const entityId = document.getElementById('entityId').value;
-                const vendorCode = document.getElementById('vendorCode').value;
+
                 const name = document.getElementById('vendorName').value;
+                const accountType = document.getElementById('accountType').value;
+                const paymentType = document.getElementById('paymentType').value;
                 const contactName = document.getElementById('contactName').value;
                 const email = document.getElementById('vendorEmail').value;
-                const phone = document.getElementById('vendorPhone').value;
                 const status = document.getElementById('vendorStatus').value;
                 const notes = document.getElementById('vendorNotes').value;
                 
+                /* extended fields */
+                const nameDetail        = document.getElementById('nameDetail').value;
+                const taxId             = document.getElementById('taxId').value;
+                const vendorType        = document.getElementById('vendorType').value;
+                const street1           = document.getElementById('street1').value;
+                const street2           = document.getElementById('street2').value;
+                const city              = document.getElementById('city').value;
+                const state             = document.getElementById('state').value;
+                const zip               = document.getElementById('zip').value;
+                const country           = document.getElementById('country').value;
+                const subjectTo1099     = document.getElementById('subjectTo1099').value === 'true';
+                const bankAccountType   = document.getElementById('bankAccountType').value;
+                const bankRoutingNumber = document.getElementById('bankRoutingNumber').value;
+                const bankAccountNumber = document.getElementById('bankAccountNumber').value;
+
                 // Validation
-                if (!entityId) return showToast('Validation', 'Please select an entity', true);
-                if (!vendorCode) return showToast('Validation', 'Please enter a vendor code', true);
                 if (!name) return showToast('Validation', 'Please enter a vendor name', true);
+                if (!accountType) return showToast('Validation', 'Please select an account type', true);
+                if (!paymentType) return showToast('Validation', 'Please select a payment type', true);
                 
                 const vendorData = {
-                    entity_id: entityId,
-                    vendor_code: vendorCode,
                     name,
                     contact_name: contactName,
                     email,
-                    phone,
                     status,
-                    notes
+                    notes,
+                    /* new fields */
+                    name_detail: nameDetail,
+                    tax_id: taxId,
+                    vendor_type: vendorType,
+                    street_1: street1,
+                    street_2: street2,
+                    city,
+                    state,
+                    zip,
+                    country,
+                    subject_to_1099: subjectTo1099,
+                    bank_account_type: bankAccountType,
+                    bank_routing_number: bankRoutingNumber,
+                    bank_account_number: bankAccountNumber,
+                    account_type: accountType,
+                    payment_type: paymentType
                 };
                 
                 try {
@@ -1336,30 +1393,57 @@ document.addEventListener('DOMContentLoaded', async function() {
                 e.preventDefault();
                 
                 const vendorId = document.getElementById('editVendorId').value;
-                const entityId = document.getElementById('editEntityId').value;
-                const vendorCode = document.getElementById('editVendorCode').value;
                 const name = document.getElementById('editVendorName').value;
+                const accountType = document.getElementById('editAccountType').value;
+                const paymentType = document.getElementById('editPaymentType').value;
                 const contactName = document.getElementById('editContactName').value;
                 const email = document.getElementById('editVendorEmail').value;
-                const phone = document.getElementById('editVendorPhone').value;
                 const status = document.getElementById('editVendorStatus').value;
                 const notes = document.getElementById('editVendorNotes').value;
+                /* extended fields */
+                const nameDetail = document.getElementById('editNameDetail').value;
+                const taxId = document.getElementById('editTaxId').value;
+                const vendorType = document.getElementById('editVendorType').value;
+                const street1 = document.getElementById('editStreet1').value;
+                const street2 = document.getElementById('editStreet2').value;
+                const city = document.getElementById('editCity').value;
+                const state = document.getElementById('editState').value;
+                const zip = document.getElementById('editZip').value;
+                const country = document.getElementById('editCountry').value;
+                const subjectTo1099 = document.getElementById('editSubjectTo1099').value === 'true';
+                const bankAccountType = document.getElementById('editBankAccountType').value;
+                const bankRoutingNumber = document.getElementById('editBankRoutingNumber').value;
+                const bankAccountNumber = document.getElementById('editBankAccountNumber').value;
                 
                 // Validation
                 if (!vendorId) return showToast('Validation', 'Vendor ID is missing', true);
-                if (!entityId) return showToast('Validation', 'Please select an entity', true);
-                if (!vendorCode) return showToast('Validation', 'Please enter a vendor code', true);
                 if (!name) return showToast('Validation', 'Please enter a vendor name', true);
+                if (!accountType) return showToast('Validation', 'Please select an account type', true);
+                if (!paymentType) return showToast('Validation', 'Please select a payment type', true);
                 
                 const vendorData = {
-                    entity_id: entityId,
-                    vendor_code: vendorCode,
                     name,
                     contact_name: contactName,
                     email,
-                    phone,
                     status,
                     notes
+                    ,
+                    /* new fields */
+                    name_detail: nameDetail,
+                    tax_id: taxId,
+                    vendor_type: vendorType,
+                    street_1: street1,
+                    street_2: street2,
+                    city,
+                    state,
+                    zip,
+                    country,
+                    subject_to_1099: subjectTo1099,
+                    bank_account_type: bankAccountType,
+                    bank_routing_number: bankRoutingNumber,
+                    bank_account_number: bankAccountNumber,
+                    account_type: accountType,
+                    payment_type: paymentType
                 };
                 
                 try {

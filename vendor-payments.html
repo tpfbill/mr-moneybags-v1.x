@@ -116,12 +116,25 @@
                     <table class="table table-striped table-hover" id="vendorsTable">
                         <thead>
                             <tr>
-                                <th>Code</th>
-                                <th>Name</th>
-                                <th>Contact</th>
+                                <th class="sticky-col-1">ID</th>
+                                <th class="sticky-col-2">Name</th>
+                                <th>Name Detail</th>
+                                <th>Account Type</th>
+                                <th>Vendor Type</th>
+                                <th>Tax ID</th>
                                 <th>Email</th>
-                                <th>Phone</th>
-                                <th>Bank Accounts</th>
+                                <th>Street 1</th>
+                                <th>Street 2</th>
+                                <th>City</th>
+                                <th>State</th>
+                                <th>Zip</th>
+                                <th>Country</th>
+                                <th>Subject to 1099</th>
+                                <th>Payment Type</th>
+                                <th>Bank Account Type</th>
+                                <th>Bank Routing Number</th>
+                                <th>Bank Account Number</th>
+                                <th>Last Used</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -282,18 +295,93 @@
                 <form id="createVendorForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="entityId" class="form-label">Entity*</label>
-                            <select id="entityId" class="form-select" required>
-                                <option value="">-- Select Entity --</option>
+                            <label for="vendorName" class="form-label">Vendor Name*</label>
+                            <input type="text" id="vendorName" class="form-control" required />
+                        </div>
+                        <!-- New core vendor fields -->
+                        <div class="mb-3">
+                            <label for="accountType" class="form-label">Account Type*</label>
+                            <select id="accountType" class="form-select" required>
+                                <option value="Individual">Individual</option>
+                                <option value="Business">Business</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="vendorCode" class="form-label">Vendor Code*</label>
-                            <input type="text" id="vendorCode" class="form-control" required />
+                            <label for="paymentType" class="form-label">Payment Type*</label>
+                            <select id="paymentType" class="form-select" required>
+                                <option value="EFT">EFT</option>
+                                <option value="Check">Check</option>
+                                <option value="PayPal">PayPal</option>
+                                <option value="Autodraft">Autodraft</option>
+                                <option value="Cap One">Cap One</option>
+                                <option value="Convera">Convera</option>
+                            </select>
+                        </div>
+                        <!-- New extended vendor fields -->
+                        <div class="mb-3">
+                            <label for="nameDetail" class="form-label">Name Detail</label>
+                            <input type="text" id="nameDetail" class="form-control" />
                         </div>
                         <div class="mb-3">
-                            <label for="vendorName" class="form-label">Vendor Name*</label>
-                            <input type="text" id="vendorName" class="form-control" required />
+                            <label for="taxId" class="form-label">Tax ID</label>
+                            <input type="text" id="taxId" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorType" class="form-label">Vendor Type</label>
+                            <select id="vendorType" class="form-select">
+                                <option value="supplier">Supplier</option>
+                                <option value="contractor">Contractor</option>
+                                <option value="employee">Employee</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="street1" class="form-label">Street&nbsp;1</label>
+                            <input type="text" id="street1" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="street2" class="form-label">Street&nbsp;2</label>
+                            <input type="text" id="street2" class="form-control" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="city" class="form-label">City</label>
+                                <input type="text" id="city" class="form-control" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="state" class="form-label">State</label>
+                                <input type="text" id="state" class="form-control" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="zip" class="form-label">Zip</label>
+                                <input type="text" id="zip" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="country" class="form-label">Country</label>
+                            <input type="text" id="country" class="form-control" value="USA" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="subjectTo1099" class="form-label">Subject to 1099?</label>
+                            <select id="subjectTo1099" class="form-select">
+                                <option value="false">No</option>
+                                <option value="true">Yes</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bankAccountType" class="form-label">Bank Account Type</label>
+                            <select id="bankAccountType" class="form-select">
+                                <option value="Checking">Checking</option>
+                                <option value="Savings">Savings</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bankRoutingNumber" class="form-label">Bank Routing Number</label>
+                            <input type="text" id="bankRoutingNumber" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="bankAccountNumber" class="form-label">Bank Account Number</label>
+                            <input type="text" id="bankAccountNumber" class="form-control" />
                         </div>
                         <div class="mb-3">
                             <label for="contactName" class="form-label">Contact Name</label>
@@ -304,15 +392,10 @@
                             <input type="email" id="vendorEmail" class="form-control" />
                         </div>
                         <div class="mb-3">
-                            <label for="vendorPhone" class="form-label">Phone</label>
-                            <input type="text" id="vendorPhone" class="form-control" />
-                        </div>
-                        <div class="mb-3">
                             <label for="vendorStatus" class="form-label">Status</label>
                             <select id="vendorStatus" class="form-select">
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
-                                <option value="suspended">Suspended</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -340,17 +423,94 @@
                 <form id="editVendorForm">
                     <div class="modal-body">
                         <input type="hidden" id="editVendorId" />
-                        <div class="mb-3">
-                            <label for="editEntityId" class="form-label">Entity*</label>
-                            <select id="editEntityId" class="form-select" required></select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editVendorCode" class="form-label">Vendor Code*</label>
-                            <input type="text" id="editVendorCode" class="form-control" required />
-                        </div>
+                        <!-- Entity and Vendor Code fields removed per new requirements -->
                         <div class="mb-3">
                             <label for="editVendorName" class="form-label">Vendor Name*</label>
                             <input type="text" id="editVendorName" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editNameDetail" class="form-label">Name Detail</label>
+                            <input type="text" id="editNameDetail" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTaxId" class="form-label">Tax ID</label>
+                            <input type="text" id="editTaxId" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVendorType" class="form-label">Vendor Type</label>
+                            <select id="editVendorType" class="form-select">
+                                <option value="supplier">Supplier</option>
+                                <option value="contractor">Contractor</option>
+                                <option value="employee">Employee</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <!-- New Account & Payment type fields -->
+                        <div class="mb-3">
+                            <label for="editAccountType" class="form-label">Account Type*</label>
+                            <select id="editAccountType" class="form-select" required>
+                                <option value="Individual">Individual</option>
+                                <option value="Business">Business</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPaymentType" class="form-label">Payment Type*</label>
+                            <select id="editPaymentType" class="form-select" required>
+                                <option value="EFT">EFT</option>
+                                <option value="Check">Check</option>
+                                <option value="PayPal">PayPal</option>
+                                <option value="Autodraft">Autodraft</option>
+                                <option value="Cap One">Cap One</option>
+                                <option value="Convera">Convera</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editStreet1" class="form-label">Street&nbsp;1</label>
+                            <input type="text" id="editStreet1" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editStreet2" class="form-label">Street&nbsp;2</label>
+                            <input type="text" id="editStreet2" class="form-control" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="editCity" class="form-label">City</label>
+                                <input type="text" id="editCity" class="form-control" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="editState" class="form-label">State</label>
+                                <input type="text" id="editState" class="form-control" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="editZip" class="form-label">Zip</label>
+                                <input type="text" id="editZip" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCountry" class="form-label">Country</label>
+                            <input type="text" id="editCountry" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editSubjectTo1099" class="form-label">Subject to 1099?</label>
+                            <select id="editSubjectTo1099" class="form-select">
+                                <option value="false">No</option>
+                                <option value="true">Yes</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBankAccountType" class="form-label">Bank Account Type</label>
+                            <select id="editBankAccountType" class="form-select">
+                                <option value="Checking">Checking</option>
+                                <option value="Savings">Savings</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBankRoutingNumber" class="form-label">Bank Routing Number</label>
+                            <input type="text" id="editBankRoutingNumber" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBankAccountNumber" class="form-label">Bank Account Number</label>
+                            <input type="text" id="editBankAccountNumber" class="form-control" />
                         </div>
                         <div class="mb-3">
                             <label for="editContactName" class="form-label">Contact Name</label>
@@ -360,16 +520,12 @@
                             <label for="editVendorEmail" class="form-label">Email</label>
                             <input type="email" id="editVendorEmail" class="form-control" />
                         </div>
-                        <div class="mb-3">
-                            <label for="editVendorPhone" class="form-label">Phone</label>
-                            <input type="text" id="editVendorPhone" class="form-control" />
-                        </div>
+                        <!-- Phone field removed per new requirements -->
                         <div class="mb-3">
                             <label for="editVendorStatus" class="form-label">Status</label>
                             <select id="editVendorStatus" class="form-select">
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
-                                <option value="suspended">Suspended</option>
                             </select>
                         </div>
                         <div class="mb-3">

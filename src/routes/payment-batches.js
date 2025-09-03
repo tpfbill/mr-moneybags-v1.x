@@ -79,13 +79,11 @@ router.get('/:id', asyncHandler(async (req, res) => {
     // Get the payment items for this batch
     const itemsResult = await pool.query(`
         SELECT pi.*, 
-               v.name as vendor_name,
-               v.vendor_code,
-               vba.account_name as bank_account_name,
-               vba.account_number as bank_account_number
+               v.name               AS vendor_name,
+               v.bank_account_number,
+               v.bank_account_type
         FROM payment_items pi
         LEFT JOIN vendors v ON pi.vendor_id = v.id
-        LEFT JOIN vendor_bank_accounts vba ON pi.vendor_bank_account_id = vba.id
         WHERE pi.payment_batch_id = $1
         ORDER BY pi.created_at
     `, [id]);
@@ -243,13 +241,11 @@ router.get('/:id/items', asyncHandler(async (req, res) => {
     
     const { rows } = await pool.query(`
         SELECT pi.*, 
-               v.name as vendor_name,
-               v.vendor_code,
-               vba.account_name as bank_account_name,
-               vba.account_number as bank_account_number
+               v.name               AS vendor_name,
+               v.bank_account_number,
+               v.bank_account_type
         FROM payment_items pi
         LEFT JOIN vendors v ON pi.vendor_id = v.id
-        LEFT JOIN vendor_bank_accounts vba ON pi.vendor_bank_account_id = vba.id
         WHERE pi.payment_batch_id = $1
         ORDER BY pi.created_at
     `, [id]);
@@ -265,7 +261,6 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
     const { id } = req.params;
     const {
         vendor_id,
-        vendor_bank_account_id,
         journal_entry_id,
         amount,
         description,
@@ -298,17 +293,15 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
             INSERT INTO payment_items (
                 payment_batch_id,
                 vendor_id,
-                vendor_bank_account_id,
                 journal_entry_id,
                 amount,
                 description,
                 status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ) VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
         `, [
             id,
             vendor_id,
-            vendor_bank_account_id,
             journal_entry_id,
             amount,
             description,
@@ -332,13 +325,11 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
         // Get the updated item with related data
         const { rows } = await pool.query(`
             SELECT pi.*, 
-                   v.name as vendor_name,
-                   v.vendor_code,
-                   vba.account_name as bank_account_name,
-                   vba.account_number as bank_account_number
+                   v.name  AS vendor_name,
+                   v.bank_account_number,
+                   v.bank_account_type
             FROM payment_items pi
             LEFT JOIN vendors v ON pi.vendor_id = v.id
-            LEFT JOIN vendor_bank_accounts vba ON pi.vendor_bank_account_id = vba.id
             WHERE pi.id = $1
         `, [itemResult.rows[0].id]);
         
