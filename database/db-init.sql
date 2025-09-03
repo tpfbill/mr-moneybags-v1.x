@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS vendors (
     name VARCHAR(100) NOT NULL,
     name_detail TEXT,
     account_type VARCHAR(100) NOT NULL,
-    payment_type VARCHAR(100) NOT NULL,
+    payment_type VARCHAR(100),
     tax_id VARCHAR(20),
     contact_name VARCHAR(100),
     email VARCHAR(100),
@@ -281,14 +281,20 @@ BEGIN
         ALTER TABLE vendors ALTER COLUMN account_type SET NOT NULL;
     END IF;
 
+    /* -------- payment_type (now nullable) ------------------------------- */
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name='vendors' AND column_name='payment_type'
     ) THEN
         ALTER TABLE vendors ADD COLUMN payment_type VARCHAR(100);
-        UPDATE vendors SET payment_type = 'EFT' WHERE payment_type IS NULL;
-        ALTER TABLE vendors ALTER COLUMN payment_type SET NOT NULL;
     END IF;
+
+    -- ensure column is nullable (DROP NOT NULL is safe if already nullable)
+    BEGIN
+        ALTER TABLE vendors ALTER COLUMN payment_type DROP NOT NULL;
+    EXCEPTION WHEN undefined_column THEN
+        -- column missing; ignore
+    END;
 
     PERFORM 1 FROM information_schema.columns
       WHERE table_name='vendors' AND column_name='last_used';

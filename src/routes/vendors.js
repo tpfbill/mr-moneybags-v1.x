@@ -4,13 +4,12 @@ const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 const multer = require('multer');
-const fs = require('fs');
 const { parse } = require('csv-parse/sync');
 
 // ---------------------------------------------------------------------------
-// File-upload helper (stores uploads/uuid.tmp, auto-removed after parse)
+// File-upload helper (in-memory storage – no temp files)
 // ---------------------------------------------------------------------------
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // ---------------------------------------------------------------------------
 // Normalisers for CSV fields
@@ -34,7 +33,10 @@ function normalizeAccountType(v) {
 const VALID_PMT = ['eft', 'check', 'paypal', 'autodraft', 'cap one', 'convera'];
 function normalizePaymentType(v) {
   const t = (v || '').toString().trim().toLowerCase();
-  return VALID_PMT.includes(t) ? (t === 'cap one' ? 'Cap One' : t.charAt(0).toUpperCase() + t.slice(1)) : 'EFT';
+  if (!t) return null;
+  if (!VALID_PMT.includes(t)) return null;
+  // Title-case except special 'cap one'
+  return t === 'cap one' ? 'Cap One' : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 function toDateYYYYMMDD(v) {
@@ -227,14 +229,8 @@ router.post('/import',
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const filePath = req.file.path;
-    let csv;
-    try {
-      csv = fs.readFileSync(filePath, 'utf8');
-    } finally {
-      // Cleanup temp file
-      fs.unlink(filePath, () => {});
-    }
+    // Read CSV text directly from the in-memory buffer
+    const csv = req.file.buffer.toString('utf8');
 
     // Parse CSV
     let records;
