@@ -323,6 +323,7 @@ period AS (
 ),
 detail AS (
   SELECT
+    p.id AS line_id,
     p.account_id,
     p.account_code,
     p.account_name,
@@ -346,7 +347,7 @@ detail AS (
 )
 SELECT *
 FROM detail
-ORDER BY account_code, entry_date, id;
+ORDER BY account_code, entry_date, line_id;
 `;
 
     // ---------------------------------------------------------------------
