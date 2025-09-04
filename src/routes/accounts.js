@@ -50,6 +50,8 @@ router.post('/', asyncHandler(async (req, res) => {
     const {
         entity_id,
         code,
+        report_code,
+        chart_code,
         description,
         classifications,
         status
@@ -62,6 +64,14 @@ router.post('/', asyncHandler(async (req, res) => {
     
     if (!code) {
         return res.status(400).json({ error: 'Account code is required' });
+    }
+
+    // Validate report_code
+    if (!report_code) {
+        return res.status(400).json({ error: 'Report code is required' });
+    }
+    if (!/^[0-9]{4}$/.test(report_code)) {
+        return res.status(400).json({ error: 'Report code must be exactly 4 digits' });
     }
     
     if (!description) {
@@ -95,15 +105,19 @@ router.post('/', asyncHandler(async (req, res) => {
         INSERT INTO accounts (
             entity_id,
             code,
+            report_code,
+            chart_code,
             description,
             classifications,
             status,
             balance
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
     `, [
         entity_id,
         code,
+        report_code,
+        chart_code || null,
         description,
         classifications,
         status || 'Active',
@@ -122,6 +136,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
     const {
         entity_id,
         code,
+        report_code,
+        chart_code,
         description,
         classifications,
         status,
@@ -137,6 +153,14 @@ router.put('/:id', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Account code is required' });
     }
     
+    // Validate report_code
+    if (!report_code) {
+        return res.status(400).json({ error: 'Report code is required' });
+    }
+    if (!/^[0-9]{4}$/.test(report_code)) {
+        return res.status(400).json({ error: 'Report code must be exactly 4 digits' });
+    }
+
     if (!description) {
         return res.status(400).json({ error: 'Account description is required' });
     }
@@ -166,18 +190,22 @@ router.put('/:id', asyncHandler(async (req, res) => {
     
     const { rows } = await pool.query(`
         UPDATE accounts
-        SET entity_id = $1,
-            code = $2,
-            description = $3,
-            classifications = $4,
-            status = $5,
-            balance = $6,
-            updated_at = NOW()
-        WHERE id = $7
+        SET entity_id      = $1,
+            code           = $2,
+            report_code    = $3,
+            chart_code     = $4,
+            description    = $5,
+            classifications= $6,
+            status         = $7,
+            balance        = $8,
+            updated_at     = NOW()
+        WHERE id = $9
         RETURNING *
     `, [
         entity_id,
         code,
+        report_code,
+        chart_code || null,
         description,
         classifications,
         status,
