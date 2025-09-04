@@ -263,11 +263,11 @@ router.get('/gl', asyncHandler(async (req, res) => {
         params.push(fund_id);
     }
     if (account_code_from) {
-        conds.push(`a.code >= $${idx++}`);
+        conds.push(`COALESCE(a.report_code, a.code) >= $${idx++}`);
         params.push(account_code_from);
     }
     if (account_code_to) {
-        conds.push(`a.code <= $${idx++}`);
+        conds.push(`COALESCE(a.report_code, a.code) <= $${idx++}`);
         params.push(account_code_to);
     }
     if (status && status.trim() !== '') {
@@ -290,7 +290,7 @@ WITH items AS (
     je.entry_date,
     je.reference_number,
     a.id   AS account_id,
-    a.code AS account_code,
+    COALESCE(a.report_code, a.code) AS account_code,
     a.description AS account_name,
     a.classifications AS acct_class,
     f.id   AS fund_id,
@@ -365,7 +365,7 @@ WITH items AS (
     jei.credit,
     je.entry_date,
     a.id   AS account_id,
-    a.code AS account_code,
+    COALESCE(a.report_code, a.code) AS account_code,
     a.description AS account_name,
     a.classifications AS acct_class
   FROM journal_entry_items AS jei
