@@ -237,7 +237,8 @@ router.get('/gl', asyncHandler(async (req, res) => {
         entity_id,
         fund_id,
         account_code_from,
-        account_code_to
+        account_code_to,
+        status
     } = req.query;
 
     if (!start_date || !end_date) {
@@ -250,7 +251,6 @@ router.get('/gl', asyncHandler(async (req, res) => {
     const params = [start_date, end_date];
     let idx = 3;            // next placeholder index
     const conds = [
-        "je.status = 'Posted'",
         `je.entry_date <= $2`
     ];
 
@@ -269,6 +269,10 @@ router.get('/gl', asyncHandler(async (req, res) => {
     if (account_code_to) {
         conds.push(`a.code <= $${idx++}`);
         params.push(account_code_to);
+    }
+    if (status && status.trim() !== '') {
+        conds.push(`LOWER(TRIM(je.status)) = LOWER(TRIM($${idx++}))`);
+        params.push(status);
     }
 
     const itemsWhere = conds.join(' AND ');
@@ -414,13 +418,23 @@ ORDER BY i.account_code;
 `;
 
     // Execute both queries concurrently
+
+    // ---------------------------------------------------------------------
+    // Debug logging (helps troubleshoot filters & SQL generated)
+    // ---------------------------------------------------------------------
+    /* eslint-disable no-console */
+    console.log('[GL] params:', params);
+    console.log('[GL] sqlDetail:', sqlDetail);
+    console.log('[GL] sqlSummary:', sqlSummary);
+    /* eslint-enable no-console */
+
     const [detailResult, summaryResult] = await Promise.all([
         pool.query(sqlDetail, params),
         pool.query(sqlSummary, params)
     ]);
 
     res.json({
-        params: { start_date, end_date, entity_id, fund_id, account_code_from, account_code_to },
+        params: { start_date, end_date, entity_id, fund_id, account_code_from, account_code_to, status },
         summary: summaryResult.rows,
         detail: detailResult.rows
     });
