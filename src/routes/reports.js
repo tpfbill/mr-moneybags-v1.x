@@ -219,4 +219,225 @@ router.delete('/custom/:id', asyncHandler(async (req, res) => {
     res.status(204).send();
 }));
 
+/**
+ * GET /api/reports/gl
+ * Returns General Ledger detail lines plus a per-account summary for a date range.
+ * Query params (all strings):
+ *   start_date (YYYY-MM-DD)  – required
+ *   end_date   (YYYY-MM-DD)  – required
+ *   entity_id  – optional UUID
+ *   fund_id    – optional UUID
+ *   account_code_from – optional string
+ *   account_code_to   – optional string
+ */
+router.get('/gl', asyncHandler(async (req, res) => {
+    const {
+        start_date,
+        end_date,
+        entity_id,
+        fund_id,
+        account_code_from,
+        account_code_to,
+        status
+    } = req.query;
+
+    if (!start_date || !end_date) {
+        return res.status(400).json({ error: 'start_date and end_date are required (YYYY-MM-DD)' });
+    }
+
+    // ---------------------------------------------------------------------
+    // Build param list + reusable WHERE conditions
+    // ---------------------------------------------------------------------
+    const params = [start_date, end_date];
+    let idx = 3;            // next placeholder index
+    const conds = [
+        `je.entry_date <= $2`
+    ];
+
+    if (entity_id) {
+        conds.push(`je.entity_id = $${idx++}`);
+        params.push(entity_id);
+    }
+    if (fund_id) {
+        conds.push(`jei.fund_id = $${idx++}`);
+        params.push(fund_id);
+    }
+    if (account_code_from) {
+        conds.push(`a.code >= $${idx++}`);
+        params.push(account_code_from);
+    }
+    if (account_code_to) {
+        conds.push(`a.code <= $${idx++}`);
+        params.push(account_code_to);
+    }
+    if (status && status.trim() !== '') {
+        conds.push(`LOWER(TRIM(je.status)) = LOWER(TRIM($${idx++}))`);
+        params.push(status);
+    }
+
+    const itemsWhere = conds.join(' AND ');
+
+    // ---------------------------------------------------------------------
+    // Detail query
+    // ---------------------------------------------------------------------
+    const sqlDetail = `
+WITH items AS (
+  SELECT
+    jei.id,
+    jei.debit,
+    jei.credit,
+    COALESCE(je.description, jei.description) AS line_description,
+    je.entry_date,
+    je.reference_number,
+    a.id   AS account_id,
+    a.code AS account_code,
+    a.description AS account_name,
+    a.classifications AS acct_class,
+    f.id   AS fund_id,
+    f.code AS fund_code,
+    f.name AS fund_name
+  FROM journal_entry_items AS jei
+  JOIN journal_entries      AS je ON je.id = jei.journal_entry_id
+  JOIN accounts             AS a  ON a.id  = jei.account_id
+  LEFT JOIN funds           AS f  ON f.id  = jei.fund_id
+  WHERE ${itemsWhere}
+),
+opening AS (
+  SELECT
+    account_id,
+    SUM(
+      CASE WHEN acct_class IN ('Asset','Expense')
+           THEN COALESCE(debit,0) - COALESCE(credit,0)
+           ELSE COALESCE(credit,0) - COALESCE(debit,0)
+      END
+    ) AS opening_balance
+  FROM items
+  WHERE entry_date < $1
+  GROUP BY account_id
+),
+period AS (
+  SELECT
+    i.*,
+    CASE WHEN i.acct_class IN ('Asset','Expense')
+         THEN COALESCE(i.debit,0) - COALESCE(i.credit,0)
+         ELSE COALESCE(i.credit,0) - COALESCE(i.debit,0)
+    END AS signed_amount
+  FROM items i
+  WHERE i.entry_date BETWEEN $1 AND $2
+),
+detail AS (
+  SELECT
+    p.id AS line_id,
+    p.account_id,
+    p.account_code,
+    p.account_name,
+    p.acct_class,
+    p.entry_date,
+    p.reference_number,
+    p.line_description,
+    p.fund_id,
+    p.fund_code,
+    p.fund_name,
+    p.debit,
+    p.credit,
+    COALESCE(o.opening_balance, 0) AS opening_balance,
+    SUM(p.signed_amount) OVER (
+      PARTITION BY p.account_id
+      ORDER BY p.entry_date, p.id
+      ROWS UNBOUNDED PRECEDING
+    ) + COALESCE(o.opening_balance, 0) AS running_balance
+  FROM period p
+  LEFT JOIN opening o ON o.account_id = p.account_id
+)
+SELECT *
+FROM detail
+ORDER BY account_code, entry_date, line_id;
+`;
+
+    // ---------------------------------------------------------------------
+    // Summary query
+    // ---------------------------------------------------------------------
+    const sqlSummary = `
+WITH items AS (
+  SELECT
+    jei.id,
+    jei.debit,
+    jei.credit,
+    je.entry_date,
+    a.id   AS account_id,
+    a.code AS account_code,
+    a.description AS account_name,
+    a.classifications AS acct_class
+  FROM journal_entry_items AS jei
+  JOIN journal_entries      AS je ON je.id = jei.journal_entry_id
+  JOIN accounts             AS a  ON a.id  = jei.account_id
+  WHERE ${itemsWhere}
+),
+opening AS (
+  SELECT
+    account_id,
+    SUM(
+      CASE WHEN acct_class IN ('Asset','Expense')
+           THEN COALESCE(debit,0) - COALESCE(credit,0)
+           ELSE COALESCE(credit,0) - COALESCE(debit,0)
+      END
+    ) AS opening_balance
+  FROM items
+  WHERE entry_date < $1
+  GROUP BY account_id
+),
+activity AS (
+  SELECT
+    account_id,
+    SUM(debit)  AS period_debits,
+    SUM(credit) AS period_credits,
+    SUM(
+      CASE WHEN acct_class IN ('Asset','Expense')
+           THEN COALESCE(debit,0) - COALESCE(credit,0)
+           ELSE COALESCE(credit,0) - COALESCE(debit,0)
+      END
+    ) AS period_net
+  FROM items
+  WHERE entry_date BETWEEN $1 AND $2
+  GROUP BY account_id
+)
+SELECT
+  i.account_id,
+  i.account_code,
+  i.account_name,
+  COALESCE(o.opening_balance, 0) AS opening_balance,
+  COALESCE(a.period_debits, 0)   AS debits,
+  COALESCE(a.period_credits, 0)  AS credits,
+  COALESCE(o.opening_balance, 0) + COALESCE(a.period_net, 0) AS ending_balance
+FROM (
+  SELECT DISTINCT account_id, account_code, account_name FROM items
+) i
+LEFT JOIN opening  o ON o.account_id = i.account_id
+LEFT JOIN activity a ON a.account_id = i.account_id
+ORDER BY i.account_code;
+`;
+
+    // Execute both queries concurrently
+
+    // ---------------------------------------------------------------------
+    // Debug logging (helps troubleshoot filters & SQL generated)
+    // ---------------------------------------------------------------------
+    /* eslint-disable no-console */
+    console.log('[GL] params:', params);
+    console.log('[GL] sqlDetail:', sqlDetail);
+    console.log('[GL] sqlSummary:', sqlSummary);
+    /* eslint-enable no-console */
+
+    const [detailResult, summaryResult] = await Promise.all([
+        pool.query(sqlDetail, params),
+        pool.query(sqlSummary, params)
+    ]);
+
+    res.json({
+        params: { start_date, end_date, entity_id, fund_id, account_code_from, account_code_to, status },
+        summary: summaryResult.rows,
+        detail: detailResult.rows
+    });
+}));
+
 module.exports = router;
