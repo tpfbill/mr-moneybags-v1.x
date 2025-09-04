@@ -878,6 +878,64 @@ async function deleteVendor(vendorId) {
 }
 
 /* ---------------------------------------------------------------------------
+ * VENDOR CSV IMPORT
+ * -------------------------------------------------------------------------*/
+
+/**
+ * Upload a CSV file and import vendors via /api/vendors/import
+ * @param {File} file
+ */
+async function importVendorsFromCsv(file) {
+    if (!file) {
+        showToast('Validation', 'Please select a CSV file first', true);
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        console.log('[importVendors] Uploading CSV…', file.name, file.size, 'bytes');
+        showLoading();
+
+        const res = await fetch(`${API_BASE_URL}/api/vendors/import`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            let serverMsg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                serverMsg = ctype.includes('application/json')
+                    ? (await res.json()).error ?? ''
+                    : await res.text();
+            } catch (_) { /* ignore */ }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+
+        const result = await res.json();
+        console.log('[importVendors] Result:', result);
+        if (Array.isArray(result?.sampleErrors) && result.sampleErrors.length) {
+            console.warn('[importVendors] sampleErrors:', result.sampleErrors);
+        }
+        showToast(
+            'Import complete',
+            `Inserted ${result.inserted}, Updated ${result.updated}, Failed ${result.failed}`
+        );
+
+        // Refresh vendor list
+        await fetchVendors();
+    } catch (err) {
+        console.error('[importVendors] Error:', err);
+        showToast('Error', 'Vendor import failed: ' + err.message, true);
+    } finally {
+        hideLoading();
+    }
+}
+
+/* ---------------------------------------------------------------------------
  * NACHA SETTINGS CRUD OPERATIONS
  * -------------------------------------------------------------------------*/
 
@@ -1265,6 +1323,28 @@ document.addEventListener('DOMContentLoaded', async function() {
                 console.log(`✅ Refresh button ${id} event listener added`);
             }
         });
+
+        /* -----------------------------------------------------------
+         * Vendor CSV Import button
+         * ---------------------------------------------------------*/
+        const importBtn  = document.getElementById('importVendorsBtn');
+        const fileInput  = document.getElementById('vendorCsvFile');
+        if (importBtn && fileInput) {
+            importBtn.addEventListener('click', async () => {
+                const file = fileInput.files && fileInput.files[0];
+                if (!file) {
+                    showToast('Validation', 'Please choose a CSV file to import', true);
+                    return;
+                }
+                try {
+                    await importVendorsFromCsv(file);
+                } finally {
+                    // clear selection so the same file can be chosen again if needed
+                    fileInput.value = '';
+                }
+            });
+            console.log('✅ Import-vendors CSV button listener added');
+        }
 
         /* -----------------------------------------------------------
          * Dynamic field loaders & actions
