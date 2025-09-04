@@ -462,6 +462,8 @@ export async function openAccountModal(id) {
             form.elements['account-classifications'].value = account.classifications || '';
             form.elements['account-entity-id'].value = account.entity_id || '';
             form.elements['account-status'].value = account.status || 'Active';
+            // NEW: populate report code (simple 4-digit) field
+            form.elements['account-report-code'].value = account.report_code || '';
         } catch (error) {
             console.error('Error fetching account data:', error);
             showToast('Error loading account data', 'error');
@@ -488,6 +490,7 @@ export async function saveAccount(event) {
     // Get form data
     const data = {
         code: form.elements['account-code'].value,
+        report_code: form.elements['account-report-code'].value,
         description: form.elements['account-description'].value,
         classifications: form.elements['account-classifications'].value,
         entity_id: form.elements['account-entity-id'].value,

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>General Ledger - Nonprofit Fund Accounting</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .currency {
+            text-align: right;
+        }
+        .table-responsive {
+            margin-bottom: 1.5rem;
+        }
+        .sticky-header th {
+            position: sticky;
+            top: 0;
+            background-color: #f8f9fa;
+            z-index: 1;
+        }
+        .summary-row {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .negative {
+            color: #dc3545;
+        }
+        .report-section {
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .report-section h3 {
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="container-fluid mt-4">
+        <!-- Back buttons -->
+        <div class="text-center mb-4">
+            <button
+                class="btn btn-outline-secondary me-2"
+                onclick="window.location.href='default-reports.html'">
+                <i class="fas fa-arrow-left me-1"></i> Back to Reports
+            </button>
+            <button
+                class="btn btn-outline-secondary"
+                onclick="window.location.href='index.html'">
+                <i class="fas fa-home me-1"></i> Back to Dashboard
+            </button>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <h1>General Ledger</h1>
+                <p class="lead">View detailed general ledger entries and account summaries for a specified date range.</p>
+            </div>
+        </div>
+
+        <!-- Report Controls -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="glReportForm">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-2">
+                            <label for="startDate" class="form-label">Start Date *</label>
+                            <input type="date" class="form-control" id="startDate" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="endDate" class="form-label">End Date *</label>
+                            <input type="date" class="form-control" id="endDate" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status">
+                                <option value="">All Statuses</option>
+                                <option value="Posted">Posted</option>
+                                <option value="Draft">Draft</option>
+                                <option value="Unposted">Unposted</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="accountFrom" class="form-label">Account From</label>
+                            <input type="text" class="form-control" id="accountFrom" placeholder="e.g., 1000">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="accountTo" class="form-label">Account To</label>
+                            <input type="text" class="form-control" id="accountTo" placeholder="e.g., 9999">
+                        </div>
+                        <div class="col-md-2 d-flex">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-1"></i> Run Report
+                            </button>
+                            <button type="reset" class="btn btn-outline-secondary">
+                                <i class="fas fa-undo me-1"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Alert Area -->
+        <div id="alertArea" style="display: none;" class="alert alert-danger mb-4">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <span id="alertMessage"></span>
+        </div>
+
+        <!-- Report Results -->
+        <div id="reportResults" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Report Results</h2>
+                <div>
+                    <span id="reportDateRange" class="badge bg-secondary me-2"></span>
+                    <span id="reportStatus" class="badge bg-info"></span>
+                </div>
+            </div>
+
+            <!-- Summary Section -->
+            <div class="report-section">
+                <h3>Account Summary</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="summaryTable">
+                        <thead class="sticky-header">
+                            <tr>
+                                <th>Account</th>
+                                <th>Name</th>
+                                <th class="currency">Opening Balance</th>
+                                <th class="currency">Debits</th>
+                                <th class="currency">Credits</th>
+                                <th class="currency">Ending Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTableBody">
+                            <!-- Summary rows will be inserted here -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="summary-row">
+                                <td colspan="2">Totals</td>
+                                <td id="totalOpening" class="currency">$0.00</td>
+                                <td id="totalDebits" class="currency">$0.00</td>
+                                <td id="totalCredits" class="currency">$0.00</td>
+                                <td id="totalEnding" class="currency">$0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detail Section -->
+            <div class="report-section">
+                <h3>Transaction Details</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="detailTable">
+                        <thead class="sticky-header">
+                            <tr>
+                                <th>Date</th>
+                                <th>Ref</th>
+                                <th>Account</th>
+                                <th>Name</th>
+                                <th>Fund</th>
+                                <th>Description</th>
+                                <th class="currency">Debit</th>
+                                <th class="currency">Credit</th>
+                                <th class="currency">Running Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailTableBody">
+                            <!-- Detail rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Results Message -->
+        <div id="noResultsMessage" style="display: none;" class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            No transactions found for the specified criteria.
+        </div>
+
+        <!-- Footer Note -->
+        <div class="card mt-4 mb-4">
+            <div class="card-body text-muted small">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Note:</strong> By default, the report includes transactions with all statuses. 
+                To filter by a specific status (e.g., Posted, Draft, Unposted), select it from the Status dropdown.
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toastNotification" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toastTitle">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                Operation completed successfully.
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="src/js/gl-report.js"></script>
+</body>
+</html>

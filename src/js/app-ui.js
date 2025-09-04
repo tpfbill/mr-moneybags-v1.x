@@ -390,7 +390,7 @@ export function updateChartOfAccountsTable() {
                 'Unknown');
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${account.code}</td>
+            <td>${account.chart_code || account.code}</td>
             <td>${account.description}</td>
             <td>${account.classifications}</td>
             <td>${entityName}</td>
