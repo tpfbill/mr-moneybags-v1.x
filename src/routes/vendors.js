@@ -222,25 +222,32 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/vendors/import  (CSV upload)
 // ---------------------------------------------------------------------------
-router.post('/import',
+router.post(
+  '/import',
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Read CSV text directly from the in-memory buffer
     const csv = req.file.buffer.toString('utf8');
 
-    // Parse CSV
     let records;
     try {
-      records = parse(csv, { columns: true, skip_empty_lines: true, trim: true });
+      records = parse(csv, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true
+      });
     } catch (err) {
-      return res.status(400).json({ error: 'Invalid CSV format', message: err.message });
+      return res
+        .status(400)
+        .json({ error: 'Invalid CSV format', message: err.message });
     }
 
-    let inserted = 0, updated = 0, failed = 0;
+    let inserted = 0,
+      updated = 0,
+      failed = 0;
     const errors = [];
 
     for (let i = 0; i < records.length; i++) {
@@ -249,7 +256,7 @@ router.post('/import',
         const name = (r.name || '').trim();
         if (!name) throw new Error('Missing name');
 
-        // Prepare fields with requested defaults/normalisation
+        const idCandidate = (r.id || '').toString().trim() || null;
         const row = {
           name,
           name_detail: (r.name_detail || '').trim() || null,
@@ -273,41 +280,71 @@ router.post('/import',
           payment_type: normalizePaymentType(r.payment_type)
         };
 
-        // Upsert by name (case-insensitive)
-        const existing = await pool.query(
-          'SELECT id FROM vendors WHERE LOWER(name) = LOWER($1) LIMIT 1',
-          [row.name]
-        );
-
-        if (existing.rows.length) {
-          const id = existing.rows[0].id;
-          await pool.query(
-            `UPDATE vendors
-               SET name=$1, name_detail=$2, contact_name=$3, email=$4,
-                   street_1=$5, street_2=$6, city=$7, state=$8, zip=$9, country=$10,
-                   tax_id=$11, vendor_type=$12, subject_to_1099=$13,
-                   bank_account_type=$14, bank_routing_number=$15, bank_account_number=$16,
-                   last_used=$17, status=$18, account_type=$19, payment_type=$20
-             WHERE id=$21`,
-            [...Object.values(row), id]
-          );
-          updated++;
+        if (idCandidate) {
+          // Upsert by explicit ID
+          const byId = await pool.query('SELECT id FROM vendors WHERE id = $1 LIMIT 1', [idCandidate]);
+          if (byId.rows.length) {
+            await pool.query(
+              `UPDATE vendors
+                 SET name=$1, name_detail=$2, contact_name=$3, email=$4,
+                     street_1=$5, street_2=$6, city=$7, state=$8, zip=$9, country=$10,
+                     tax_id=$11, vendor_type=$12, subject_to_1099=$13,
+                     bank_account_type=$14, bank_routing_number=$15, bank_account_number=$16,
+                     last_used=$17, status=$18, account_type=$19, payment_type=$20
+               WHERE id=$21`,
+              [...Object.values(row), idCandidate]
+            );
+            updated++;
+          } else {
+            await pool.query(
+              `INSERT INTO vendors
+                (id, name, name_detail, contact_name, email,
+                 street_1, street_2, city, state, zip, country,
+                 tax_id, vendor_type, subject_to_1099,
+                 bank_account_type, bank_routing_number, bank_account_number,
+                 last_used, status, account_type, payment_type)
+               VALUES ($1,$2,$3,$4,$5,
+                       $6,$7,$8,$9,$10,$11,
+                       $12,$13,$14,
+                       $15,$16,$17,
+                       $18,$19,$20,$21)`,
+              [idCandidate, ...Object.values(row)]
+            );
+            inserted++;
+          }
         } else {
-          await pool.query(
-            `INSERT INTO vendors
-              (name, name_detail, contact_name, email,
-               street_1, street_2, city, state, zip, country,
-               tax_id, vendor_type, subject_to_1099,
-               bank_account_type, bank_routing_number, bank_account_number,
-               last_used, status, account_type, payment_type)
-             VALUES ($1,$2,$3,$4,
-                     $5,$6,$7,$8,$9,$10,
-                     $11,$12,$13,
-                     $14,$15,$16,
-                     $17,$18,$19,$20)`,
-            Object.values(row)
-          );
-          inserted++;
+          // Fallback upsert by name (case-insensitive)
+          const existing = await pool.query('SELECT id FROM vendors WHERE LOWER(name) = LOWER($1) LIMIT 1', [row.name]);
+          if (existing.rows.length) {
+            const id = existing.rows[0].id;
+            await pool.query(
+              `UPDATE vendors
+                 SET name=$1, name_detail=$2, contact_name=$3, email=$4,
+                     street_1=$5, street_2=$6, city=$7, state=$8, zip=$9, country=$10,
+                     tax_id=$11, vendor_type=$12, subject_to_1099=$13,
+                     bank_account_type=$14, bank_routing_number=$15, bank_account_number=$16,
+                     last_used=$17, status=$18, account_type=$19, payment_type=$20
+               WHERE id=$21`,
+              [...Object.values(row), id]
+            );
+            updated++;
+          } else {
+            await pool.query(
+              `INSERT INTO vendors
+                (name, name_detail, contact_name, email,
+                 street_1, street_2, city, state, zip, country,
+                 tax_id, vendor_type, subject_to_1099,
+                 bank_account_type, bank_routing_number, bank_account_number,
+                 last_used, status, account_type, payment_type)
+               VALUES ($1,$2,$3,$4,
+                       $5,$6,$7,$8,$9,$10,
+                       $11,$12,$13,
+                       $14,$15,$16,
+                       $17,$18,$19,$20)`,
+              Object.values(row)
+            );
+            inserted++;
+          }
         }
       } catch (err) {
         failed++;
