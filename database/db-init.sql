@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 
 -- Record current schema version for this seed
 INSERT INTO schema_meta (version)
-VALUES ('2025-08-31-01')
+VALUES ('2025-09-04-01')
 ON CONFLICT (version) DO NOTHING;
 
 -- =============================================================================
@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     entity_id UUID NOT NULL REFERENCES entities(id),
     code VARCHAR(20) NOT NULL,
+    report_code VARCHAR(20),
     description VARCHAR(100) NOT NULL,
     classifications VARCHAR(50) NOT NULL,
     subtype VARCHAR(50),
@@ -71,6 +72,34 @@ CREATE TABLE IF NOT EXISTS accounts (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(entity_id, code)
 );
+
+-- ---------------------------------------------------------------------------
+-- Accounts post-create migration: ensure report_code column exists (idempotent)
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'accounts'
+          AND column_name = 'report_code'
+    ) THEN
+        ALTER TABLE accounts ADD COLUMN report_code VARCHAR(20);
+    END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Accounts post-create migration: ensure chart_code column exists (idempotent)
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'accounts'
+          AND column_name = 'chart_code'
+    ) THEN
+        ALTER TABLE accounts ADD COLUMN chart_code VARCHAR(50);
+    END IF;
+END $$;
 
 -- =============================================================================
 -- FUNDS TABLE
@@ -829,6 +858,29 @@ VALUES
     ('a7b8c9d0-e1f2-0a1b-4c5d-7e8f9a0b1c2d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1900', 'Due From TPF-ES', 'Asset', 5000.00, 'Active'),
     ('b8c9d0e1-f2a3-1b2c-5d6e-8f9a0b1c2d3e', (SELECT id FROM entities WHERE code = 'TPF-ES'),      '2900', 'Due To TPF Parent', 'Liability', 5000.00, 'Active')
 ON CONFLICT (entity_id, code) DO NOTHING;
+
+-- Backfill report_code where NULL using 4-digit code; then enforce NOT NULL when safe
+DO $$
+DECLARE
+    null_count INTEGER;
+BEGIN
+    -- Populate report_code for simple 4-digit account codes
+    UPDATE accounts
+       SET report_code = code
+     WHERE report_code IS NULL
+       AND code ~ '^[0-9]{4}$';
+
+    -- If all accounts now have a report_code, set column NOT NULL (safe & idempotent)
+    SELECT COUNT(*) INTO null_count FROM accounts WHERE report_code IS NULL;
+    IF null_count = 0 THEN
+        BEGIN
+            ALTER TABLE accounts ALTER COLUMN report_code SET NOT NULL;
+        EXCEPTION WHEN others THEN
+            -- Ignore if already altered or insufficient privileges
+            NULL;
+        END;
+    END IF;
+END $$;
 
 -- Sample Funds
 INSERT INTO funds (id, entity_id, code, name, type, restriction_type, balance, status)

@@ -126,6 +126,10 @@ CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
     code VARCHAR(50) NOT NULL,
+    -- Four-digit reporting code required for GL aggregation
+    report_code VARCHAR(20) NOT NULL,
+    -- Long formatted chart-of-accounts code (e.g., "1 4000 001 00")
+    chart_code VARCHAR(50),
     description VARCHAR(255) NOT NULL,
     classifications VARCHAR(50) NOT NULL,
     subtype VARCHAR(50),
