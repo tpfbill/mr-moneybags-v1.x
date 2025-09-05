@@ -424,6 +424,10 @@ export function updateFundsTable() {
     
     const fundsTbody = fundsTable.querySelector('tbody');
     if (!fundsTbody) return;
+
+    // Determine if current user is admin (role check is case-insensitive)
+    const isAdmin =
+        (appState.currentUser?.role || '').toLowerCase() === 'admin';
     
     // Determine filtering mode (current entity vs all entities)
     const fundsFilterSelect = document.getElementById('funds-filter-select');
@@ -461,6 +465,15 @@ export function updateFundsTable() {
     displayFunds.forEach(fund => {
         const entityName = appState.entities.find(entity => entity.id === fund.entity_id)?.name || 'Unknown';
         
+        // Build actions column HTML based on role
+        let actionsHtml = '';
+        if (isAdmin) {
+            actionsHtml = `
+                <button class="action-button btn-edit-fund" style="margin-right:6px;" data-id="${fund.id}">Edit</button>
+                <button class="action-button btn-delete-fund" data-id="${fund.id}">Delete</button>
+            `;
+        }
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${fund.code}</td>
@@ -469,9 +482,7 @@ export function updateFundsTable() {
             <td>${entityName}</td>
             <td>${formatCurrency(fund.balance)}</td>
             <td><span class="status status-${fund.status.toLowerCase()}">${fund.status}</span></td>
-            <td>
-                <button class="action-button btn-edit-fund" data-id="${fund.id}">Edit</button>
-            </td>
+            <td>${actionsHtml}</td>
         `;
         fundsTbody.appendChild(row);
     });
@@ -484,6 +495,16 @@ export function updateFundsTable() {
                 detail: { id: button.dataset.id } 
             });
             document.dispatchEvent(event);
+        });
+    });
+
+    // Add event listeners for delete buttons (admin only)
+    fundsTbody.querySelectorAll('.btn-delete-fund').forEach(button => {
+        button.addEventListener('click', () => {
+            const evt = new CustomEvent('deleteFund', {
+                detail: { id: button.dataset.id }
+            });
+            document.dispatchEvent(evt);
         });
     });
 }

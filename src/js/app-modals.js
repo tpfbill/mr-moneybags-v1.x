@@ -416,6 +416,54 @@ export async function saveFund(event) {
     }
 }
 
+/**
+ * Delete a fund
+ * @param {string} id - Fund ID to delete
+ */
+export async function deleteFund(id) {
+    if (!id) return;
+
+    // Confirm deletion
+    if (
+        !confirm(
+            'Are you sure you want to delete this fund? This action cannot be undone.'
+        )
+    ) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/funds/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            /* Attempt to read error message */
+            let msg = '';
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                if (ctype.includes('application/json')) {
+                    msg = (await res.json()).error || '';
+                } else {
+                    msg = await res.text();
+                }
+            } catch (_) {
+                /* ignore body read errors */
+            }
+            throw new Error(msg || `HTTP ${res.status}`);
+        }
+
+        // Reload funds data if loader provided
+        await loadFundData?.();
+
+        showToast('Fund deleted successfully', 'success');
+    } catch (err) {
+        console.error('Error deleting fund:', err);
+        showToast('Error deleting fund', 'error');
+    }
+}
+
 /* --------------------------------------------------------------
  * Account Modal Functions
  * -------------------------------------------------------------- */
@@ -1223,4 +1271,7 @@ export function initializeModalEventListeners() {
 
     document.addEventListener('openBankAccountModal', (e) => openBankAccountModal(e.detail?.id));
     document.addEventListener('deleteBankAccount',   (e) => deleteBankAccount(e.detail?.id));
+
+    // --- Funds (admin) custom events ---
+    document.addEventListener('deleteFund', (e) => deleteFund(e.detail?.id));
 }
