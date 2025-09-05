@@ -623,7 +623,7 @@ function renderVendorsTable() {
         /* actions buttons */
         const actions = isAdminUser ? `
             <div class="btn-group btn-group-sm">
-                <button class="btn btn-success btn-edit-vendor" data-id="${vendor.id}" title="Edit Vendor">
+                <button class="btn btn-success btn-edit-vendor me-1" data-id="${vendor.id}" title="Edit Vendor">
                     <i class="fas fa-edit me-1"></i> Edit
                 </button>
                 <button class="btn btn-success btn-delete-vendor" data-id="${vendor.id}" title="Delete Vendor">
