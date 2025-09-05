@@ -361,6 +361,39 @@ BEGIN
             CHECK (LOWER(payment_type) IN ('eft','check','paypal','autodraft','cap one','convera'));
     END IF;
 END $$;
+    /* ----------------------------------------------------------------------
+     * Add external business identifier column (zid) and case-insensitive
+     * unique index (idempotent).
+     * --------------------------------------------------------------------*/
+DO $$
+BEGIN
+    --------------------------------------------------------------------------
+    -- Add column if it doesn't exist
+    --------------------------------------------------------------------------
+    PERFORM 1
+    FROM   information_schema.columns
+    WHERE  table_name = 'vendors'
+      AND  column_name = 'zid';
+    IF NOT FOUND THEN
+        ALTER TABLE vendors
+            ADD COLUMN zid TEXT;
+    END IF;
+
+    --------------------------------------------------------------------------
+    -- Create unique index on LOWER(zid) (ignore NULLs) if it doesn't exist
+    --------------------------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1
+        FROM   pg_class c
+        JOIN   pg_namespace n ON n.oid = c.relnamespace
+        WHERE  c.relname  = 'uidx_vendors_zid_lower_not_null'
+          AND  n.nspname = 'public'
+    ) THEN
+        CREATE UNIQUE INDEX uidx_vendors_zid_lower_not_null
+            ON vendors (LOWER(zid))
+            WHERE zid IS NOT NULL;
+    END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Index on account_type for quick filtering

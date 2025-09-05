@@ -90,7 +90,13 @@ th.sticky-col-1, td.sticky-col-1 {
     position: sticky;
     left: 0;
     background: #fff;
-    z-index: 2;
+    z-index: 3;   /* ensure leftmost column sits above the next sticky column */
+    /* constrain width so next sticky column sits flush against it */
+    min-width: 220px;
+    max-width: 220px;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 th.sticky-col-2, td.sticky-col-2 {
@@ -98,6 +104,12 @@ th.sticky-col-2, td.sticky-col-2 {
     left: 220px;
     background: #fff;
     z-index: 2;
+    /* constrain width so scrolling columns cannot slip in between */
+    min-width: 240px;
+    max-width: 240px;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #vendorsTable th.sticky-col-1, #vendorsTable td.sticky-col-1 {
