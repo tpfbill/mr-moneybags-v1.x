@@ -20,6 +20,11 @@ let vendors = [];
 let nachaSettings = [];
 
 // Utility functions
+// ---------------------------------------------------------------------------
+// Admin role flag – updated by fetchCurrentUserRole()
+// ---------------------------------------------------------------------------
+let isAdminUser = false;
+
 /* ---------------------------------------------------------------------------
  * Filtering helpers (Vendor search)
  * -------------------------------------------------------------------------*/
@@ -45,6 +50,51 @@ function getFilteredVendors() {
         }
         return true;
     });
+}
+
+/* ---------------------------------------------------------------------------
+ * Auth helpers
+ * -------------------------------------------------------------------------*/
+/**
+ * Determine if the current session user is an admin and toggle UI controls.
+ * Sets global isAdminUser flag.
+ */
+async function fetchCurrentUserRole() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/user`, {
+            credentials: 'include'
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        isAdminUser =
+            data?.authenticated &&
+            data?.user &&
+            (data.user.role || '').toString().toLowerCase() === 'admin';
+    } catch (err) {
+        // Treat any failure as non-admin / not authenticated
+        console.warn('[RBAC] Failed to fetch user role – assuming non-admin:', err.message);
+        isAdminUser = false;
+    } finally {
+        /* Toggle New-Vendor button */
+        const newBtn = document.getElementById('newVendorBtn');
+        if (newBtn) {
+            newBtn.style.display = isAdminUser ? '' : 'none';
+            // ensure green styling
+            if (isAdminUser) {
+                newBtn.classList.remove('btn-primary');
+                if (!newBtn.classList.contains('btn-success')) {
+                    newBtn.classList.add('btn-success');
+                }
+            }
+        }
+        /* Toggle Delete-Vendor button in edit modal */
+        const delBtn = document.getElementById('deleteVendorBtn');
+        if (delBtn) {
+            delBtn.style.display = isAdminUser ? '' : 'none';
+        }
+    }
 }
 
 function showLoading() {
@@ -571,16 +621,16 @@ function renderVendorsTable() {
                                 .replace('_', ' ')}</span>`;
 
         /* actions buttons */
-        const actions = `
+        const actions = isAdminUser ? `
             <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary btn-edit-vendor" data-id="${vendor.id}" title="Edit Vendor">
+                <button class="btn btn-success btn-edit-vendor" data-id="${vendor.id}" title="Edit Vendor">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn btn-outline-danger btn-delete-vendor" data-id="${vendor.id}" title="Delete Vendor">
+                <button class="btn btn-success btn-delete-vendor" data-id="${vendor.id}" title="Delete Vendor">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
-        `;
+        ` : '';
 
         row.innerHTML = `
             <td class="sticky-col-1">${vendor.zid || '—'}</td>
@@ -1342,6 +1392,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     try {
         showLoading();
+        
+        // Check if user is admin
+        await fetchCurrentUserRole();
         
         console.log('📡 Starting API initialization...');
         
