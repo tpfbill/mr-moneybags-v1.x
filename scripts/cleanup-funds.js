@@ -243,6 +243,19 @@ async function countDependencies(client, fundIds) {
     emptyBankDepositIds = bankDepositsResult.rows.map(r => r.id);
   }
   
+  // Count budgets entries
+  let budgetsCount = 0;
+  const hasBudgets = await hasColumn(client, 'budgets', 'fund_id');
+  if (hasBudgets) {
+    const budgetsRes = await client.query(
+      `SELECT COUNT(*) as count
+         FROM budgets
+        WHERE fund_id IN (${placeholders})`,
+      fundIds
+    );
+    budgetsCount = Number(budgetsRes.rows[0].count);
+  }
+  
   return {
     funds: fundIds.length,
     journalEntryItems: parseInt(journalItemsResult.rows[0].count),
@@ -250,6 +263,7 @@ async function countDependencies(client, fundIds) {
     paymentBatches: paymentBatchesCount,
     bankDepositItems: bankDepositItemsCount,
     bankDeposits: emptyBankDepositIds.length,
+    budgets: budgetsCount,
     emptyJournalEntryIds,
     emptyBankDepositIds
   };
@@ -267,6 +281,9 @@ function reportDeletions(counts) {
   console.log(`Payment Batches: ${counts.paymentBatches}`);
   console.log(`Bank Deposit Items: ${counts.bankDepositItems}`);
   console.log(`Bank Deposits (that would become empty): ${counts.bankDeposits}`);
+  if (counts.budgets !== undefined) {
+    console.log(`Budgets: ${counts.budgets}`);
+  }
   console.log('================');
   console.log(`TOTAL ROWS AFFECTED: ${
     counts.funds + 
@@ -274,7 +291,8 @@ function reportDeletions(counts) {
     counts.journalEntries + 
     counts.paymentBatches + 
     counts.bankDepositItems + 
-    counts.bankDeposits
+    counts.bankDeposits +
+    (counts.budgets || 0)
   }`);
 }
 
@@ -344,7 +362,16 @@ async function executeDeleteTransaction(client, fundIds, counts) {
       console.log(`Deleted ${bankDepositsResult.rowCount} empty bank deposits.`);
     }
     
-    // Step 6: Finally delete the funds
+    // Step 6: Delete budgets entries
+    if (counts.budgets > 0) {
+      const budgetsResult = await client.query(`
+        DELETE FROM budgets 
+        WHERE fund_id IN (${placeholders})
+      `, fundIds);
+      console.log(`Deleted ${budgetsResult.rowCount} budget entries.`);
+    }
+    
+    // Step 7: Finally delete the funds
     const fundsResult = await client.query(`
       DELETE FROM funds 
       WHERE id IN (${placeholders})
@@ -362,7 +389,8 @@ async function executeDeleteTransaction(client, fundIds, counts) {
       journalEntries: counts.journalEntries,
       paymentBatches: counts.paymentBatches,
       bankDepositItems: counts.bankDepositItems,
-      bankDeposits: counts.bankDeposits
+      bankDeposits: counts.bankDeposits,
+      budgets: counts.budgets || 0
     };
     
     console.log('\nFINAL DELETION REPORT:');

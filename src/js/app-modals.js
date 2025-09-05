@@ -332,20 +332,78 @@ export async function openFundModal(id) {
     // Set modal title
     title.textContent = id ? 'Edit Fund' : 'Create Fund';
     
-    // Populate entity dropdown
-    const entitySelect = form.querySelector('#fund-entity-id');
-    entitySelect.innerHTML = '';
+    // Populate entity name dropdown if present
+    const entityNameSelect = form.querySelector('#fund-entity-name');
+    if (entityNameSelect) {
+        entityNameSelect.innerHTML = '';
+        const entityNames = ['TPF', 'TPFES', 'NFCSN'];
+        entityNames.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            entityNameSelect.appendChild(option);
+        });
+    }
     
-    appState.entities.forEach(entity => {
-        const option = document.createElement('option');
-        option.value = entity.id;
-        option.textContent = entity.name;
-        entitySelect.appendChild(option);
-    });
+    // Populate entity code dropdown if present
+    const entityCodeSelect = form.querySelector('#fund-entity-code');
+    if (entityCodeSelect) {
+        entityCodeSelect.innerHTML = '';
+        const entityCodes = ['1', '2', '3'];
+        entityCodes.forEach(code => {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = code;
+            entityCodeSelect.appendChild(option);
+        });
+    }
     
-    // Set default entity to currently selected entity
-    if (appState.selectedEntityId) {
-        entitySelect.value = appState.selectedEntityId;
+    // Populate restriction dropdown if present
+    const restrictionSelect = form.querySelector('#fund-restriction');
+    if (restrictionSelect) {
+        restrictionSelect.innerHTML = '';
+        const restrictions = ['00', '01'];
+        restrictions.forEach(restriction => {
+            const option = document.createElement('option');
+            option.value = restriction;
+            option.textContent = restriction;
+            restrictionSelect.appendChild(option);
+        });
+    }
+    
+    // Populate budget dropdown if present
+    const budgetSelect = form.querySelector('#fund-budget');
+    if (budgetSelect) {
+        budgetSelect.innerHTML = '';
+        const budgetOptions = ['Yes', 'No'];
+        budgetOptions.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            budgetSelect.appendChild(opt);
+        });
+    }
+    
+    // Populate balance sheet dropdown if present
+    const balanceSheetSelect = form.querySelector('#fund-balance-sheet');
+    if (balanceSheetSelect) {
+        balanceSheetSelect.innerHTML = '';
+        const balanceSheetOptions = ['Yes', 'No'];
+        balanceSheetOptions.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            balanceSheetSelect.appendChild(opt);
+        });
+    }
+    
+    // Set default date for last_used in create mode
+    if (!id) {
+        const lastUsedInput = form.querySelector('#fund-last-used');
+        if (lastUsedInput) {
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            lastUsedInput.value = today;
+        }
     }
     
     // If editing, populate form with fund data
@@ -353,12 +411,29 @@ export async function openFundModal(id) {
         try {
             const fund = await fetchData(`funds/${id}`);
             
-            form.elements['fund-code'].value = fund.code || '';
-            form.elements['fund-name'].value = fund.name || '';
-            form.elements['fund-type'].value = fund.type || '';
-            form.elements['fund-entity-id'].value = fund.entity_id || '';
-            form.elements['fund-status'].value = fund.status || 'Active';
-            form.elements['fund-description'].value = fund.description || '';
+            // Populate new schema fields
+            form.querySelector('#fund-number')?.setAttribute('value', fund.fund_number || '');
+            form.querySelector('#fund-code')?.setAttribute('value', fund.fund_code || '');
+            form.querySelector('#fund-name')?.setAttribute('value', fund.fund_name || '');
+            
+            // Set select values if they exist
+            if (entityNameSelect) entityNameSelect.value = fund.entity_name || 'TPF';
+            if (entityCodeSelect) entityCodeSelect.value = fund.entity_code || '1';
+            if (restrictionSelect) restrictionSelect.value = fund.restriction || '00';
+            if (budgetSelect) budgetSelect.value = fund.budget || 'No';
+            if (balanceSheetSelect) balanceSheetSelect.value = fund.balance_sheet || 'No';
+            
+            // Set status
+            const statusSelect = form.querySelector('#fund-status');
+            if (statusSelect) statusSelect.value = fund.status || 'Active';
+            
+            // Set last_used date
+            const lastUsedInput = form.querySelector('#fund-last-used');
+            if (lastUsedInput && fund.last_used) {
+                // Format date as YYYY-MM-DD for input[type=date]
+                const lastUsed = new Date(fund.last_used).toISOString().split('T')[0];
+                lastUsedInput.value = lastUsed;
+            }
         } catch (error) {
             console.error('Error fetching fund data:', error);
             showToast('Error loading fund data', 'error');
@@ -382,14 +457,18 @@ export async function saveFund(event) {
     // Validate form
     if (!validateForm(form)) return;
     
-    // Get form data
+    // Get form data for new schema
     const data = {
-        code: form.elements['fund-code'].value,
-        name: form.elements['fund-name'].value,
-        type: form.elements['fund-type'].value,
-        entity_id: form.elements['fund-entity-id'].value,
-        status: form.elements['fund-status'].value,
-        description: form.elements['fund-description'].value
+        fund_number: form.querySelector('#fund-number')?.value || null,
+        fund_code: form.querySelector('#fund-code')?.value,
+        fund_name: form.querySelector('#fund-name')?.value,
+        entity_name: form.querySelector('#fund-entity-name')?.value || 'TPF',
+        entity_code: form.querySelector('#fund-entity-code')?.value || '1',
+        restriction: form.querySelector('#fund-restriction')?.value || '00',
+        budget: form.querySelector('#fund-budget')?.value || 'No',
+        balance_sheet: form.querySelector('#fund-balance-sheet')?.value || 'No',
+        status: form.querySelector('#fund-status')?.value || 'Active',
+        last_used: form.querySelector('#fund-last-used')?.value || null
     };
     
     try {
@@ -445,7 +524,11 @@ export async function deleteFund(id, rowEl) {
             try {
                 const ctype = res.headers.get('content-type') || '';
                 if (ctype.includes('application/json')) {
-                    msg = (await res.json()).error || '';
+                    const j = await res.json();
+                    // Combine error + details when both exist
+                    const base = j.error || '';
+                    const details = j.details || '';
+                    msg = details ? `${base} — ${details}` : base;
                 } else {
                     msg = await res.text();
                 }
@@ -466,7 +549,7 @@ export async function deleteFund(id, rowEl) {
         showToast('Fund deleted successfully', 'success');
     } catch (err) {
         console.error('Error deleting fund:', err);
-        showToast('Error deleting fund', 'error');
+        showToast(err?.message || 'Error deleting fund', 'error');
     }
 }
 
@@ -693,7 +776,7 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     // Populate funds dropdown
     let fundsOptions = '<option value="">Select Fund</option>';
     appState.funds.forEach(fund => {
-        fundsOptions += `<option value="${fund.id}">${fund.code} - ${fund.name}</option>`;
+        fundsOptions += `<option value="${fund.id}">${fund.fund_code} - ${fund.fund_name}</option>`;
     });
     
     lineItem.innerHTML = `

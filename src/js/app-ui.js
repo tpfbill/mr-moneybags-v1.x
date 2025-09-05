@@ -30,8 +30,8 @@ export function updateFundReportsFilters() {
     // Sort by code then name for predictable ordering
     funds.sort(
         (a, b) =>
-            (a.code || '').localeCompare(b.code || '') ||
-            (a.name || '').localeCompare(b.name || '')
+            (a.fund_code || '').localeCompare(b.fund_code || '') ||
+            (a.fund_name || '').localeCompare(b.fund_name || '')
     );
 
     // Re-build the <select> options
@@ -45,16 +45,9 @@ export function updateFundReportsFilters() {
     funds.forEach(fund => {
         const opt = document.createElement('option');
         opt.value = fund.id;
-
-        // Show entity name suffix only when consolidated view is enabled
-        const entityName =
-            (appState.entities.find(e => e.id === fund.entity_id) || {}).name;
-        const suffix =
-            appState.isConsolidatedView && entityName ? ` (${entityName})` : '';
-
-        opt.textContent = `${fund.code || ''}${
-            fund.code ? ' - ' : ''
-        }${fund.name || ''}${suffix}`.trim();
+        opt.textContent = `${fund.fund_code || ''}${
+            fund.fund_code ? ' - ' : ''
+        }${fund.fund_name || ''}`.trim();
         fundSelect.appendChild(opt);
     });
 
@@ -429,26 +422,10 @@ export function updateFundsTable() {
     const isAdmin =
         (appState.currentUser?.role || '').toLowerCase() === 'admin';
     
-    // Determine filtering mode (current entity vs all entities)
-    const fundsFilterSelect = document.getElementById('funds-filter-select');
-    const filterMode = fundsFilterSelect ? fundsFilterSelect.value : 'current';
-
-    // Build list of funds respecting the chosen filter
-    let displayFunds = appState.funds;
-    if (filterMode !== 'all') {
-        // Existing behaviour – filter by selected entity / consolidated view
-        if (appState.selectedEntityId) {
-            if (!appState.isConsolidatedView) {
-                displayFunds = appState.funds.filter(fund => fund.entity_id === appState.selectedEntityId);
-            } else {
-                const relevantEntityIds = getRelevantEntityIds();
-                displayFunds = appState.funds.filter(fund => relevantEntityIds.includes(fund.entity_id));
-            }
-        }
-    }
-    
-    // Sort funds by code
-    displayFunds.sort((a, b) => a.code.localeCompare(b.code));
+    // For new schema we no longer filter by entity – always show all funds
+    const displayFunds = [...appState.funds];
+    // Sort funds by fund_code
+    displayFunds.sort((a, b) => (a.fund_code || '').localeCompare(b.fund_code || ''));
     
     // Update the funds table
     fundsTbody.innerHTML = '';
@@ -456,15 +433,13 @@ export function updateFundsTable() {
     if (displayFunds.length === 0) {
         fundsTbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center">No funds found</td>
+                <td colspan="9" class="text-center">No funds found</td>
             </tr>
         `;
         return;
     }
     
     displayFunds.forEach(fund => {
-        const entityName = appState.entities.find(entity => entity.id === fund.entity_id)?.name || 'Unknown';
-        
         // Build actions column HTML based on role
         let actionsHtml = '';
         if (isAdmin) {
@@ -476,12 +451,15 @@ export function updateFundsTable() {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${fund.code}</td>
-            <td>${fund.name}</td>
-            <td>${fund.type || 'N/A'}</td>
-            <td>${entityName}</td>
-            <td>${formatCurrency(fund.balance)}</td>
-            <td><span class="status status-${fund.status.toLowerCase()}">${fund.status}</span></td>
+            <td>${fund.fund_number || '—'}</td>
+            <td>${fund.fund_code}</td>
+            <td>${fund.fund_name}</td>
+            <td>${fund.entity_code || '—'}</td>
+            <td>${fund.restriction || '—'}</td>
+            <td>${fund.budget || '—'}</td>
+            <td>${fund.balance_sheet || '—'}</td>
+            <td>${fund.last_used ? formatDate(fund.last_used) : '—'}</td>
+            <td><span class="status status-${(fund.status || '').toLowerCase()}">${fund.status || ''}</span></td>
             <td>${actionsHtml}</td>
         `;
         fundsTbody.appendChild(row);

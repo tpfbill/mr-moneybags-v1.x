@@ -6,37 +6,37 @@ const { asyncHandler } = require('../utils/helpers');
 
 /**
  * GET /api/funds
- * Returns all funds, optionally filtered by entity_id
+ * Returns all funds.
+ * Optional filters: entity_code, restriction, status
  */
 router.get('/', asyncHandler(async (req, res) => {
-    const { entity_id, type, status } = req.query;
+    const { entity_code, restriction, status } = req.query;
     
     let query = `
-        SELECT f.*, e.name as entity_name
-        FROM funds f
-        LEFT JOIN entities e ON f.entity_id = e.id
+        SELECT *
+        FROM funds
         WHERE 1=1
     `;
     
     const params = [];
     let paramIndex = 1;
     
-    if (entity_id) {
-        query += ` AND f.entity_id = $${paramIndex++}`;
-        params.push(entity_id);
+    if (entity_code) {
+        query += ` AND entity_code = $${paramIndex++}`;
+        params.push(entity_code);
     }
     
-    if (type) {
-        query += ` AND f.type = $${paramIndex++}`;
-        params.push(type);
+    if (restriction) {
+        query += ` AND restriction = $${paramIndex++}`;
+        params.push(restriction);
     }
     
     if (status) {
-        query += ` AND f.status = $${paramIndex++}`;
+        query += ` AND status = $${paramIndex++}`;
         params.push(status);
     }
     
-    query += ` ORDER BY f.code, f.name`;
+    query += ` ORDER BY fund_code, fund_name`;
     
     const { rows } = await pool.query(query, params);
     res.json(rows);
@@ -49,12 +49,10 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    const { rows } = await pool.query(`
-        SELECT f.*, e.name as entity_name
-        FROM funds f
-        LEFT JOIN entities e ON f.entity_id = e.id
-        WHERE f.id = $1
-    `, [id]);
+    const { rows } = await pool.query(
+        'SELECT * FROM funds WHERE id = $1',
+        [id]
+    );
     
     if (rows.length === 0) {
         return res.status(404).json({ error: 'Fund not found' });
@@ -69,65 +67,69 @@ router.get('/:id', asyncHandler(async (req, res) => {
  */
 router.post('/', asyncHandler(async (req, res) => {
     const {
-        entity_id,
-        code,
-        name,
-        type,
-        description,
-        status
+        fund_number,
+        fund_code,
+        fund_name,
+        entity_name,
+        entity_code,
+        restriction,
+        budget,
+        balance_sheet,
+        status,
+        last_used
     } = req.body;
     
     // Validate required fields
-    if (!entity_id) {
-        return res.status(400).json({ error: 'Entity ID is required' });
+    if (!fund_code) {
+        return res.status(400).json({ error: 'fund_code is required' });
     }
     
-    if (!code) {
-        return res.status(400).json({ error: 'Fund code is required' });
+    if (!fund_name) {
+        return res.status(400).json({ error: 'fund_name is required' });
     }
-    
-    if (!name) {
-        return res.status(400).json({ error: 'Fund name is required' });
+
+    if (!entity_name || !entity_code) {
+        return res.status(400).json({ error: 'entity_name and entity_code are required' });
     }
-    
-    // Validate entity exists
-    const entityCheck = await pool.query('SELECT id FROM entities WHERE id = $1', [entity_id]);
-    if (entityCheck.rows.length === 0) {
-        return res.status(400).json({ error: 'Entity not found' });
-    }
-    
-    // Check if fund code already exists for this entity
+
+    // Check duplicate fund_code (case-insensitive)
     const codeCheck = await pool.query(
-        'SELECT id FROM funds WHERE entity_id = $1 AND code = $2',
-        [entity_id, code]
+        'SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1)',
+        [fund_code]
     );
     
     if (codeCheck.rows.length > 0) {
         return res.status(409).json({ 
-            error: 'Fund code already exists for this entity',
-            details: 'Each fund code must be unique within an entity'
+            error: 'fund_code already exists',
+            details: 'fund_code must be globally unique (case-insensitive)'
         });
     }
     
     const { rows } = await pool.query(`
         INSERT INTO funds (
-            entity_id,
-            code,
-            name,
-            type,
-            description,
+            fund_number,
+            fund_code,
+            fund_name,
+            entity_name,
+            entity_code,
+            restriction,
+            budget,
+            balance_sheet,
             status,
-            balance
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            last_used
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10, CURRENT_DATE))
         RETURNING *
     `, [
-        entity_id,
-        code,
-        name,
-        type || 'Unrestricted',
-        description || '',
+        fund_number || null,
+        fund_code,
+        fund_name,
+        entity_name,
+        entity_code,
+        restriction,
+        budget,
+        balance_sheet,
         status || 'Active',
-        0.00 // Initial balance
+        last_used || null
     ]);
     
     res.status(201).json(rows[0]);
@@ -140,26 +142,24 @@ router.post('/', asyncHandler(async (req, res) => {
 router.put('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     const {
-        entity_id,
-        code,
-        name,
-        type,
-        description,
+        fund_number,
+        fund_code,
+        fund_name,
+        entity_name,
+        entity_code,
+        restriction,
+        budget,
+        balance_sheet,
         status,
-        balance
+        last_used
     } = req.body;
     
     // Validate required fields
-    if (!entity_id) {
-        return res.status(400).json({ error: 'Entity ID is required' });
+    if (!fund_code) {
+        return res.status(400).json({ error: 'fund_code is required' });
     }
-    
-    if (!code) {
-        return res.status(400).json({ error: 'Fund code is required' });
-    }
-    
-    if (!name) {
-        return res.status(400).json({ error: 'Fund name is required' });
+    if (!fund_name) {
+        return res.status(400).json({ error: 'fund_name is required' });
     }
     
     // Check if fund exists
@@ -170,37 +170,42 @@ router.put('/:id', asyncHandler(async (req, res) => {
     
     // Check if fund code already exists for this entity (excluding this fund)
     const codeCheck = await pool.query(
-        'SELECT id FROM funds WHERE entity_id = $1 AND code = $2 AND id != $3',
-        [entity_id, code, id]
+        'SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) AND id != $2',
+        [fund_code, id]
     );
     
     if (codeCheck.rows.length > 0) {
         return res.status(409).json({ 
-            error: 'Fund code already exists for this entity',
-            details: 'Each fund code must be unique within an entity'
+            error: 'fund_code already exists',
+            details: 'fund_code must be globally unique (case-insensitive)'
         });
     }
     
     const { rows } = await pool.query(`
         UPDATE funds
-        SET entity_id = $1,
-            code = $2,
-            name = $3,
-            type = $4,
-            description = $5,
-            status = $6,
-            balance = $7,
-            updated_at = NOW()
-        WHERE id = $8
+        SET fund_number   = $1,
+            fund_code     = $2,
+            fund_name     = $3,
+            entity_name   = $4,
+            entity_code   = $5,
+            restriction   = $6,
+            budget        = $7,
+            balance_sheet = $8,
+            status        = $9,
+            last_used     = COALESCE($10, last_used)
+        WHERE id = $11
         RETURNING *
     `, [
-        entity_id,
-        code,
-        name,
-        type,
-        description,
-        status,
-        balance || 0.00,
+        fund_number || null,
+        fund_code,
+        fund_name,
+        entity_name,
+        entity_code,
+        restriction,
+        budget,
+        balance_sheet,
+        status || 'Active',
+        last_used || null,
         id
     ]);
     
