@@ -20,6 +20,33 @@ let vendors = [];
 let nachaSettings = [];
 
 // Utility functions
+/* ---------------------------------------------------------------------------
+ * Filtering helpers (Vendor search)
+ * -------------------------------------------------------------------------*/
+function getFilteredVendors() {
+    const zidInput   = document.getElementById('vendorSearchZid');
+    const nameInput  = document.getElementById('vendorSearchName');
+
+    const zidTerm  = (zidInput?.value || '').toString().trim().toLowerCase();
+    const nameTerm = (nameInput?.value || '').toString().trim().toLowerCase();
+
+    return vendors.filter(v => {
+        // zID match (contains, case-insensitive)
+        if (zidTerm) {
+            const zidVal = (v.zid || '').toString().toLowerCase();
+            if (!zidVal.includes(zidTerm)) return false;
+        }
+        // Name / Name-detail match (contains, case-insensitive)
+        if (nameTerm) {
+            const nameVal = ((v.name_detail || '') + ' ' + (v.name || ''))
+                .toString()
+                .toLowerCase();
+            if (!nameVal.includes(nameTerm)) return false;
+        }
+        return true;
+    });
+}
+
 function showLoading() {
     document.querySelector('.loading-overlay').style.display = 'flex';
 }
@@ -241,12 +268,24 @@ async function fetchVendors() {
             if (response.status === 404) {
                 console.info('[fetchVendors] /api/vendors endpoint not yet implemented - skipping');
                 hideLoading();
+                // Ensure badge shows zero if endpoint not present
+                {
+                    const badge = document.getElementById('vendorsCountBadge');
+                    if (badge) badge.textContent = '0';
+                }
                 return;
             }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         vendors = await response.json();
         console.log('Vendors fetched successfully:', vendors.length, 'vendors');
+
+        // Update count badge
+        {
+            const badge = document.getElementById('vendorsCountBadge');
+            if (badge) badge.textContent = vendors.length;
+        }
+
         renderVendorsTable();
         
         // Populate vendor dropdowns
@@ -502,24 +541,28 @@ function renderBatchesTable(batches) {
 }
 
 function renderVendorsTable() {
-    console.log('Rendering vendors table with', vendors?.length || 0, 'vendors');
+    const data = getFilteredVendors();
+    console.log('Rendering vendors table with', data.length, 'vendors (filtered)');
     const tableBody = document.getElementById('vendorsTableBody');
     if (!tableBody) return;
     
     // Clear existing rows
     tableBody.innerHTML = '';
     
-    if (!vendors || vendors.length === 0) {
+    if (data.length === 0) {
         const row = document.createElement('tr');
         row.innerHTML = '<td colspan="21" class="text-center">No vendors found</td>';
         tableBody.appendChild(row);
+        // update badge even when empty
+        const badge = document.getElementById('vendorsCountBadge');
+        if (badge) badge.textContent = '0';
         return;
     }
     
     /* ------------------------------------------------------------------
      * Build table rows
      * ----------------------------------------------------------------*/
-    vendors.forEach(vendor => {
+    data.forEach(vendor => {
         const row = document.createElement('tr');
         row.dataset.id = vendor.id;
 
@@ -540,7 +583,7 @@ function renderVendorsTable() {
         `;
 
         row.innerHTML = `
-            <td class="sticky-col-1">${vendor.id}</td>
+            <td class="sticky-col-1">${vendor.zid || '—'}</td>
             <td class="sticky-col-2">${vendor.name || ''}</td>
             <td>${vendor.name_detail || ''}</td>
             <td>${vendor.account_type || '—'}</td>
@@ -565,6 +608,10 @@ function renderVendorsTable() {
 
         tableBody.appendChild(row);
     });
+
+    // Update count badge with filtered length
+    const badge = document.getElementById('vendorsCountBadge');
+    if (badge) badge.textContent = data.length;
 
     // Add event listeners to action buttons
     document.querySelectorAll('.btn-edit-vendor').forEach(btn => {
@@ -714,6 +761,7 @@ function openEditVendor(vendorId) {
 
     // Populate form fields
     document.getElementById('editVendorId').value = vendor.id;
+    document.getElementById('editZid').value = vendor.zid || '';
     document.getElementById('editVendorName').value = vendor.name;
     document.getElementById('editContactName').value = vendor.contact_name || '';
     document.getElementById('editVendorEmail').value = vendor.email || '';
@@ -1347,6 +1395,55 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         /* -----------------------------------------------------------
+         * Vendor CSV Export button
+         * ---------------------------------------------------------*/
+        const exportBtn = document.getElementById('exportVendorsBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', async () => {
+                try {
+                    showLoading();
+                    const response = await fetch(`${API_BASE_URL}/api/vendors/export`, {
+                        credentials: 'include'
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'vendors-export.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } catch (error) {
+                    console.error('Error exporting vendors:', error);
+                    showToast('Error', 'Failed to export vendors: ' + error.message, true);
+                } finally {
+                    hideLoading();
+                }
+            });
+            console.log('✅ Export-vendors CSV button listener added');
+        }
+
+        // Vendor search inputs (zID / Name)
+        {
+          const searchZidInput  = document.getElementById('vendorSearchZid');
+          const searchNameInput = document.getElementById('vendorSearchName');
+          const clearBtn        = document.getElementById('clearVendorSearchBtn');
+          const reRender = () => renderVendorsTable();
+          if (searchZidInput)  searchZidInput.addEventListener('input', reRender);
+          if (searchNameInput) searchNameInput.addEventListener('input', reRender);
+          if (clearBtn) clearBtn.addEventListener('click', () => {
+            if (searchZidInput)  searchZidInput.value  = '';
+            if (searchNameInput) searchNameInput.value = '';
+            renderVendorsTable();
+          });
+          console.log('✅ Vendor search inputs wired up');
+        }
+
+        /* -----------------------------------------------------------
          * Dynamic field loaders & actions
          * ---------------------------------------------------------*/
 
@@ -1406,6 +1503,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             createVendorForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
 
+                const zid = document.getElementById('zid').value.trim();
                 const name = document.getElementById('vendorName').value;
                 const accountType = document.getElementById('accountType').value;
                 const paymentType = document.getElementById('paymentType').value;
@@ -1430,11 +1528,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const bankAccountNumber = document.getElementById('bankAccountNumber').value;
 
                 // Validation
+                if (!zid) return showToast('Validation', 'Please enter a zID', true);
                 if (!name) return showToast('Validation', 'Please enter a vendor name', true);
                 if (!accountType) return showToast('Validation', 'Please select an account type', true);
                 if (!paymentType) return showToast('Validation', 'Please select a payment type', true);
                 
                 const vendorData = {
+                    zid,
                     name,
                     contact_name: contactName,
                     email,
@@ -1473,6 +1573,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 e.preventDefault();
                 
                 const vendorId = document.getElementById('editVendorId').value;
+                const zid = document.getElementById('editZid').value.trim();
                 const name = document.getElementById('editVendorName').value;
                 const accountType = document.getElementById('editAccountType').value;
                 const paymentType = document.getElementById('editPaymentType').value;
@@ -1497,17 +1598,18 @@ document.addEventListener('DOMContentLoaded', async function() {
                 
                 // Validation
                 if (!vendorId) return showToast('Validation', 'Vendor ID is missing', true);
+                if (!zid) return showToast('Validation', 'Please enter a zID', true);
                 if (!name) return showToast('Validation', 'Please enter a vendor name', true);
                 if (!accountType) return showToast('Validation', 'Please select an account type', true);
                 if (!paymentType) return showToast('Validation', 'Please select a payment type', true);
                 
                 const vendorData = {
+                    zid,
                     name,
                     contact_name: contactName,
                     email,
                     status,
-                    notes
-                    ,
+                    notes,
                     /* new fields */
                     name_detail: nameDetail,
                     tax_id: taxId,

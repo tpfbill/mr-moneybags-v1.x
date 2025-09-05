@@ -254,6 +254,41 @@ CREATE INDEX IF NOT EXISTS idx_vendor_name ON vendors(name);
 CREATE INDEX IF NOT EXISTS idx_vendor_entity ON vendors(entity_id);
 COMMENT ON TABLE vendors IS 'Vendors for accounts payable';
 
+-- ---------------------------------------------------------------------------
+-- Vendors post-create migration: add external business identifier (zid)
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+    /* ------------------------------------------------------------------
+     * 1) Add column zid TEXT (nullable) if it does not already exist
+     * ----------------------------------------------------------------*/
+    IF NOT EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_name = 'vendors'
+           AND column_name = 'zid'
+    ) THEN
+        ALTER TABLE vendors
+            ADD COLUMN zid TEXT;
+    END IF;
+
+    /* ------------------------------------------------------------------
+     * 2) Create case-insensitive UNIQUE index on LOWER(zid)
+     *    (only for rows where zid IS NOT NULL)
+     * ----------------------------------------------------------------*/
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relname = 'uidx_vendors_zid_lower_not_null'
+           AND n.nspname = 'public'
+    ) THEN
+        CREATE UNIQUE INDEX uidx_vendors_zid_lower_not_null
+                       ON vendors (LOWER(zid))
+                    WHERE zid IS NOT NULL;
+    END IF;
+END $$;
+
 -- Company NACHA Settings table
 CREATE TABLE IF NOT EXISTS company_nacha_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
