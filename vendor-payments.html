@@ -106,7 +106,7 @@
             <!-- VENDORS TAB -->
             <div class="tab-pane fade" id="vendors" role="tabpanel">
                 <div class="section-header d-flex justify-content-between align-items-center">
-                    <h2>Vendors</h2>
+                    <h2>Vendors <span id="vendorsCountBadge" class="badge bg-secondary ms-2">0</span></h2>
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createVendorModal">
                         <i class="fas fa-plus"></i> New Vendor
                     </button>
@@ -125,12 +125,35 @@
                             <i class="fas fa-file-import"></i> Import CSV
                         </button>
 
+                        <!-- Export CSV button -->
+                        <button class="btn btn-outline-success" id="exportVendorsBtn">
+                            <i class="fas fa-file-export"></i> Export CSV
+                        </button>
+
+                        <!-- zID / Name search inputs -->
+                        <input type="text"
+                               id="vendorSearchZid"
+                               placeholder="Search zID…"
+                               class="form-control"
+                               style="max-width: 180px;">
+
+                        <input type="text"
+                               id="vendorSearchName"
+                               placeholder="Search name…"
+                               class="form-control"
+                               style="max-width: 240px;">
+
+                        <!-- Clear search button -->
+                        <button class="btn btn-outline-secondary" id="clearVendorSearchBtn">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+
                         <button class="btn btn-outline-secondary ms-auto" id="refreshVendorsBtn">
                             <i class="fas fa-sync-alt"></i> Refresh
                         </button>
 
                         <small class="text-muted w-100 mt-2">
-                            Expected CSV headers: name, name_detail, email, street_1, street_2, city, state, zip,
+                            Expected CSV headers: zID, name, name_detail, email, street_1, street_2, city, state, zip,
                             country, tax_id, vendor_type, subject_to_1099, bank_account_type, bank_routing_number,
                             bank_account_number, last_used, status, account_type, payment_type
                         </small>
@@ -141,7 +164,7 @@
                     <table class="table table-striped table-hover" id="vendorsTable">
                         <thead>
                             <tr>
-                                <th class="sticky-col-1">ID</th>
+                                <th class="sticky-col-1">zID</th>
                                 <th class="sticky-col-2">Name</th>
                                 <th>Name Detail</th>
                                 <th>Account Type</th>
@@ -319,6 +342,12 @@
                 </div>
                 <form id="createVendorForm">
                     <div class="modal-body">
+                        <!-- zID (business identifier) -->
+                        <div class="mb-3">
+                            <label for="zid" class="form-label">zID*</label>
+                            <input type="text" id="zid" class="form-control" required />
+                        </div>
+
                         <div class="mb-3">
                             <label for="vendorName" class="form-label">Vendor Name*</label>
                             <input type="text" id="vendorName" class="form-control" required />
@@ -448,6 +477,10 @@
                 <form id="editVendorForm">
                     <div class="modal-body">
                         <input type="hidden" id="editVendorId" />
+                        <div class="mb-3">
+                            <label for="editZid" class="form-label">zID*</label>
+                            <input type="text" id="editZid" class="form-control" required />
+                        </div>
                         <!-- Entity and Vendor Code fields removed per new requirements -->
                         <div class="mb-3">
                             <label for="editVendorName" class="form-label">Vendor Name*</label>
