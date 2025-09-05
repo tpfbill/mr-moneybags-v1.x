@@ -3,6 +3,81 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
+const multer = require('multer');
+const { parse } = require('csv-parse/sync');
+
+// ---------------------------------------------------------------------------
+// Multer – in-memory storage for CSV uploads
+// ---------------------------------------------------------------------------
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ---------------------------------------------------------------------------
+// Normalisers & helper utils (mirrors vendors import style)
+// ---------------------------------------------------------------------------
+function normalizeStatus(v) {
+    const s = (v || '').toString().trim().toLowerCase();
+    return s === 'inactive' ? 'Inactive' : 'Active';
+}
+
+function normalizeYN(v) {
+    const t = (v || '').toString().trim().toLowerCase();
+    if (!t) return null;
+    return ['1', 'yes', 'y', 'true'].includes(t) ? 'Yes' : 'No';
+}
+
+function toDateYYYYMMDD(v) {
+    if (!v) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+}
+
+// --- CSV header mapping helpers -------------------------------------------
+function normalizeHeaderKey(key) {
+    return (key || '')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+const HEADER_ALIAS_MAP = (() => {
+    const map = new Map();
+    const CANON = [
+        'fund_number',
+        'fund_code',
+        'fund_name',
+        'entity_name',
+        'entity_code',
+        'restriction',
+        'budget',
+        'balance_sheet',
+        'status',
+        'last_used'
+    ];
+    CANON.forEach(k => map.set(k, k));
+    const aliases = {
+        fund_code: ['code'],
+        fund_name: ['name'],
+        entity_name: ['entityname', 'entity'],
+        entity_code: ['entitycode'],
+        last_used: ['lastused', 'last_use']
+    };
+    Object.entries(aliases).forEach(([canon, arr]) => {
+        arr.forEach(a => map.set(normalizeHeaderKey(a), canon));
+    });
+    return map;
+})();
+
+function normalizeCsvRecord(rec) {
+    const out = {};
+    for (const [raw, val] of Object.entries(rec)) {
+        const canon = HEADER_ALIAS_MAP.get(normalizeHeaderKey(raw));
+        if (canon) out[canon] = val;
+    }
+    return out;
+}
 
 /**
  * GET /api/funds
@@ -282,5 +357,141 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     
     res.status(204).send();
 }));
+
+/* ---------------------------------------------------------------------------
+ * POST /api/funds/import  – CSV upload
+ * -------------------------------------------------------------------------*/
+router.post(
+    '/import',
+    upload.single('file'),
+    asyncHandler(async (req, res) => {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        let records;
+        try {
+            records = parse(req.file.buffer.toString('utf8'), {
+                columns: true,
+                skip_empty_lines: true,
+                trim: true
+            });
+        } catch (err) {
+            return res
+                .status(400)
+                .json({ error: 'Invalid CSV format', message: err.message });
+        }
+
+        let inserted = 0,
+            updated = 0,
+            failed = 0;
+        const errors = [];
+
+        for (let i = 0; i < records.length; i++) {
+            const raw = records[i];
+            const rec = normalizeCsvRecord(raw);
+            try {
+                const {
+                    fund_number,
+                    fund_code,
+                    fund_name,
+                    entity_name,
+                    entity_code
+                } = rec;
+
+                if (!fund_code || !fund_name || !entity_name || !entity_code) {
+                    throw new Error(
+                        'Missing required fields (fund_code, fund_name, entity_name, entity_code)'
+                    );
+                }
+
+                const normRow = {
+                    fund_number: fund_number || null,
+                    fund_code: fund_code.trim(),
+                    fund_name: fund_name.trim(),
+                    entity_name: entity_name.trim(),
+                    entity_code: entity_code.trim(),
+                    restriction: rec.restriction || null,
+                    budget: normalizeYN(rec.budget),
+                    balance_sheet: normalizeYN(rec.balance_sheet),
+                    status: normalizeStatus(rec.status),
+                    last_used: toDateYYYYMMDD(rec.last_used)
+                };
+
+                // Upsert by fund_code (case-insensitive)
+                const existing = await pool.query(
+                    'SELECT id FROM funds WHERE LOWER(fund_code)=LOWER($1) LIMIT 1',
+                    [normRow.fund_code]
+                );
+
+                if (existing.rows.length) {
+                    // UPDATE
+                    await pool.query(
+                        `UPDATE funds
+                           SET fund_number=$1,
+                               fund_code=$2,
+                               fund_name=$3,
+                               entity_name=$4,
+                               entity_code=$5,
+                               restriction=$6,
+                               budget=$7,
+                               balance_sheet=$8,
+                               status=$9,
+                               last_used=$10
+                         WHERE id=$11`,
+                        [
+                            normRow.fund_number,
+                            normRow.fund_code,
+                            normRow.fund_name,
+                            normRow.entity_name,
+                            normRow.entity_code,
+                            normRow.restriction,
+                            normRow.budget,
+                            normRow.balance_sheet,
+                            normRow.status,
+                            normRow.last_used,
+                            existing.rows[0].id
+                        ]
+                    );
+                    updated++;
+                } else {
+                    // INSERT
+                    await pool.query(
+                        `INSERT INTO funds
+                            (fund_number,fund_code,fund_name,entity_name,entity_code,
+                             restriction,budget,balance_sheet,status,last_used)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                        [
+                            normRow.fund_number,
+                            normRow.fund_code,
+                            normRow.fund_name,
+                            normRow.entity_name,
+                            normRow.entity_code,
+                            normRow.restriction,
+                            normRow.budget,
+                            normRow.balance_sheet,
+                            normRow.status,
+                            normRow.last_used
+                        ]
+                    );
+                    inserted++;
+                }
+            } catch (err) {
+                failed++;
+                if (errors.length < 20) {
+                    errors.push(`Row ${i + 1}: ${err.message}`);
+                }
+            }
+        }
+
+        res.json({
+            total: records.length,
+            inserted,
+            updated,
+            failed,
+            sampleErrors: errors
+        });
+    })
+);
 
 module.exports = router;
