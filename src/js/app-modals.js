@@ -419,8 +419,9 @@ export async function saveFund(event) {
 /**
  * Delete a fund
  * @param {string} id - Fund ID to delete
+ * @param {HTMLElement} [rowEl] - Optional <tr> element to remove immediately on success
  */
-export async function deleteFund(id) {
+export async function deleteFund(id, rowEl) {
     if (!id) return;
 
     // Confirm deletion
@@ -452,6 +453,11 @@ export async function deleteFund(id) {
                 /* ignore body read errors */
             }
             throw new Error(msg || `HTTP ${res.status}`);
+        }
+
+        // Optimistically remove the row from the table for snappier UX
+        if (rowEl && rowEl.parentNode) {
+            rowEl.parentNode.removeChild(rowEl);
         }
 
         // Reload funds data if loader provided
@@ -1273,5 +1279,5 @@ export function initializeModalEventListeners() {
     document.addEventListener('deleteBankAccount',   (e) => deleteBankAccount(e.detail?.id));
 
     // --- Funds (admin) custom events ---
-    document.addEventListener('deleteFund', (e) => deleteFund(e.detail?.id));
+    document.addEventListener('deleteFund', (e) => deleteFund(e.detail?.id, e.detail?.rowEl));
 }

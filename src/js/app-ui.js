@@ -501,8 +501,9 @@ export function updateFundsTable() {
     // Add event listeners for delete buttons (admin only)
     fundsTbody.querySelectorAll('.btn-delete-fund').forEach(button => {
         button.addEventListener('click', () => {
+            const rowEl = button.closest('tr');
             const evt = new CustomEvent('deleteFund', {
-                detail: { id: button.dataset.id }
+                detail: { id: button.dataset.id, rowEl }
             });
             document.dispatchEvent(evt);
         });
