@@ -161,6 +161,14 @@ function applyRoleBasedAccess(user, attempt = 0) {
             if (dashboardNav) dashboardNav.click();
         }
     }
+
+    /* --------------------------------------------------------------
+     * Toggle “Add Fund” button visibility based on role
+     * -------------------------------------------------------------- */
+    const addFundBtn = document.getElementById('btnAddFund');
+    if (addFundBtn) {
+        addFundBtn.style.display = isAdmin ? '' : 'none';
+    }
 }
 
 /**
