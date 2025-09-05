@@ -239,18 +239,33 @@ router.delete('/:id', asyncHandler(async (req, res) => {
             details: 'This fund is referenced in payment batches and cannot be deleted'
         });
     }
-    
-    // Check for budgets using this fund
-    const budgetsCheck = await pool.query(
-        'SELECT id FROM budgets WHERE fund_id = $1 LIMIT 1',
-        [id]
-    );
-    
-    if (budgetsCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Cannot delete fund with budget entries',
-            details: 'This fund is referenced in budgets and cannot be deleted'
-        });
+
+    /* ------------------------------------------------------------------
+     * Optional budgets dependency check
+     * ---------------------------------------------------------------
+     * The budgets table is planned but may not exist in all
+     * installations yet.  If the table is missing (PostgreSQL error
+     * 42P01), we silently skip this check so deletion can proceed.
+     * Any other database error is re-thrown.
+     * ----------------------------------------------------------------*/
+    try {
+        const budgetsCheck = await pool.query(
+            'SELECT id FROM budgets WHERE fund_id = $1 LIMIT 1',
+            [id]
+        );
+
+        if (budgetsCheck.rows.length > 0) {
+            return res.status(409).json({
+                error: 'Cannot delete fund with budget entries',
+                details: 'This fund is referenced in budgets and cannot be deleted'
+            });
+        }
+    } catch (err) {
+        // 42P01 = undefined_table
+        if (!(err && err.code === '42P01')) {
+            throw err;
+        }
+        // Table doesn't exist yet – skip budgets check
     }
     
     // If no dependencies, delete the fund
