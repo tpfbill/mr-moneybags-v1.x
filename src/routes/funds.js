@@ -437,7 +437,7 @@ router.post(
                                budget=$7,
                                balance_sheet=$8,
                                status=$9,
-                               last_used=$10
+                               last_used=COALESCE($10, last_used)
                          WHERE id=$11`,
                         [
                             normRow.fund_number,
@@ -460,7 +460,7 @@ router.post(
                         `INSERT INTO funds
                             (fund_number,fund_code,fund_name,entity_name,entity_code,
                              restriction,budget,balance_sheet,status,last_used)
-                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10, CURRENT_DATE))`,
                         [
                             normRow.fund_number,
                             normRow.fund_code,
