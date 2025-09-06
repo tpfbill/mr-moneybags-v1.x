@@ -195,7 +195,7 @@ router.post('/', asyncHandler(async (req, res) => {
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10, CURRENT_DATE))
         RETURNING *
     `, [
-        fund_number || null,
+        (fund_number || fund_code || '').toString().trim(),
         fund_code,
         fund_name,
         entity_name,
@@ -271,7 +271,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
         WHERE id = $11
         RETURNING *
     `, [
-        fund_number || null,
+        (fund_number || fund_code || '').toString().trim(),
         fund_code,
         fund_name,
         entity_name,
@@ -406,7 +406,8 @@ router.post(
                 }
 
                 const normRow = {
-                    fund_number: fund_number || null,
+                    // default fund_number to fund_code if missing
+                    fund_number: (fund_number || fund_code || '').toString().trim(),
                     fund_code: fund_code.trim(),
                     fund_name: fund_name.trim(),
                     entity_name: entity_name.trim(),
