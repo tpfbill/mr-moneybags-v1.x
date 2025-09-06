@@ -429,7 +429,7 @@ router.post(
                     // UPDATE
                     await pool.query(
                         `UPDATE funds
-                           SET fund_number=$1,
+                           SET fund_number=COALESCE($1,$2,fund_number),
                                fund_code=$2,
                                fund_name=$3,
                                entity_name=$4,
@@ -461,7 +461,7 @@ router.post(
                         `INSERT INTO funds
                             (fund_number,fund_code,fund_name,entity_name,entity_code,
                              restriction,budget,balance_sheet,status,last_used)
-                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10, CURRENT_DATE))`,
+                         VALUES (COALESCE($1,$2),$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10, CURRENT_DATE))`,
                         [
                             normRow.fund_number,
                             normRow.fund_code,
