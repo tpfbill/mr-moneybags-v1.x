@@ -285,20 +285,32 @@ export async function deleteEntity(id) {
         if (childEntities.length > 0) {
             showToast('Cannot delete entity with child entities', 'error');
             return;
-        }
-        
-        // Check if entity has funds
-        const entityFunds = appState.funds.filter(fund => fund.entity_id === id);
-        if (entityFunds.length > 0) {
-            showToast('Cannot delete entity with associated funds', 'error');
-            return;
-        }
-        
+        }        
         // Delete entity
-        await fetch(`${API_BASE}/api/entities/${id}`, {
+        const res = await fetch(`${API_BASE}/api/entities/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
+
+        // Handle HTTP errors with server-provided details
+        if (!res.ok) {
+            let msg = `HTTP ${res.status}`;
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                if (ctype.includes('application/json')) {
+                    const j = await res.json();
+                    const base = j.error || '';
+                    const details = j.details || '';
+                    msg = details ? `${base} — ${details}` : base || msg;
+                } else {
+                    msg = await res.text() || msg;
+                }
+            } catch (_) {
+                /* ignore parsing errors, fall back to generic msg */
+            }
+            showToast(msg, 'error');
+            return; // abort success handling
+        }
         
         // Reload entity data
         if (typeof loadEntityData === 'function') {

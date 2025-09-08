@@ -193,14 +193,6 @@ router.delete('/:id', asyncHandler(async (req, res) => {
         });
     }
     
-    // Check for funds
-    const fundsCheck = await pool.query('SELECT id FROM funds WHERE entity_id = $1 LIMIT 1', [id]);
-    if (fundsCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Cannot delete entity with funds',
-            details: 'This entity has funds that must be deleted first'
-        });
-    }
     
     // Check for journal entries
     const journalCheck = await pool.query('SELECT id FROM journal_entries WHERE entity_id = $1 LIMIT 1', [id]);
