@@ -204,7 +204,7 @@ router.post('/', asyncHandler(async (req, res) => {
             starting_balance,
             starting_balance_date,
             last_used
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,0),COALESCE($11,CURRENT_DATE),COALESCE($12,CURRENT_DATE))
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::numeric,0::numeric),COALESCE($11::date,CURRENT_DATE),COALESCE($12::date,CURRENT_DATE))
         RETURNING *
     `, [
         (fund_number || fund_code || '').toString().trim(),
@@ -287,9 +287,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
             budget        = $7,
             balance_sheet = $8,
             status        = $9,
-            starting_balance = COALESCE($10, starting_balance),
-            starting_balance_date = COALESCE($11, starting_balance_date),
-            last_used     = COALESCE($12, last_used)
+            starting_balance = COALESCE($10::numeric, starting_balance),
+            starting_balance_date = COALESCE($11::date, starting_balance_date),
+            last_used     = COALESCE($12::date, last_used)
         WHERE id = $13
         RETURNING *
     `, [
@@ -464,9 +464,9 @@ router.post(
                                budget=$7,
                                balance_sheet=$8,
                                status=$9,
-                               starting_balance=COALESCE($10, starting_balance),
-                               starting_balance_date=COALESCE($11, starting_balance_date),
-                               last_used=COALESCE($12, last_used)
+                               starting_balance=COALESCE($10::numeric, starting_balance),
+                               starting_balance_date=COALESCE($11::date, starting_balance_date),
+                               last_used=COALESCE($12::date, last_used)
                          WHERE id=$13`,
                         [
                             normRow.fund_number,
@@ -491,7 +491,7 @@ router.post(
                         `INSERT INTO funds
                             (fund_number,fund_code,fund_name,entity_name,entity_code,
                              restriction,budget,balance_sheet,status,starting_balance,starting_balance_date,last_used)
-                         VALUES (COALESCE($1,$2),$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,0),COALESCE($11,CURRENT_DATE),COALESCE($12, CURRENT_DATE))`,
+                         VALUES (COALESCE($1,$2),$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::numeric,0::numeric),COALESCE($11::date,CURRENT_DATE),COALESCE($12::date,CURRENT_DATE))`,
                         [
                             normRow.fund_number,
                             normRow.fund_code,
