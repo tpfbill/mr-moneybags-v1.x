@@ -498,7 +498,7 @@ export async function saveFund(event) {
         budget: form.querySelector('#fund-budget')?.value || 'No',
         balance_sheet: form.querySelector('#fund-balance-sheet')?.value || 'No',
         status: form.querySelector('#fund-status')?.value || 'Active',
-        last_used: form.querySelector('#fund-last-used')?.value || null
+        last_used: form.querySelector('#fund-last-used')?.value || null,
         // --- new balance fields ---
         starting_balance: form.querySelector('#fund-starting-balance')?.value || null,
         starting_balance_date: form.querySelector('#fund-starting-balance-date')?.value || null
