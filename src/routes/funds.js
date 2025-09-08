@@ -54,6 +54,8 @@ const HEADER_ALIAS_MAP = (() => {
         'budget',
         'balance_sheet',
         'status',
+        'starting_balance',
+        'starting_balance_date',
         'last_used'
     ];
     CANON.forEach(k => map.set(k, k));
@@ -62,6 +64,8 @@ const HEADER_ALIAS_MAP = (() => {
         fund_name: ['name'],
         entity_name: ['entityname', 'entity'],
         entity_code: ['entitycode'],
+        starting_balance: ['startingbalance', 'startbalance', 'opening_balance', 'sbalance'],
+        starting_balance_date: ['start_balance_date', 'opening_balance_date'],
         last_used: ['lastused', 'last_use']
     };
     Object.entries(aliases).forEach(([canon, arr]) => {
@@ -151,6 +155,8 @@ router.post('/', asyncHandler(async (req, res) => {
         budget,
         balance_sheet,
         status,
+        starting_balance,
+        starting_balance_date,
         last_used
     } = req.body;
     
@@ -166,6 +172,10 @@ router.post('/', asyncHandler(async (req, res) => {
     if (!entity_name || !entity_code) {
         return res.status(400).json({ error: 'entity_name and entity_code are required' });
     }
+
+    // Normalize starting_balance and starting_balance_date
+    const starting_balance_num = (starting_balance === '' || starting_balance == null) ? null : Number(starting_balance);
+    const starting_balance_date_str = toDateYYYYMMDD(starting_balance_date);
 
     // Check duplicate fund_code (case-insensitive)
     const codeCheck = await pool.query(
@@ -191,8 +201,10 @@ router.post('/', asyncHandler(async (req, res) => {
             budget,
             balance_sheet,
             status,
+            starting_balance,
+            starting_balance_date,
             last_used
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10, CURRENT_DATE))
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,0),COALESCE($11,CURRENT_DATE),COALESCE($12,CURRENT_DATE))
         RETURNING *
     `, [
         (fund_number || fund_code || '').toString().trim(),
@@ -204,6 +216,8 @@ router.post('/', asyncHandler(async (req, res) => {
         budget,
         balance_sheet,
         status || 'Active',
+        starting_balance_num,
+        starting_balance_date_str,
         last_used || null
     ]);
     
@@ -226,6 +240,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
         budget,
         balance_sheet,
         status,
+        starting_balance,
+        starting_balance_date,
         last_used
     } = req.body;
     
@@ -236,6 +252,10 @@ router.put('/:id', asyncHandler(async (req, res) => {
     if (!fund_name) {
         return res.status(400).json({ error: 'fund_name is required' });
     }
+    
+    // Normalize starting_balance and starting_balance_date
+    const starting_balance_num = (starting_balance === '' || starting_balance == null) ? null : Number(starting_balance);
+    const starting_balance_date_str = toDateYYYYMMDD(starting_balance_date);
     
     // Check if fund exists
     const fundCheck = await pool.query('SELECT id FROM funds WHERE id = $1', [id]);
@@ -267,8 +287,10 @@ router.put('/:id', asyncHandler(async (req, res) => {
             budget        = $7,
             balance_sheet = $8,
             status        = $9,
-            last_used     = COALESCE($10, last_used)
-        WHERE id = $11
+            starting_balance = COALESCE($10, starting_balance),
+            starting_balance_date = COALESCE($11, starting_balance_date),
+            last_used     = COALESCE($12, last_used)
+        WHERE id = $13
         RETURNING *
     `, [
         (fund_number || fund_code || '').toString().trim(),
@@ -280,6 +302,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
         budget,
         balance_sheet,
         status || 'Active',
+        starting_balance_num,
+        starting_balance_date_str,
         last_used || null,
         id
     ]);
@@ -416,6 +440,8 @@ router.post(
                     budget: normalizeYN(rec.budget),
                     balance_sheet: normalizeYN(rec.balance_sheet),
                     status: normalizeStatus(rec.status),
+                    starting_balance: (rec.starting_balance === '' || rec.starting_balance == null) ? null : Number(rec.starting_balance),
+                    starting_balance_date: toDateYYYYMMDD(rec.starting_balance_date),
                     last_used: toDateYYYYMMDD(rec.last_used)
                 };
 
@@ -438,8 +464,10 @@ router.post(
                                budget=$7,
                                balance_sheet=$8,
                                status=$9,
-                               last_used=COALESCE($10, last_used)
-                         WHERE id=$11`,
+                               starting_balance=COALESCE($10, starting_balance),
+                               starting_balance_date=COALESCE($11, starting_balance_date),
+                               last_used=COALESCE($12, last_used)
+                         WHERE id=$13`,
                         [
                             normRow.fund_number,
                             normRow.fund_code,
@@ -450,6 +478,8 @@ router.post(
                             normRow.budget,
                             normRow.balance_sheet,
                             normRow.status,
+                            normRow.starting_balance,
+                            normRow.starting_balance_date,
                             normRow.last_used,
                             existing.rows[0].id
                         ]
@@ -460,8 +490,8 @@ router.post(
                     await pool.query(
                         `INSERT INTO funds
                             (fund_number,fund_code,fund_name,entity_name,entity_code,
-                             restriction,budget,balance_sheet,status,last_used)
-                         VALUES (COALESCE($1,$2),$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10, CURRENT_DATE))`,
+                             restriction,budget,balance_sheet,status,starting_balance,starting_balance_date,last_used)
+                         VALUES (COALESCE($1,$2),$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,0),COALESCE($11,CURRENT_DATE),COALESCE($12, CURRENT_DATE))`,
                         [
                             normRow.fund_number,
                             normRow.fund_code,
@@ -472,6 +502,8 @@ router.post(
                             normRow.budget,
                             normRow.balance_sheet,
                             normRow.status,
+                            normRow.starting_balance,
+                            normRow.starting_balance_date,
                             normRow.last_used
                         ]
                     );
