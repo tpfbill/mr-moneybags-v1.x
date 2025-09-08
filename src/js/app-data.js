@@ -153,7 +153,8 @@ export async function checkDatabaseConnection() {
  */
 export async function loadEntityData() {
     try {
-        const entities = await fetchData('entities');
+        const entitiesRaw = await fetchData('entities');
+        const entities = Array.isArray(entitiesRaw) ? entitiesRaw : [];
         appState.entities = entities;
         
         // Update entity selector if UI updater is available
@@ -179,7 +180,8 @@ export async function loadEntityData() {
  */
 export async function loadAccountData() {
     try {
-        const accounts = await fetchData('accounts');
+        const accountsRaw = await fetchData('accounts');
+        const accounts = Array.isArray(accountsRaw) ? accountsRaw : [];
         appState.accounts = accounts;
         
         // Update chart of accounts table if UI updater is available
@@ -200,7 +202,8 @@ export async function loadAccountData() {
  */
 export async function loadFundData() {
     try {
-        const funds = await fetchData('funds');
+        const fundsRaw = await fetchData('funds');
+        const funds = Array.isArray(fundsRaw) ? fundsRaw : [];
         appState.funds = funds;
         
         // Update funds table if UI updater is available
@@ -231,7 +234,8 @@ export async function loadFundData() {
  */
 export async function loadJournalEntryData() {
     try {
-        const journalEntries = await fetchData('journal-entries');
+        const jeRaw = await fetchData('journal-entries');
+        const journalEntries = Array.isArray(jeRaw) ? jeRaw : [];
         appState.journalEntries = journalEntries;
         
         // Update journal entries table if UI updater is available
@@ -262,7 +266,8 @@ export async function loadJournalEntryData() {
  */
 export async function loadBankAccountData() {
     try {
-        const bankAccounts = await fetchData('bank-accounts');
+        const baRaw = await fetchData('bank-accounts');
+        const bankAccounts = Array.isArray(baRaw) ? baRaw : [];
         appState.bankAccounts = bankAccounts;
         
         // Update bank accounts table if UI updater is available
@@ -312,7 +317,8 @@ export async function syncBankAccounts() {
  */
 export async function loadUserData() {
     try {
-        const users = await fetchData('users');
+        const usersRaw = await fetchData('users');
+        const users = Array.isArray(usersRaw) ? usersRaw : [];
         appState.users = users;
         
         // Update users table if UI updater is available

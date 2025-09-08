@@ -25,7 +25,7 @@ export function updateFundReportsFilters() {
     const previous = fundSelect.value;
 
     // Determine funds relevant to the current context
-    const funds = getRelevantFunds();
+    const funds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
 
     // Sort by code then name for predictable ordering
     funds.sort(
@@ -140,7 +140,7 @@ export function updateDashboardSummaryCards() {
     if (!summaryCardsContainer || !appState.selectedEntityId) return;
     
     // Get relevant funds based on selected entity and consolidated view
-    const relevantFunds = getRelevantFunds();
+    const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
     // Calculate summary values
     const totalAssets = relevantFunds.reduce((sum, fund) => sum + parseFloat(fund.balance || 0), 0);
@@ -151,7 +151,8 @@ export function updateDashboardSummaryCards() {
     const currentYear = new Date().getFullYear();
     const relevantEntityIds = getRelevantEntityIds();
     
-    const ytdRevenue = appState.journalEntries
+    const journalEntries = Array.isArray(appState.journalEntries) ? appState.journalEntries : [];
+    const ytdRevenue = journalEntries
         .filter(entry => 
             new Date(entry.entry_date).getFullYear() === currentYear &&
             relevantEntityIds.includes(entry.entity_id) &&
@@ -191,7 +192,7 @@ export function updateDashboardFundBalances() {
     if (!fundBalancesTbody) return;
     
     // Get relevant funds based on selected entity and consolidated view
-    const relevantFunds = getRelevantFunds();
+    const relevantFunds = Array.isArray(getRelevantFunds()) ? [...getRelevantFunds()] : [];
     
     // Sort funds by balance (descending)
     relevantFunds.sort((a, b) => parseFloat(b.balance || 0) - parseFloat(a.balance || 0));
@@ -240,7 +241,8 @@ export function updateDashboardRecentTransactions() {
     // Get relevant journal entries based on selected entity and consolidated view
     const relevantEntityIds = getRelevantEntityIds();
     
-    let relevantEntries = appState.journalEntries.filter(entry => 
+    const journalEntries = Array.isArray(appState.journalEntries) ? appState.journalEntries : [];
+    let relevantEntries = journalEntries.filter(entry => 
         relevantEntityIds.includes(entry.entity_id) && 
         entry.status === 'Posted'
     );
@@ -291,7 +293,8 @@ export function updateDashboardUnpostedEntries() {
     // Get relevant journal entries based on selected entity and consolidated view
     const relevantEntityIds = getRelevantEntityIds();
     
-    let unpostedEntries = appState.journalEntries.filter(entry => 
+    const journalEntries = Array.isArray(appState.journalEntries) ? appState.journalEntries : [];
+    let unpostedEntries = journalEntries.filter(entry => 
         relevantEntityIds.includes(entry.entity_id) && 
         entry.status === 'Draft'
     );
@@ -362,7 +365,8 @@ export function updateChartOfAccountsTable() {
     if (!chartOfAccountsTbody) return;
     
     // Sort accounts by code
-    const sortedAccounts = [...appState.accounts].sort((a, b) => a.code.localeCompare(b.code));
+    const sortedAccounts = Array.isArray(appState.accounts) ? [...appState.accounts] : [];
+    sortedAccounts.sort((a, b) => a.code.localeCompare(b.code));
     
     // Update the chart of accounts table
     chartOfAccountsTbody.innerHTML = '';
@@ -423,7 +427,7 @@ export function updateFundsTable() {
         (appState.currentUser?.role || '').toLowerCase() === 'admin';
     
     // For new schema we no longer filter by entity – always show all funds
-    const displayFunds = [...appState.funds];
+    const displayFunds = Array.isArray(appState.funds) ? [...appState.funds] : [];
     // Sort funds by fund_code
     displayFunds.sort((a, b) => (a.fund_code || '').localeCompare(b.fund_code || ''));
     
@@ -509,7 +513,7 @@ export function updateJournalEntriesTable() {
     const jeFilterMode   = jeFilterSelect ? jeFilterSelect.value : 'current';
 
     // Build list of entries respecting the chosen filter
-    let displayEntries = appState.journalEntries;
+    let displayEntries = Array.isArray(appState.journalEntries) ? [...appState.journalEntries] : [];
     
     if (jeFilterMode !== 'all') {
         // Existing behaviour – filter by selected entity / consolidated view
@@ -606,7 +610,8 @@ export function updateBankAccountsTable() {
     if (!bankAccountsTbody) return;
 
     // Sort by bank then account name for predictable ordering
-    const sortedAccounts = [...appState.bankAccounts].sort((a, b) => {
+    const sortedAccounts = Array.isArray(appState.bankAccounts) ? [...appState.bankAccounts] : [];
+    sortedAccounts.sort((a, b) => {
         const bankCmp = (a.bank_name || '').localeCompare(b.bank_name || '');
         if (bankCmp !== 0) return bankCmp;
         return (a.account_name || '').localeCompare(b.account_name || '');
@@ -672,7 +677,8 @@ export function updateEntitiesTable() {
     if (!entitiesTbody) return;
     
     // Sort entities by name
-    const sortedEntities = [...appState.entities].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedEntities = Array.isArray(appState.entities) ? [...appState.entities] : [];
+    sortedEntities.sort((a, b) => a.name.localeCompare(b.name));
     
     // Update the entities table
     entitiesTbody.innerHTML = '';
@@ -740,7 +746,8 @@ export function updateUsersTable() {
     if (!usersTbody) return;
     
     // Sort users by name
-    const sortedUsers = [...appState.users].sort((a, b) => {
+    const sortedUsers = Array.isArray(appState.users) ? [...appState.users] : [];
+    sortedUsers.sort((a, b) => {
         const nameA = a.name || `${a.first_name} ${a.last_name}`;
         const nameB = b.name || `${b.first_name} ${b.last_name}`;
         return nameA.localeCompare(nameB);
@@ -1089,7 +1096,7 @@ function initializeFundBalanceChart() {
     if (!canvas || !window.Chart) return;
     
     // Get relevant funds
-    const relevantFunds = getRelevantFunds();
+    const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
     // Prepare data
     const fundNames = relevantFunds.slice(0, 5).map(fund => fund.name);
@@ -1144,11 +1151,13 @@ function initializeIncomeExpenseChart() {
     // Get monthly data for the current year
     const months = Array.from({ length: 12 }, (_, i) => i + 1);
     
+    const journalEntries = Array.isArray(appState.journalEntries) ? appState.journalEntries : [];
+    
     const incomeData = months.map(month => {
         const startDate = new Date(currentYear, month - 1, 1);
         const endDate = new Date(currentYear, month, 0);
         
-        return appState.journalEntries
+        return journalEntries
             .filter(entry => 
                 relevantEntityIds.includes(entry.entity_id) &&
                 entry.type === 'Revenue' &&
@@ -1163,7 +1172,7 @@ function initializeIncomeExpenseChart() {
         const startDate = new Date(currentYear, month - 1, 1);
         const endDate = new Date(currentYear, month, 0);
         
-        return appState.journalEntries
+        return journalEntries
             .filter(entry => 
                 relevantEntityIds.includes(entry.entity_id) &&
                 entry.type === 'Expense' &&
@@ -1228,7 +1237,7 @@ function initializeFundDistributionChart() {
     if (!canvas || !window.Chart) return;
     
     // Get relevant funds
-    const relevantFunds = getRelevantFunds();
+    const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
     // Group funds by type
     const fundTypes = {};
