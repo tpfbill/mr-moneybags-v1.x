@@ -153,3 +153,7 @@ reports/
 # Exclude Docker files (as per instruction)
 Dockerfile
 docker-compose.yml
+
+# Local API session cookie jars
+cookiejar.txt
+cookies.txt
