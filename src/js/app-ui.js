@@ -468,7 +468,7 @@ export function updateFundsTable() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${fund.fund_number || '—'}</td>
-            <td>${fund.fund_code}</td>
+            <td class="fund-code">${fund.fund_code}</td>
             <td>${fund.entity_code || '—'}</td>
             <td>${fund.entity_name || '—'}</td>
             <td>${fund.fund_name}</td>
