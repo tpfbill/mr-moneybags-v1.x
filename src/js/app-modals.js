@@ -184,7 +184,7 @@ export async function openEntityModal(id) {
     title.textContent = id ? 'Edit Entity' : 'Create Entity';
     
     // Populate parent entity dropdown
-    const parentEntitySelect = form.querySelector('#entity-parent-id');
+    const parentEntitySelect = form.querySelector('#entity-parent-select');
     parentEntitySelect.innerHTML = '<option value="">None (Top Level)</option>';
     
     appState.entities.forEach(entity => {
