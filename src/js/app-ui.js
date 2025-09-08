@@ -395,6 +395,7 @@ export function updateChartOfAccountsTable() {
             <td><span class="status status-${account.status.toLowerCase()}">${account.status}</span></td>
             <td>
                 <button class="action-button btn-edit-account" data-id="${account.id}">Edit</button>
+                <button class="action-button btn-delete-account" style="margin-left:6px;" data-id="${account.id}">Delete</button>
             </td>
         `;
         chartOfAccountsTbody.appendChild(row);
@@ -408,6 +409,17 @@ export function updateChartOfAccountsTable() {
                 detail: { id: button.dataset.id } 
             });
             document.dispatchEvent(event);
+        });
+    });
+
+    // Add event listeners for delete buttons
+    chartOfAccountsTbody.querySelectorAll('.btn-delete-account').forEach(button => {
+        button.addEventListener('click', () => {
+            const rowEl = button.closest('tr');
+            const evt = new CustomEvent('deleteAccount', {
+                detail: { id: button.dataset.id, rowEl }
+            });
+            document.dispatchEvent(evt);
         });
     });
 }

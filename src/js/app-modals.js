@@ -703,6 +703,60 @@ export async function saveAccount(event) {
     }
 }
 
+/**
+ * Delete an account
+ * @param {string} id - Account ID to delete
+ * @param {HTMLElement} [rowEl] - Optional table row to remove optimistically
+ */
+export async function deleteAccount(id, rowEl) {
+    if (!id) return;
+
+    // Confirm deletion with user
+    const ok = confirm(
+        'Are you sure you want to delete this account? This action cannot be undone.'
+    );
+    if (!ok) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/accounts/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            /* Attempt to read server-provided error */
+            let msg = `HTTP ${res.status}`;
+            try {
+                const ctype = res.headers.get('content-type') || '';
+                if (ctype.includes('application/json')) {
+                    const j = await res.json();
+                    const base = j.error || '';
+                    const details = j.details || '';
+                    msg = details ? `${base} — ${details}` : base || msg;
+                } else {
+                    msg = (await res.text()) || msg;
+                }
+            } catch (_) {
+                /* ignore body read errors */
+            }
+            throw new Error(msg);
+        }
+
+        // Optimistically remove row from UI
+        if (rowEl && rowEl.parentNode) {
+            rowEl.parentNode.removeChild(rowEl);
+        }
+
+        // Refresh account data
+        await loadAccountData?.();
+
+        showToast('Account deleted successfully', 'success');
+    } catch (err) {
+        console.error('Error deleting account:', err);
+        showToast(err?.message || 'Error deleting account', 'error');
+    }
+}
+
 /* --------------------------------------------------------------
  * Journal Entry Modal Functions
  * -------------------------------------------------------------- */
@@ -1393,6 +1447,10 @@ export function initializeModalEventListeners() {
     document.addEventListener('deleteEntity', (event) => deleteEntity(event.detail?.id));
     document.addEventListener('openFundModal', (event) => openFundModal(event.detail?.id));
     document.addEventListener('openAccountModal', (event) => openAccountModal(event.detail?.id));
+    // Account deletion
+    document.addEventListener('deleteAccount', (event) =>
+        deleteAccount(event.detail?.id, event.detail?.rowEl)
+    );
     document.addEventListener('openJournalEntryModal', (event) => openJournalEntryModal(event.detail?.id, event.detail?.readOnly));
     document.addEventListener('postJournalEntry', (event) => postJournalEntry(event.detail?.id));
     document.addEventListener('deleteJournalEntry', (event) => deleteJournalEntry(event.detail?.id));
