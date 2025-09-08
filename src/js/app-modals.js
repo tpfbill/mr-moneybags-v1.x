@@ -404,6 +404,17 @@ export async function openFundModal(id) {
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
             lastUsedInput.value = today;
         }
+
+        /* ----------------------------------------------------------
+         * New balance-related defaults (create mode)
+         * -------------------------------------------------------- */
+        const sbInput  = form.querySelector('#fund-starting-balance');
+        const sbdInput = form.querySelector('#fund-starting-balance-date');
+        const balInput = form.querySelector('#fund-balance');
+
+        if (sbInput)  sbInput.value  = '0.00';
+        if (sbdInput) sbdInput.value = new Date().toISOString().split('T')[0];
+        if (balInput) balInput.value = '';
     }
     
     // If editing, populate form with fund data
@@ -433,6 +444,25 @@ export async function openFundModal(id) {
                 // Format date as YYYY-MM-DD for input[type=date]
                 const lastUsed = new Date(fund.last_used).toISOString().split('T')[0];
                 lastUsedInput.value = lastUsed;
+            }
+
+            /* ----------------------------------------------------------
+             * Populate new balance fields (read-only + starting values)
+             * -------------------------------------------------------- */
+            const sbInput  = form.querySelector('#fund-starting-balance');
+            const sbdInput = form.querySelector('#fund-starting-balance-date');
+            const balInput = form.querySelector('#fund-balance');
+
+            if (sbInput && fund.starting_balance != null) {
+                sbInput.value = parseFloat(fund.starting_balance).toFixed(2);
+            }
+            if (sbdInput && fund.starting_balance_date) {
+                sbdInput.value = new Date(fund.starting_balance_date)
+                    .toISOString()
+                    .split('T')[0];
+            }
+            if (balInput) {
+                balInput.value = formatCurrency(fund.balance || 0);
             }
         } catch (error) {
             console.error('Error fetching fund data:', error);
@@ -469,6 +499,9 @@ export async function saveFund(event) {
         balance_sheet: form.querySelector('#fund-balance-sheet')?.value || 'No',
         status: form.querySelector('#fund-status')?.value || 'Active',
         last_used: form.querySelector('#fund-last-used')?.value || null
+        // --- new balance fields ---
+        starting_balance: form.querySelector('#fund-starting-balance')?.value || null,
+        starting_balance_date: form.querySelector('#fund-starting-balance-date')?.value || null
     };
     
     try {

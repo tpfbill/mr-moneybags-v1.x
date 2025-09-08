@@ -433,7 +433,7 @@ export function updateFundsTable() {
     if (displayFunds.length === 0) {
         fundsTbody.innerHTML = `
             <tr>
-                <td colspan="11" class="text-center">No funds found</td>
+                <td colspan="14" class="text-center">No funds found</td>
             </tr>
         `;
         return;
@@ -459,6 +459,9 @@ export function updateFundsTable() {
             <td>${fund.restriction || '—'}</td>
             <td>${fund.budget || '—'}</td>
             <td>${fund.balance_sheet || '—'}</td>
+            <td>${formatCurrency(fund.balance)}</td>
+            <td>${formatCurrency(fund.starting_balance)}</td>
+            <td>${fund.starting_balance_date ? formatDate(fund.starting_balance_date) : '—'}</td>
             <td>${fund.last_used ? formatDate(fund.last_used) : '—'}</td>
             <td><span class="status status-${(fund.status || '').toLowerCase()}">${fund.status || ''}</span></td>
             <td>${actionsHtml}</td>
