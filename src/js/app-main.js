@@ -799,6 +799,65 @@ function initializePageElements() {
 
     // Initialize print buttons (e.g., Dashboard → “Print Report”)
     initializePrintButtons();
+
+    /* -----------------------------------------------------------
+     * Funds CSV Import button
+     * ---------------------------------------------------------*/
+    const importFundsBtn = document.getElementById('importFundsBtn');
+    const fundCsvInput   = document.getElementById('fundCsvFile');
+
+    if (importFundsBtn && fundCsvInput && !importFundsBtn.__bound) {
+        importFundsBtn.__bound = true;
+
+        importFundsBtn.addEventListener('click', async () => {
+            const file = fundCsvInput.files && fundCsvInput.files[0];
+            if (!file) {
+                showToast('Please choose a CSV file to import', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/funds/import`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                if (!res.ok) {
+                    let serverMsg = '';
+                    try {
+                        const ctype = res.headers.get('content-type') || '';
+                        serverMsg = ctype.includes('application/json')
+                            ? (await res.json()).error ?? ''
+                            : await res.text();
+                    } catch (_) { /* ignore body read errors */ }
+                    throw new Error(
+                        `HTTP ${res.status}: ${res.statusText}${
+                            serverMsg ? ' – ' + serverMsg : ''
+                        }`
+                    );
+                }
+
+                const result = await res.json();
+                showToast(
+                    `Inserted ${result.inserted}, Updated ${result.updated}, Failed ${result.failed}`,
+                    'success'
+                );
+
+                // Refresh funds list
+                await loadFundData();
+            } catch (err) {
+                console.error('[Funds CSV Import] Error:', err);
+                showToast('Fund import failed: ' + err.message, 'error');
+            } finally {
+                // clear selection so the same file can be chosen again
+                fundCsvInput.value = '';
+            }
+        });
+    }
 }
 
 /**

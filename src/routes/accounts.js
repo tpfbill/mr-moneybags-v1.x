@@ -111,7 +111,7 @@ router.post('/', asyncHandler(async (req, res) => {
             classifications,
             status,
             balance
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
     `, [
         entity_id,

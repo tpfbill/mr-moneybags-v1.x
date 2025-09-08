@@ -129,9 +129,7 @@ export function getRelevantEntityIds() {
  * @returns {Array<Object>} Array of fund objects
  */
 export function getRelevantFunds() {
-    const relevantEntityIds = getRelevantEntityIds();
-    
-    return appState.funds.filter(fund => 
-        relevantEntityIds.includes(fund.entity_id)
-    );
+    // After funds schema refactor, funds are no longer linked by entity_id.
+    // Return all funds for now; filtering (if needed) will be handled elsewhere.
+    return appState.funds;
 }

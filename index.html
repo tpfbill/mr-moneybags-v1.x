@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script src="src/js/override-entities.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mr. MoneyBags v1.x - Fund Accounting System</title>
@@ -155,11 +154,33 @@
                         <option value="current">Current Entity Only</option>
                         <option value="all">All Entities</option>
                     </select>
+                    <input type="file"
+                           id="fundCsvFile"
+                           accept=".csv"
+                           style="width:auto;">
+                    <button class="btn-secondary" id="importFundsBtn">Import CSV</button>
                     <button class="action-button" id="btnAddFund">Add Fund</button>
                 </div>
             </div>
             <table class="data-table" id="funds-table">
-                <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Entity</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Code</th>
+                        <th>Entity&nbsp;Code</th>
+                        <th>Entity&nbsp;Name</th>
+                        <th>Name</th>
+                        <th>Restriction</th>
+                        <th>Budget</th>
+                        <th>Balance&nbsp;Sheet</th>
+                        <th>Balance</th>
+                        <th>Starting&nbsp;Balance</th>
+                        <th>Starting&nbsp;Balance&nbsp;Date</th>
+                        <th>Last&nbsp;Used</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -468,71 +489,155 @@
                 <h3 class="modal-title" id="fund-modal-title">Fund</h3>
                 <button class="modal-close-btn" id="fund-modal-close" data-modal-id="fund-modal">&times;</button>
             </div>
-            <!-- ---------- Fund Form ---------- -->
+            <!-- ---------- Fund Form (new schema) ---------- -->
             <form id="fund-modal-form">
                 <div class="modal-body">
                     <input type="hidden" id="edit-fund-id-input">
 
                     <div class="form-group">
-                        <label class="form-label" for="fund-code-input">Fund Code *</label>
+                        <label class="form-label" for="fund-number">Fund Number *</label>
                         <input type="text"
-                               id="fund-code-input"
+                               id="fund-number"
+                               name="fund-number"
+                               class="form-input"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="fund-code">Fund Code *</label>
+                        <input type="text"
+                               id="fund-code"
                                name="fund-code"
                                class="form-input"
                                required>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="fund-name-input">Fund Name *</label>
+                        <label class="form-label" for="fund-name">Fund Name *</label>
                         <input type="text"
-                               id="fund-name-input"
+                               id="fund-name"
                                name="fund-name"
                                class="form-input"
                                required>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="fund-entity-id">Entity</label>
-                        <select id="fund-entity-id"
-                                name="fund-entity-id"
-                                class="form-input">
-                            <option value="">Select Entity…</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="fund-entity-name">Entity Name *</label>
+                                <select id="fund-entity-name"
+                                        name="fund-entity-name"
+                                        class="form-input"
+                                        required>
+                                    <option value="">Select…</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="fund-entity-code">Entity Code *</label>
+                                <select id="fund-entity-code"
+                                        name="fund-entity-code"
+                                        class="form-input"
+                                        required>
+                                    <option value="">Select…</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-column">
                             <div class="form-group">
-                                <label class="form-label" for="fund-type-select">Fund Type *</label>
-                                <select id="fund-type-select"
-                                        name="fund-type"
+                                <label class="form-label" for="fund-restriction">Restriction *</label>
+                                <select id="fund-restriction"
+                                        name="fund-restriction"
                                         class="form-input"
                                         required>
-                                    <option value="Unrestricted">Unrestricted</option>
-                                    <option value="Temporarily Restricted">Temporarily Restricted</option>
-                                    <option value="Permanently Restricted">Permanently Restricted</option>
+                                    <option value="">Select…</option>
                                 </select>
                             </div>
                         </div>
                         <div class="form-column">
                             <div class="form-group">
-                                <label class="form-label" for="fund-status-select">Status</label>
-                                <select id="fund-status-select"
-                                        name="fund-status"
-                                        class="form-input">
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Inactive</option>
+                                <label class="form-label" for="fund-budget">Budget *</label>
+                                <select id="fund-budget"
+                                        name="fund-budget"
+                                        class="form-input"
+                                        required>
+                                    <option value="">Select…</option>
                                 </select>
                             </div>
                         </div>
                     </div>
 
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="fund-balance-sheet">Balance Sheet *</label>
+                                <select id="fund-balance-sheet"
+                                        name="fund-balance-sheet"
+                                        class="form-input"
+                                        required>
+                                    <option value="">Select…</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="fund-last-used">Last Used</label>
+                                <input type="date"
+                                       id="fund-last-used"
+                                       name="fund-last-used"
+                                       class="form-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Starting balance inputs -->
+                    <div class="form-row">
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="fund-starting-balance">Starting Balance *</label>
+                                <input type="number"
+                                       step="0.01"
+                                       id="fund-starting-balance"
+                                       name="fund-starting-balance"
+                                       class="form-input"
+                                       placeholder="0.00"
+                                       required>
+                            </div>
+                        </div>
+                        <div class="form-column">
+                            <div class="form-group">
+                                <label class="form-label" for="fund-starting-balance-date">Starting Balance Date *</label>
+                                <input type="date"
+                                       id="fund-starting-balance-date"
+                                       name="fund-starting-balance-date"
+                                       class="form-input"
+                                       required>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
-                        <label class="form-label" for="fund-description-textarea">Description</label>
-                        <textarea id="fund-description-textarea"
-                                  name="fund-description"
-                                  class="form-input"
-                                  rows="3"></textarea>
+                        <label class="form-label" for="fund-status">Status</label>
+                        <select id="fund-status"
+                                name="fund-status"
+                                class="form-input">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+
+                    <!-- Read-only balance display -->
+                    <div class="form-group">
+                        <label class="form-label" for="fund-balance">Current Balance</label>
+                        <input type="text"
+                               id="fund-balance"
+                               name="fund-balance"
+                               class="form-input"
+                               readonly>
                     </div>
                 </div>
 
@@ -541,7 +646,6 @@
                             class="btn-secondary modal-close-btn"
                             id="fund-modal-cancel"
                             data-modal-id="fund-modal">Cancel</button>
-                    <button class="btn-danger" id="delete-fund-btn" style="display:none;">Delete Fund</button>
                     <button type="submit"
                             class="action-button"
                             id="save-fund-btn">Save Fund</button>
@@ -1039,5 +1143,8 @@
     <!-- Main application script -->
     <!-- Cache-busting timestamp updated to force fresh load -->
     <script src="src/js/app.js?v=20250813"></script>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
 </body>
 </html>
