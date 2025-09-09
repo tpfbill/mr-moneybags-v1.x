@@ -27,6 +27,7 @@ const vendorsRoutes = require('./src/routes/vendors');
 const entitiesRoutes = require('./src/routes/entities');
 const accountsRoutes = require('./src/routes/accounts');
 const fundsRoutes = require('./src/routes/funds');
+const glCodesRoutes      = require('./src/routes/gl-codes'); // NEW
 const nachaSettingsRoutes = require('./src/routes/nacha-settings');
 const nachaFilesRoutes   = require('./src/routes/nacha-files');
 const paymentBatchesRoutes = require('./src/routes/payment-batches');
@@ -158,6 +159,7 @@ app.use('/api/auth', authRoutes);
 // Core master-data first
 app.use('/api/entities', requireAuth, entitiesRoutes);
 app.use('/api/funds',    requireAuth, fundsRoutes);
+app.use('/api/gl-codes', requireAuth, glCodesRoutes); // NEW
 app.use('/api/accounts', requireAuth, accountsRoutes);
 
 // Configuration & processing

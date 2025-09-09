@@ -31,6 +31,97 @@ const initializeDatabase = async () => {
         `);
         console.log('Checked/created column "import_id" on "journal_entries" if table exists.');
 
+        /* ------------------------------------------------------------------
+         * Ensure GL Codes master table exists (idempotent)
+         * ----------------------------------------------------------------*/
+        await client.query(`
+            DO $$
+            BEGIN
+                ----------------------------------------------------------------
+                -- 1) Create table if missing
+                ----------------------------------------------------------------
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'gl_codes'
+                ) THEN
+                    CREATE TABLE gl_codes (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        code           VARCHAR(50) NOT NULL,
+                        description    TEXT,
+                        classification TEXT,
+                        line_type      VARCHAR(50) NOT NULL,
+                        status         VARCHAR(20) NOT NULL DEFAULT 'Active',
+                        budget         VARCHAR(10),
+                        balance_sheet  VARCHAR(10),
+                        created_at     TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at     TIMESTAMPTZ DEFAULT NOW()
+                    );
+                END IF;
+
+                ----------------------------------------------------------------
+                -- 2) Unique index on LOWER(code) for case-insensitive global key
+                ----------------------------------------------------------------
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE c.relname = 'uidx_gl_codes_code_lower'
+                      AND n.nspname = 'public'
+                ) THEN
+                    CREATE UNIQUE INDEX uidx_gl_codes_code_lower
+                        ON gl_codes (LOWER(code));
+                END IF;
+
+                ----------------------------------------------------------------
+                -- 3) Check constraint on line_type enum
+                ----------------------------------------------------------------
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'chk_gl_codes_line_type'
+                ) THEN
+                    ALTER TABLE gl_codes
+                        ADD CONSTRAINT chk_gl_codes_line_type
+                        CHECK (line_type IN (
+                            'Asset','Credit Card','Liability',
+                            'Equity','Revenue','Expense'
+                        ));
+                END IF;
+
+                ----------------------------------------------------------------
+                -- 4) Check constraint on status enum
+                ----------------------------------------------------------------
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'chk_gl_codes_status'
+                ) THEN
+                    ALTER TABLE gl_codes
+                        ADD CONSTRAINT chk_gl_codes_status
+                        CHECK (status IN ('Active','Inactive'));
+                END IF;
+
+                ----------------------------------------------------------------
+                -- 5) Optional filter indexes
+                ----------------------------------------------------------------
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE c.relname = 'idx_gl_codes_status'
+                      AND n.nspname = 'public'
+                ) THEN
+                    CREATE INDEX idx_gl_codes_status ON gl_codes(status);
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE c.relname = 'idx_gl_codes_line_type'
+                      AND n.nspname = 'public'
+                ) THEN
+                    CREATE INDEX idx_gl_codes_line_type ON gl_codes(line_type);
+                END IF;
+            END $$;
+        `);
+        console.log('GL Codes table & indexes verified/created.');
+
         /* 
          * Tables that depend on core schema (bank_accounts, payment_batches, vendors)
          * are created by the main SQL schema loaded during installation. We skip
