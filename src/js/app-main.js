@@ -38,7 +38,8 @@ import {
     loadDashboardData,
     loadAllCoreData,
     loadBankAccountData,
-    syncBankAccounts
+    syncBankAccounts,
+    loadGlCodeData
 } from './app-data.js';
 
 // Import UI update functions
@@ -57,7 +58,8 @@ import {
     updateEntityHierarchyVisualization,
     initializeDashboardCharts,
     updateFundReportsFilters,
-    updateBankAccountsTable
+    updateBankAccountsTable,
+    updateGlCodesTable
 } from './app-ui.js';
 
 // Import modal management functions
@@ -80,7 +82,8 @@ import {
     openUserModal,
     saveUser,
     initializeModalEventListeners,
-    openBankAccountModal
+    openBankAccountModal,
+    openGLCodeModal
 } from './app-modals.js';
 
 /**
@@ -157,7 +160,8 @@ function connectDataWithUI() {
         updateEntityHierarchyVisualization,
         initializeDashboardCharts,
         updateFundReportsFilters,
-        updateBankAccountsTable
+        updateBankAccountsTable,
+        updateGlCodesTable
     });
 }
 
@@ -173,7 +177,8 @@ function connectModalsWithData() {
         loadJournalEntryData,
         loadUserData,
         loadDashboardData,
-        loadBankAccountData
+        loadBankAccountData,
+        loadGlCodeData
     });
 }
 
@@ -247,6 +252,9 @@ function showPage(pageId) {
         case 'chart-of-accounts':
             loadAccountData();
             break;
+        case 'gl-codes':
+            loadGlCodeData();
+            break;
         case 'settings':
             initializeSettingsTabs();
             break;
@@ -312,6 +320,9 @@ function refreshCurrentPageData() {
             break;
         case 'chart-of-accounts':
             updateChartOfAccountsTable();
+            break;
+        case 'gl-codes':
+            updateGlCodesTable();
             break;
         case 'fund-reports':
             updateFundReportsFilters();
@@ -797,7 +808,7 @@ function initializePageElements() {
     // Initialize filter selects
     initializeFilterSelects();
 
-    // Initialize print buttons (e.g., Dashboard → “Print Report”)
+    // Initialize print buttons (e.g., Dashboard → "Print Report")
     initializePrintButtons();
 
     /* -----------------------------------------------------------
@@ -858,6 +869,65 @@ function initializePageElements() {
             }
         });
     }
+
+    /* -----------------------------------------------------------
+     * GL Codes CSV Import button
+     * ---------------------------------------------------------*/
+    const importGlCodesBtn = document.getElementById('importGlCodesBtn');
+    const glCodesCsvInput = document.getElementById('glCodesCsvFile');
+
+    if (importGlCodesBtn && glCodesCsvInput && !importGlCodesBtn.__bound) {
+        importGlCodesBtn.__bound = true;
+
+        importGlCodesBtn.addEventListener('click', async () => {
+            const file = glCodesCsvInput.files && glCodesCsvInput.files[0];
+            if (!file) {
+                showToast('Please choose a CSV file to import', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/gl-codes/import`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                if (!res.ok) {
+                    let serverMsg = '';
+                    try {
+                        const ctype = res.headers.get('content-type') || '';
+                        serverMsg = ctype.includes('application/json')
+                            ? (await res.json()).error ?? ''
+                            : await res.text();
+                    } catch (_) { /* ignore body read errors */ }
+                    throw new Error(
+                        `HTTP ${res.status}: ${res.statusText}${
+                            serverMsg ? ' – ' + serverMsg : ''
+                        }`
+                    );
+                }
+
+                const result = await res.json();
+                showToast(
+                    `Inserted ${result.inserted}, Updated ${result.updated}, Failed ${result.failed}`,
+                    'success'
+                );
+
+                // Refresh GL codes list
+                await loadGlCodeData();
+            } catch (err) {
+                console.error('[GL Codes CSV Import] Error:', err);
+                showToast('GL Codes import failed: ' + err.message, 'error');
+            } finally {
+                // clear selection so the same file can be chosen again
+                glCodesCsvInput.value = '';
+            }
+        });
+    }
 }
 
 /**
@@ -909,6 +979,14 @@ function initializeAddButtons() {
     if (addBankAccountBtn) {
         addBankAccountBtn.addEventListener('click', () => {
             openBankAccountModal();
+        });
+    }
+
+    // Add GL Code button
+    const addGLCodeBtn = document.getElementById('btnAddGLCode');
+    if (addGLCodeBtn) {
+        addGLCodeBtn.addEventListener('click', () => {
+            openGLCodeModal();
         });
     }
 }

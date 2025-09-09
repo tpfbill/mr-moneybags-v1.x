@@ -43,6 +43,7 @@
     <div class="main-nav" id="mainNavContainer"> 
         <div class="nav-container">
             <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="gl-codes">GL Codes</div>
             <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
             <div class="nav-item" data-page="funds">Funds</div>
             <div class="nav-item" data-page="journal-entries">Journal Entries</div>
@@ -134,6 +135,32 @@
             </div>
         </div>
         
+        <div id="gl-codes-page" class="page">
+          <div class="content-header">
+            <h2>GL Codes</h2>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <input type="file" id="glCodesCsvFile" accept=".csv" style="width:auto;">
+              <button class="btn-secondary" id="importGlCodesBtn">Import CSV</button>
+              <button class="action-button" id="btnAddGLCode">Add GL Code</button>
+            </div>
+          </div>
+          <table class="data-table" id="gl-codes-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Description</th>
+                <th>Classification</th>
+                <th>Line Type</th>
+                <th>Status</th>
+                <th>Budget</th>
+                <th>Balance Sheet</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
         <div id="chart-of-accounts-page" class="page">
             <div class="content-header">
                 <h2>Chart of Accounts</h2>
@@ -1102,6 +1129,76 @@
             </div>
             </form>
         </div>
+    </div>
+
+    <div id="gl-code-modal" class="modal-overlay" style="display:none;">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title">GL Code</h3>
+          <button class="modal-close-btn" id="gl-code-modal-close" data-modal-id="gl-code-modal">&times;</button>
+        </div>
+        <form id="gl-code-modal-form">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label" for="gl-code">Code *</label>
+              <input type="text" id="gl-code" name="gl-code" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="gl-description">Description</label>
+              <input type="text" id="gl-description" name="gl-description" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="gl-classification">Classification</label>
+              <input type="text" id="gl-classification" name="gl-classification" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="gl-line-type">Line Type *</label>
+              <select id="gl-line-type" name="gl-line-type" class="form-input" required>
+                <option value="">Select…</option>
+                <option>Asset</option>
+                <option>Credit Card</option>
+                <option>Liability</option>
+                <option>Equity</option>
+                <option>Revenue</option>
+                <option>Expense</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-column">
+                <div class="form-group">
+                  <label class="form-label" for="gl-status">Status</label>
+                  <select id="gl-status" name="gl-status" class="form-input">
+                    <option>Active</option>
+                    <option>Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-column">
+                <div class="form-group">
+                  <label class="form-label" for="gl-budget">Budget</label>
+                  <select id="gl-budget" name="gl-budget" class="form-input">
+                    <option value=""></option>
+                    <option>Yes</option>
+                    <option>No</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="gl-balance-sheet">Balance Sheet</label>
+              <select id="gl-balance-sheet" name="gl-balance-sheet" class="form-input">
+                <option value=""></option>
+                <option>Yes</option>
+                <option>No</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary modal-close-btn" id="gl-code-modal-cancel" data-modal-id="gl-code-modal">Cancel</button>
+            <button type="submit" class="action-button" id="save-gl-code-btn">Save</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Initialization handler -->

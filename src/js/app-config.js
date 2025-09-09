@@ -33,6 +33,7 @@ export const appState = {
     entities: [],
     accounts: [],
     funds: [],
+    glCodes: [],          // <-- GL Codes master list
     journalEntries: [],
     bankAccounts: [],
     users: [],
