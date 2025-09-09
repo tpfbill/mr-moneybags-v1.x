@@ -13,7 +13,8 @@ const PgSession = require('connect-pg-simple')(session);
 const {
   pool,
   testConnection,
-  checkSchemaVersion
+  checkSchemaVersion,
+  initializeDatabase
 } = require('./src/database/connection');
 
 // Import middleware
@@ -225,6 +226,8 @@ const startServer = async () => {
       console.error('Failed to connect to database. Server will not start.');
       process.exit(1);
     }
+    // Ensure required tables/columns exist (idempotent)
+    await initializeDatabase();
     // Ensure database schema version matches application requirements
     await checkSchemaVersion();
     
