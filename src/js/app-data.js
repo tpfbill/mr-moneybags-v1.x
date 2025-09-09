@@ -24,6 +24,7 @@ let updateEntityHierarchyVisualization;
 let initializeDashboardCharts;
 let updateFundReportsFilters; // <-- Fund Reports dropdown updater
 let updateBankAccountsTable; // <-- Bank Accounts table updater
+let updateGlCodesTable;      // <-- GL Codes table updater
 
 /**
  * Set UI update functions - called from app-main.js to connect the data layer with UI updates
@@ -45,6 +46,7 @@ export function setUIUpdaters(uiUpdaters) {
     initializeDashboardCharts = uiUpdaters.initializeDashboardCharts;
     updateFundReportsFilters = uiUpdaters.updateFundReportsFilters;
     updateBankAccountsTable = uiUpdaters.updateBankAccountsTable;
+    updateGlCodesTable = uiUpdaters.updateGlCodesTable;
 }
 
 /**
@@ -224,6 +226,28 @@ export async function loadFundData() {
         return funds;
     } catch (error) {
         console.error('Error loading fund data:', error);
+        return [];
+    }
+}
+
+/**
+ * Load GL Code master data and update UI
+ * @returns {Promise<Array>} - Loaded GL codes
+ */
+export async function loadGlCodeData() {
+    try {
+        const raw = await fetchData('gl-codes');
+        const glCodes = Array.isArray(raw) ? raw : [];
+        appState.glCodes = glCodes;
+
+        // Update UI table if updater is provided
+        if (typeof updateGlCodesTable === 'function') {
+            updateGlCodesTable();
+        }
+
+        return glCodes;
+    } catch (error) {
+        console.error('Error loading GL codes:', error);
         return [];
     }
 }

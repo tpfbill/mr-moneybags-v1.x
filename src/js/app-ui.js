@@ -509,6 +509,84 @@ export function updateFundsTable() {
 }
 
 /**
+ * Update GL Codes table
+ */
+export function updateGlCodesTable() {
+    const table = document.getElementById('gl-codes-table');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    // Determine admin privileges (case-insensitive compare)
+    const isAdmin =
+        (appState.currentUser?.role || '').toLowerCase() === 'admin';
+
+    // Clone & sort by code (case-insensitive)
+    const sorted = Array.isArray(appState.glCodes)
+        ? [...appState.glCodes].sort((a, b) =>
+              (a.code || '').localeCompare(b.code || '', undefined, {
+                  sensitivity: 'base'
+              })
+          )
+        : [];
+
+    tbody.innerHTML = '';
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center">No GL codes found</td>
+            </tr>
+        `;
+        return;
+    }
+
+    sorted.forEach(gc => {
+        let actionsHtml = '';
+        if (isAdmin) {
+            actionsHtml = `
+                <button class="action-button btn-edit-gl-code" data-id="${gc.id}">Edit</button>
+                <button class="action-button btn-delete-gl-code" style="margin-left:6px;" data-id="${gc.id}">Delete</button>
+            `;
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${gc.code}</td>
+            <td>${gc.description || '—'}</td>
+            <td>${gc.classification || '—'}</td>
+            <td>${gc.line_type}</td>
+            <td><span class="status status-${(gc.status || '').toLowerCase()}">${gc.status}</span></td>
+            <td>${gc.budget || '—'}</td>
+            <td>${gc.balance_sheet || '—'}</td>
+            <td>${actionsHtml}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // Attach event listeners (edit/delete)
+    tbody.querySelectorAll('.btn-edit-gl-code').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const evt = new CustomEvent('openGLCodeModal', {
+                detail: { id: btn.dataset.id }
+            });
+            document.dispatchEvent(evt);
+        });
+    });
+
+    tbody.querySelectorAll('.btn-delete-gl-code').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const rowEl = btn.closest('tr');
+            const evt = new CustomEvent('deleteGLCode', {
+                detail: { id: btn.dataset.id, rowEl }
+            });
+            document.dispatchEvent(evt);
+        });
+    });
+}
+
+/**
  * Update journal entries table
  */
 export function updateJournalEntriesTable() {
