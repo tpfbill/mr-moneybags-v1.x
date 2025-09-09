@@ -26,17 +26,31 @@ function normalizeYN(v) {
 }
 
 function normalizeLineType(v) {
-    const validTypes = ['asset', 'credit card', 'liability', 'equity', 'revenue', 'expense'];
-    const t = (v || '').toString().trim().toLowerCase();
-    
-    // Map to proper case if valid
-    if (validTypes.includes(t)) {
-        if (t === 'credit card') return 'Credit Card';
-        return t.charAt(0).toUpperCase() + t.slice(1);
-    }
-    
-    // Return null if not valid (will be caught by validation)
-    return null;
+    /*
+     * Accept canonical values plus common synonyms/variants.
+     * Mapping table uses lower-cased keys (underscores/spaces collapsed).
+     */
+    const map = {
+        'asset': 'Asset',
+        'assets': 'Asset',
+        'credit card': 'Credit Card',
+        'creditcard': 'Credit Card',
+        'credit_card': 'Credit Card',
+        'cc': 'Credit Card',
+        'liability': 'Liability',
+        'liabilities': 'Liability',
+        'equity': 'Equity',
+        'revenue': 'Revenue',
+        'income': 'Revenue',
+        'expense': 'Expense',
+        'expenses': 'Expense'
+    };
+
+    if (!v) return null;
+
+    // normalise internal spaces/underscores then lookup
+    const key = v.toString().trim().toLowerCase().replace(/[_\s]+/g, ' ');
+    return map[key] || null;
 }
 
 // --- CSV header mapping helpers -------------------------------------------
@@ -81,6 +95,14 @@ function normalizeCsvRecord(rec) {
     for (const [raw, val] of Object.entries(rec)) {
         const canon = HEADER_ALIAS_MAP.get(normalizeHeaderKey(raw));
         if (canon) out[canon] = val;
+    }
+
+    // Fallback: if line_type absent but classification resembles a valid line_type
+    if (!out.line_type && out.classification) {
+        const maybe = normalizeLineType(out.classification);
+        if (maybe) {
+            out.line_type = out.classification;
+        }
     }
     return out;
 }
@@ -347,7 +369,7 @@ router.post(
             const raw = records[i];
             const rec = normalizeCsvRecord(raw);
             try {
-                const {
+                let {
                     code,
                     description,
                     classification,
@@ -356,6 +378,12 @@ router.post(
                     budget,
                     balance_sheet
                 } = rec;
+
+                // Fallback mapping (again, just in case)
+                if (!line_type && classification) {
+                    const maybe = normalizeLineType(classification);
+                    if (maybe) line_type = classification;
+                }
 
                 if (!code || !line_type) {
                     throw new Error(
