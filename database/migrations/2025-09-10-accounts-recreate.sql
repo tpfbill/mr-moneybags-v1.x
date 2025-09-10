@@ -17,6 +17,21 @@ BEGIN;
 ALTER TABLE IF EXISTS journal_entry_items DROP CONSTRAINT IF EXISTS journal_entry_items_account_id_fkey;
 ALTER TABLE IF EXISTS bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_gl_account_id_fkey;
 ALTER TABLE IF EXISTS budgets DROP CONSTRAINT IF EXISTS budgets_account_id_fkey;
+ALTER TABLE IF EXISTS bank_deposit_items DROP CONSTRAINT IF EXISTS bank_deposit_items_gl_account_id_fkey;
+
+-- Fallback: drop any other still-remaining FK constraints that reference accounts
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT conname, conrelid::regclass AS tbl
+        FROM pg_constraint
+        WHERE contype = 'f' AND confrelid = 'accounts'::regclass
+    ) LOOP
+        EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %I', r.tbl, r.conname);
+    END LOOP;
+END $$;
 
 -- Step 2: Drop the accounts table if it exists
 DROP TABLE IF EXISTS accounts;
@@ -79,6 +94,22 @@ BEGIN
     ) THEN
         ALTER TABLE bank_accounts
         ADD CONSTRAINT bank_accounts_gl_account_id_fkey
+        FOREIGN KEY (gl_account_id) REFERENCES accounts(id);
+    END IF;
+END $$;
+
+-- bank_deposit_items.gl_account_id
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'bank_deposit_items'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'bank_deposit_items_gl_account_id_fkey'
+    ) THEN
+        ALTER TABLE bank_deposit_items
+        ADD CONSTRAINT bank_deposit_items_gl_account_id_fkey
         FOREIGN KEY (gl_account_id) REFERENCES accounts(id);
     END IF;
 END $$;
