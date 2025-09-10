@@ -78,7 +78,7 @@ BEGIN
     ) THEN
         ALTER TABLE journal_entry_items
         ADD CONSTRAINT journal_entry_items_account_id_fkey
-        FOREIGN KEY (account_id) REFERENCES accounts(id);
+        FOREIGN KEY (account_id) REFERENCES accounts(id) NOT VALID;
     END IF;
 END $$;
 
@@ -94,7 +94,7 @@ BEGIN
     ) THEN
         ALTER TABLE bank_accounts
         ADD CONSTRAINT bank_accounts_gl_account_id_fkey
-        FOREIGN KEY (gl_account_id) REFERENCES accounts(id);
+        FOREIGN KEY (gl_account_id) REFERENCES accounts(id) NOT VALID;
     END IF;
 END $$;
 
@@ -110,7 +110,7 @@ BEGIN
     ) THEN
         ALTER TABLE bank_deposit_items
         ADD CONSTRAINT bank_deposit_items_gl_account_id_fkey
-        FOREIGN KEY (gl_account_id) REFERENCES accounts(id);
+        FOREIGN KEY (gl_account_id) REFERENCES accounts(id) NOT VALID;
     END IF;
 END $$;
 
@@ -126,7 +126,7 @@ BEGIN
     ) THEN
         ALTER TABLE budgets
         ADD CONSTRAINT budgets_account_id_fkey
-        FOREIGN KEY (account_id) REFERENCES accounts(id);
+        FOREIGN KEY (account_id) REFERENCES accounts(id) NOT VALID;
     END IF;
 END $$;
 
