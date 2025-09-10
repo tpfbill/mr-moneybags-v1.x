@@ -12,7 +12,8 @@
     "db:seed": "bash scripts/db-seed.sh",
     "db:recreate": "bash scripts/db-recreate.sh",
     "db:verify": "node database/db-verify-data.js",
-    "bootstrap:mac": "bash scripts/mac-bootstrap.sh"
+    "bootstrap:mac": "bash scripts/mac-bootstrap.sh",
+    "db:migrate:accounts": "bash scripts/migrate-accounts-recreate.sh"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
