@@ -9,18 +9,21 @@
 // Dynamic API base URL – automatically uses current host (works with
 // localhost, Tailscale IP/hostname, or any other network interface)
 // ---------------------------------------------------------------------------
-// Always use same-origin (single-port setup). Backend and static files are
-// both served by Express on port 3000 in development and production.
-let API_BASE = window.location.origin;
+let API_BASE;
+const devPorts = ['8080', '8081'];           // ports used by http-server dev instances
+
+if (devPorts.includes(window.location.port)) {
+    // Two-port dev mode → talk to backend on :3000
+    API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+} else {
+    // Same-origin (single-port) – production or when Express serves static files
+    API_BASE = window.location.origin;
+}
+
 export { API_BASE };
 
-// DEBUG: confirm config load & API target
-console.log(
-    'app-config.js loaded:',
-    new Date().toISOString(),
-    '- Using API at',
-    API_BASE
-);
+// DEBUGGING: Config module loaded on (timestamp)
+console.log('app-config.js loaded:', new Date().toISOString(), '- Using API at', API_BASE);
 
 // ---------------------------------------------------------------------------
 // Application State - Shared across all modules
@@ -33,6 +36,7 @@ export const appState = {
     journalEntries: [],
     bankAccounts: [],
     users: [],
+    glCodes: [],            // <--- GL Codes data collection
     organizationSettings: {},
     customReportDefinitions: [],
     

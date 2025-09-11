@@ -38,7 +38,8 @@ import {
     loadDashboardData,
     loadAllCoreData,
     loadBankAccountData,
-    syncBankAccounts
+    syncBankAccounts,
+    loadGLCodesData
 } from './app-data.js';
 
 // Import UI update functions
@@ -57,7 +58,8 @@ import {
     updateEntityHierarchyVisualization,
     initializeDashboardCharts,
     updateFundReportsFilters,
-    updateBankAccountsTable
+    updateBankAccountsTable,
+    updateGLCodesTable
 } from './app-ui.js';
 
 // Import modal management functions
@@ -157,7 +159,8 @@ function connectDataWithUI() {
         updateEntityHierarchyVisualization,
         initializeDashboardCharts,
         updateFundReportsFilters,
-        updateBankAccountsTable
+        updateBankAccountsTable,
+        updateGLCodesTable
     });
 }
 
@@ -173,7 +176,8 @@ function connectModalsWithData() {
         loadJournalEntryData,
         loadUserData,
         loadDashboardData,
-        loadBankAccountData
+        loadBankAccountData,
+        loadGLCodesData
     });
 }
 
@@ -247,6 +251,9 @@ function showPage(pageId) {
         case 'chart-of-accounts':
             loadAccountData();
             break;
+        case 'gl-codes':
+            loadGLCodesData();
+            break;
         case 'settings':
             initializeSettingsTabs();
             break;
@@ -312,6 +319,9 @@ function refreshCurrentPageData() {
             break;
         case 'chart-of-accounts':
             updateChartOfAccountsTable();
+            break;
+        case 'gl-codes':
+            updateGLCodesTable();
             break;
         case 'fund-reports':
             updateFundReportsFilters();
@@ -797,7 +807,7 @@ function initializePageElements() {
     // Initialize filter selects
     initializeFilterSelects();
 
-    // Initialize print buttons (e.g., Dashboard → “Print Report”)
+    // Initialize print buttons (e.g., Dashboard → "Print Report")
     initializePrintButtons();
 
     /* -----------------------------------------------------------

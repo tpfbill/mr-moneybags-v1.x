@@ -374,7 +374,7 @@ export function updateChartOfAccountsTable() {
     if (sortedAccounts.length === 0) {
         chartOfAccountsTbody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center">No accounts found</td>
+                <td colspan="7" class="text-center">No accounts found</td>
             </tr>
         `;
         return;
@@ -387,9 +387,7 @@ export function updateChartOfAccountsTable() {
                 'Unknown');
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${account.code}</td>
-            <td>${account.report_code || '—'}</td>
-            <td>${account.chart_code || '—'}</td>
+            <td>${account.chart_code || account.code}</td>
             <td>${account.description}</td>
             <td>${account.classifications}</td>
             <td>${entityName}</td>
@@ -677,6 +675,81 @@ export function updateBankAccountsTable() {
             });
             document.dispatchEvent(evt);
         });
+    });
+}
+
+/**
+ * Update GL Codes table
+ * Dynamically builds header/rows based on keys present in the data.
+ */
+export function updateGLCodesTable() {
+    const table = document.getElementById('gl-codes-table');
+    if (!table) return;
+
+    // Ensure thead / tbody exist
+    let thead = table.querySelector('thead');
+    let tbody = table.querySelector('tbody');
+
+    if (!thead) {
+        thead = document.createElement('thead');
+        table.prepend(thead);
+    }
+    if (!tbody) {
+        tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+    }
+
+    // Determine column set (ordered)
+    let columns = [];
+    if (Array.isArray(appState.glCodes) && appState.glCodes.length) {
+        const colSet = new Set(Object.keys(appState.glCodes[0]));
+        // preserve insertion-order but include any new keys encountered later
+        appState.glCodes.forEach(rec =>
+            Object.keys(rec).forEach(k => {
+                if (!colSet.has(k)) colSet.add(k);
+            })
+        );
+        columns = Array.from(colSet);
+    }
+
+    // Build table head
+    thead.innerHTML = '';
+    const headRow = document.createElement('tr');
+    if (columns.length === 0) {
+        // Fallback single header when we have no data yet
+        headRow.innerHTML = '<th>GL Codes</th>';
+    } else {
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            // Title-case & replace underscores with spaces
+            th.textContent = col
+                .replace(/_/g, ' ')
+                .replace(/\\b\\w/g, c => c.toUpperCase());
+            headRow.appendChild(th);
+        });
+    }
+    thead.appendChild(headRow);
+
+    // Build table body
+    tbody.innerHTML = '';
+
+    if (!appState.glCodes.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="${columns.length || 1}" class="text-center">No GL codes found</td>`;
+        tbody.appendChild(tr);
+        return;
+    }
+
+    appState.glCodes.forEach(rec => {
+        const tr = document.createElement('tr');
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            const val = rec[col];
+            td.textContent =
+                val === undefined || val === null ? '' : String(val);
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
     });
 }
 

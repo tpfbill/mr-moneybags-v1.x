@@ -38,6 +38,7 @@ const checkFormatsRoutes   = require('./src/routes/check-formats'); // NEW
 const usersRoutes          = require('./src/routes/users');
 const reportsRoutes        = require('./src/routes/reports');
 const importRoutes         = require('./src/routes/import');
+const glCodesRoutes        = require('./src/routes/gl-codes'); // NEW
 
 // Import inter-entity transfer helper
 const registerInterEntityTransferRoutes = require('./src/js/inter-entity-transfer-api');
@@ -159,6 +160,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/entities', requireAuth, entitiesRoutes);
 app.use('/api/funds',    requireAuth, fundsRoutes);
 app.use('/api/accounts', requireAuth, accountsRoutes);
+// GL Codes – core reference table
+app.use('/api/gl-codes', requireAuth, glCodesRoutes);
 
 // Configuration & processing
 app.use('/api/nacha-settings', requireAuth, nachaSettingsRoutes);
