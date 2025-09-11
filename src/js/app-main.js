@@ -89,6 +89,9 @@ import {
 async function initializeApp() {
     console.log('Initializing application...');
     
+    // Bind navigation immediately so tabs/logout work even if auth fails
+    initializeNavigation();
+    
     // Check authentication
     const authResult = await ensureAuthenticated();
     
@@ -109,9 +112,6 @@ async function initializeApp() {
     
     // Initialize modal event listeners
     initializeModalEventListeners();
-    
-    // Initialize navigation
-    initializeNavigation();
     
     // Initialize entity selector
     initializeEntitySelector();
