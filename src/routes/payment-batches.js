@@ -48,8 +48,28 @@ router.get('/', asyncHandler(async (req, res) => {
     
     query += ` ORDER BY pb.batch_date DESC, pb.created_at DESC`;
     
-    const { rows } = await pool.query(query, params);
-    res.json(rows);
+    /* ------------------------------------------------------------------ 
+     * Execute query with defensive handling for missing tables
+     *   • PG error code 42P01  → undefined_table
+     *   • Some drivers return text “does not exist”
+     * If tables have not been created yet, respond with an empty array
+     * instead of propagating a 500 so the UI can still load gracefully.
+     * ----------------------------------------------------------------*/
+    try {
+        const { rows } = await pool.query(query, params);
+        res.json(rows);
+    } catch (err) {
+        const undefTable =
+            err?.code === '42P01' ||
+            /does not exist/i.test(err?.message || '');
+
+        if (undefTable) {
+            // Tables not present yet – treat as no data rather than error
+            return res.json([]);
+        }
+        // Unexpected error – rethrow so error middleware logs it
+        throw err;
+    }
 }));
 
 /**
