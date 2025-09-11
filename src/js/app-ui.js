@@ -509,6 +509,118 @@ export function updateFundsTable() {
 }
 
 /**
+ * Update GL Codes table
+ */
+export function updateGLCodesTable() {
+    const table = document.getElementById('gl-codes-table');
+    if (!table) return; // page not loaded
+
+    const thead = table.querySelector('thead') || table.createTHead();
+    const tbody =
+        table.querySelector('tbody') ||
+        table.appendChild(document.createElement('tbody'));
+
+    // Determine admin privileges (case-insensitive role check)
+    const isAdmin =
+        (appState.currentUser?.role || '').toLowerCase() === 'admin';
+
+    // Build column list from first record
+    const rawCols =
+        Array.isArray(appState.glCodes) && appState.glCodes.length
+            ? Object.keys(appState.glCodes[0])
+            : [];
+
+    // Filter out hidden columns
+    const HIDDEN = new Set(['id', 'created_at', 'updated_at']);
+    const columns = rawCols.filter(
+        c => !HIDDEN.has(c.toLowerCase())
+    );
+
+    /* ----------- Render table head ----------- */
+    thead.innerHTML = '';
+    const headRow = document.createElement('tr');
+    if (columns.length === 0) {
+        headRow.innerHTML = '<th>GL Codes</th>';
+    } else {
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            const lower = col.toLowerCase();
+            const label =
+                lower === 'code'
+                    ? 'GL Code'
+                    : col
+                          .replace(/_/g, ' ')
+                          .replace(/\b\w/g, m => m.toUpperCase());
+            th.textContent = label;
+            headRow.appendChild(th);
+        });
+        if (isAdmin) {
+            const thActions = document.createElement('th');
+            thActions.textContent = 'Actions';
+            headRow.appendChild(thActions);
+        }
+    }
+    thead.appendChild(headRow);
+
+    /* ----------- Render table body ----------- */
+    tbody.innerHTML = '';
+
+    if (!appState.glCodes.length) {
+        const tr = document.createElement('tr');
+        const colspan = (columns.length || 1) + (isAdmin ? 1 : 0);
+        tr.innerHTML = `<td colspan="${colspan}" class="text-center">No GL codes found</td>`;
+        tbody.appendChild(tr);
+        return;
+    }
+
+    appState.glCodes.forEach(rec => {
+        const tr = document.createElement('tr');
+
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            const val = rec[col];
+            td.textContent =
+                val === null || val === undefined ? '—' : String(val);
+            tr.appendChild(td);
+        });
+
+        /* ----------- Actions ----------- */
+        if (isAdmin) {
+            const tdAct = document.createElement('td');
+            tdAct.innerHTML = `
+                <button class="action-button btn-edit-gl-code" data-id="${rec.id}">Edit</button>
+                <button class="action-button btn-delete-gl-code" style="margin-left:6px;" data-id="${rec.id}">Delete</button>
+            `;
+            tr.appendChild(tdAct);
+        }
+
+        tbody.appendChild(tr);
+    });
+
+    /* ----------- Event bindings ----------- */
+    if (isAdmin) {
+        tbody.querySelectorAll('.btn-edit-gl-code').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const evt = new CustomEvent('openGLCodeModal', {
+                    detail: { id: btn.dataset.id }
+                });
+                document.dispatchEvent(evt);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-delete-gl-code').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rowEl = btn.closest('tr');
+                const evt = new CustomEvent('deleteGLCode', {
+                    detail: { id: btn.dataset.id, rowEl }
+                });
+                document.dispatchEvent(evt);
+            });
+        });
+    }
+}
+
+/**
  * Update journal entries table
  */
 export function updateJournalEntriesTable() {
@@ -675,81 +787,6 @@ export function updateBankAccountsTable() {
             });
             document.dispatchEvent(evt);
         });
-    });
-}
-
-/**
- * Update GL Codes table
- * Dynamically builds header/rows based on keys present in the data.
- */
-export function updateGLCodesTable() {
-    const table = document.getElementById('gl-codes-table');
-    if (!table) return;
-
-    // Ensure thead / tbody exist
-    let thead = table.querySelector('thead');
-    let tbody = table.querySelector('tbody');
-
-    if (!thead) {
-        thead = document.createElement('thead');
-        table.prepend(thead);
-    }
-    if (!tbody) {
-        tbody = document.createElement('tbody');
-        table.appendChild(tbody);
-    }
-
-    // Determine column set (ordered)
-    let columns = [];
-    if (Array.isArray(appState.glCodes) && appState.glCodes.length) {
-        const colSet = new Set(Object.keys(appState.glCodes[0]));
-        // preserve insertion-order but include any new keys encountered later
-        appState.glCodes.forEach(rec =>
-            Object.keys(rec).forEach(k => {
-                if (!colSet.has(k)) colSet.add(k);
-            })
-        );
-        columns = Array.from(colSet);
-    }
-
-    // Build table head
-    thead.innerHTML = '';
-    const headRow = document.createElement('tr');
-    if (columns.length === 0) {
-        // Fallback single header when we have no data yet
-        headRow.innerHTML = '<th>GL Codes</th>';
-    } else {
-        columns.forEach(col => {
-            const th = document.createElement('th');
-            // Title-case & replace underscores with spaces
-            th.textContent = col
-                .replace(/_/g, ' ')
-                .replace(/\\b\\w/g, c => c.toUpperCase());
-            headRow.appendChild(th);
-        });
-    }
-    thead.appendChild(headRow);
-
-    // Build table body
-    tbody.innerHTML = '';
-
-    if (!appState.glCodes.length) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="${columns.length || 1}" class="text-center">No GL codes found</td>`;
-        tbody.appendChild(tr);
-        return;
-    }
-
-    appState.glCodes.forEach(rec => {
-        const tr = document.createElement('tr');
-        columns.forEach(col => {
-            const td = document.createElement('td');
-            const val = rec[col];
-            td.textContent =
-                val === undefined || val === null ? '' : String(val);
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
     });
 }
 
