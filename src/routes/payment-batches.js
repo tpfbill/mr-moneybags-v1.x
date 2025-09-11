@@ -67,8 +67,14 @@ router.get('/', asyncHandler(async (req, res) => {
             // Tables not present yet – treat as no data rather than error
             return res.json([]);
         }
-        // Unexpected error – rethrow so error middleware logs it
-        throw err;
+        /* ----------------------------------------------------------------
+         * Any unexpected error: log & degrade gracefully
+         * -------------------------------------------------------------- */
+        console.warn(
+            '[payment-batches] Failed to query batches – returning empty list:',
+            `${err.code || 'no-code'} – ${err.message}`
+        );
+        return res.json([]);
     }
 }));
 
