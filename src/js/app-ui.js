@@ -374,7 +374,7 @@ export function updateChartOfAccountsTable() {
     if (sortedAccounts.length === 0) {
         chartOfAccountsTbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center">No accounts found</td>
+                <td colspan="9" class="text-center">No accounts found</td>
             </tr>
         `;
         return;
@@ -387,7 +387,9 @@ export function updateChartOfAccountsTable() {
                 'Unknown');
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${account.chart_code || account.code}</td>
+            <td>${account.code}</td>
+            <td>${account.report_code || '—'}</td>
+            <td>${account.chart_code || '—'}</td>
             <td>${account.description}</td>
             <td>${account.classifications}</td>
             <td>${entityName}</td>
@@ -468,7 +470,7 @@ export function updateFundsTable() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${fund.fund_number || '—'}</td>
-            <td class="fund-code">${fund.fund_code}</td>
+            <td>${fund.fund_code}</td>
             <td>${fund.entity_code || '—'}</td>
             <td>${fund.entity_name || '—'}</td>
             <td>${fund.fund_name}</td>
