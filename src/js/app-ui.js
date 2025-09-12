@@ -468,7 +468,7 @@ export function updateFundsTable() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${fund.fund_number || '—'}</td>
-            <td class="fund-code">${fund.fund_code}</td>
+            <td>${fund.fund_code}</td>
             <td>${fund.entity_code || '—'}</td>
             <td>${fund.entity_name || '—'}</td>
             <td>${fund.fund_name}</td>
@@ -506,6 +506,118 @@ export function updateFundsTable() {
             document.dispatchEvent(evt);
         });
     });
+}
+
+/**
+ * Update GL Codes table
+ */
+export function updateGLCodesTable() {
+    const table = document.getElementById('gl-codes-table');
+    if (!table) return; // page not loaded
+
+    const thead = table.querySelector('thead') || table.createTHead();
+    const tbody =
+        table.querySelector('tbody') ||
+        table.appendChild(document.createElement('tbody'));
+
+    // Determine admin privileges (case-insensitive role check)
+    const isAdmin =
+        (appState.currentUser?.role || '').toLowerCase() === 'admin';
+
+    // Build column list from first record
+    const rawCols =
+        Array.isArray(appState.glCodes) && appState.glCodes.length
+            ? Object.keys(appState.glCodes[0])
+            : [];
+
+    // Filter out hidden columns
+    const HIDDEN = new Set(['id', 'created_at', 'updated_at']);
+    const columns = rawCols.filter(
+        c => !HIDDEN.has(c.toLowerCase())
+    );
+
+    /* ----------- Render table head ----------- */
+    thead.innerHTML = '';
+    const headRow = document.createElement('tr');
+    if (columns.length === 0) {
+        headRow.innerHTML = '<th>GL Codes</th>';
+    } else {
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            const lower = col.toLowerCase();
+            const label =
+                lower === 'code'
+                    ? 'GL Code'
+                    : col
+                          .replace(/_/g, ' ')
+                          .replace(/\b\w/g, m => m.toUpperCase());
+            th.textContent = label;
+            headRow.appendChild(th);
+        });
+        if (isAdmin) {
+            const thActions = document.createElement('th');
+            thActions.textContent = 'Actions';
+            headRow.appendChild(thActions);
+        }
+    }
+    thead.appendChild(headRow);
+
+    /* ----------- Render table body ----------- */
+    tbody.innerHTML = '';
+
+    if (!appState.glCodes.length) {
+        const tr = document.createElement('tr');
+        const colspan = (columns.length || 1) + (isAdmin ? 1 : 0);
+        tr.innerHTML = `<td colspan="${colspan}" class="text-center">No GL codes found</td>`;
+        tbody.appendChild(tr);
+        return;
+    }
+
+    appState.glCodes.forEach(rec => {
+        const tr = document.createElement('tr');
+
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            const val = rec[col];
+            td.textContent =
+                val === null || val === undefined ? '—' : String(val);
+            tr.appendChild(td);
+        });
+
+        /* ----------- Actions ----------- */
+        if (isAdmin) {
+            const tdAct = document.createElement('td');
+            tdAct.innerHTML = `
+                <button class="action-button btn-edit-gl-code" data-id="${rec.id}">Edit</button>
+                <button class="action-button btn-delete-gl-code" style="margin-left:6px;" data-id="${rec.id}">Delete</button>
+            `;
+            tr.appendChild(tdAct);
+        }
+
+        tbody.appendChild(tr);
+    });
+
+    /* ----------- Event bindings ----------- */
+    if (isAdmin) {
+        tbody.querySelectorAll('.btn-edit-gl-code').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const evt = new CustomEvent('openGLCodeModal', {
+                    detail: { id: btn.dataset.id }
+                });
+                document.dispatchEvent(evt);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-delete-gl-code').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rowEl = btn.closest('tr');
+                const evt = new CustomEvent('deleteGLCode', {
+                    detail: { id: btn.dataset.id, rowEl }
+                });
+                document.dispatchEvent(evt);
+            });
+        });
+    }
 }
 
 /**

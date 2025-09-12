@@ -14,12 +14,10 @@ router.get('/', asyncHandler(async (req, res) => {
     let query = `
         SELECT pb.*, 
                e.name as entity_name,
-               f.name as fund_name,
-               cns.company_name as nacha_company_name
+               f.name as fund_name
         FROM payment_batches pb
         LEFT JOIN entities e ON pb.entity_id = e.id
         LEFT JOIN funds f ON pb.fund_id = f.id
-        LEFT JOIN company_nacha_settings cns ON pb.nacha_settings_id = cns.id
         WHERE 1=1
     `;
     
@@ -48,8 +46,34 @@ router.get('/', asyncHandler(async (req, res) => {
     
     query += ` ORDER BY pb.batch_date DESC, pb.created_at DESC`;
     
-    const { rows } = await pool.query(query, params);
-    res.json(rows);
+    /* ------------------------------------------------------------------ 
+     * Execute query with defensive handling for missing tables
+     *   • PG error code 42P01  → undefined_table
+     *   • Some drivers return text “does not exist”
+     * If tables have not been created yet, respond with an empty array
+     * instead of propagating a 500 so the UI can still load gracefully.
+     * ----------------------------------------------------------------*/
+    try {
+        const { rows } = await pool.query(query, params);
+        res.json(rows);
+    } catch (err) {
+        const undefTable =
+            err?.code === '42P01' ||
+            /does not exist/i.test(err?.message || '');
+
+        if (undefTable) {
+            // Tables not present yet – treat as no data rather than error
+            return res.json([]);
+        }
+        /* ----------------------------------------------------------------
+         * Any unexpected error: log & degrade gracefully
+         * -------------------------------------------------------------- */
+        console.warn(
+            '[payment-batches] Failed to query batches – returning empty list:',
+            `${err.code || 'no-code'} – ${err.message}`
+        );
+        return res.json([]);
+    }
 }));
 
 /**
@@ -63,12 +87,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const batchResult = await pool.query(`
         SELECT pb.*, 
                e.name as entity_name,
-               f.name as fund_name,
-               cns.company_name as nacha_company_name
+               f.name as fund_name
         FROM payment_batches pb
         LEFT JOIN entities e ON pb.entity_id = e.id
         LEFT JOIN funds f ON pb.fund_id = f.id
-        LEFT JOIN company_nacha_settings cns ON pb.nacha_settings_id = cns.id
         WHERE pb.id = $1
     `, [id]);
     

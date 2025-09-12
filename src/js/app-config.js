@@ -36,6 +36,7 @@ export const appState = {
     journalEntries: [],
     bankAccounts: [],
     users: [],
+    glCodes: [],            // <--- GL Codes data collection
     organizationSettings: {},
     customReportDefinitions: [],
     

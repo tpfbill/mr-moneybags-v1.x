@@ -44,6 +44,7 @@
         <div class="nav-container">
             <div class="nav-item active" data-page="dashboard">Dashboard</div>
             <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+            <div class="nav-item" data-page="gl-codes">GL Codes</div>
             <div class="nav-item" data-page="funds">Funds</div>
             <div class="nav-item" data-page="journal-entries">Journal Entries</div>
             <!-- Vendor Payments navigation -->
@@ -145,6 +146,22 @@
             </table>
         </div>
 
+        <!-- ================= GL Codes Page ================= -->
+        <div id="gl-codes-page" class="page">
+            <div class="content-header">
+                <h2>GL Codes</h2>
+            </div>
+            <table class="data-table" id="gl-codes-table">
+                <thead>
+                    <tr><th>GL Codes</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td class="text-center">Loading GL codes...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- =============== End GL Codes Page =============== -->
+
         <div id="funds-page" class="page">
             <div class="content-header">
                 <h2>Funds Management</h2>
@@ -166,7 +183,7 @@
                 <thead>
                     <tr>
                         <th>Number</th>
-                        <th class="fund-code">Code</th>
+                        <th>Code</th>
                         <th>Entity&nbsp;Code</th>
                         <th>Entity&nbsp;Name</th>
                         <th>Name</th>
