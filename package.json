@@ -12,7 +12,8 @@
     "db:seed": "bash scripts/db-seed.sh",
     "db:recreate": "bash scripts/db-recreate.sh",
     "db:verify": "node database/db-verify-data.js",
-    "bootstrap:mac": "bash scripts/mac-bootstrap.sh"
+    "bootstrap:mac": "bash scripts/mac-bootstrap.sh",
+    "db:migrate:accounts:incremental": "psql -h localhost -U bvasu -d fund_accounting_db -f database/migrations/2025-09-12-accounts-incremental.sql"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
