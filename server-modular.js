@@ -48,6 +48,25 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ---------------------------------------------------------------------------
+// Global process error handlers (keep server alive in development)
+// ---------------------------------------------------------------------------
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] Unhandled Rejection:', reason);
+  if (process.env.NODE_ENV === 'production') {
+    process.exit(1);
+  }
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Uncaught Exception:', err);
+  if (process.env.NODE_ENV === 'production') {
+    process.exit(1);
+  }
+});
+
+
+
+// ---------------------------------------------------------------------------
 // Trust proxy (needed for secure cookies & proper client IP detection when
 // running behind Nginx / load-balancer in production)
 // ---------------------------------------------------------------------------

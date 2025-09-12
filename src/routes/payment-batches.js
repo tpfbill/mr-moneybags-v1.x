@@ -14,12 +14,10 @@ router.get('/', asyncHandler(async (req, res) => {
     let query = `
         SELECT pb.*, 
                e.name as entity_name,
-               f.name as fund_name,
-               cns.company_name as nacha_company_name
+               f.name as fund_name
         FROM payment_batches pb
         LEFT JOIN entities e ON pb.entity_id = e.id
         LEFT JOIN funds f ON pb.fund_id = f.id
-        LEFT JOIN company_nacha_settings cns ON pb.nacha_settings_id = cns.id
         WHERE 1=1
     `;
     
@@ -89,12 +87,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const batchResult = await pool.query(`
         SELECT pb.*, 
                e.name as entity_name,
-               f.name as fund_name,
-               cns.company_name as nacha_company_name
+               f.name as fund_name
         FROM payment_batches pb
         LEFT JOIN entities e ON pb.entity_id = e.id
         LEFT JOIN funds f ON pb.fund_id = f.id
-        LEFT JOIN company_nacha_settings cns ON pb.nacha_settings_id = cns.id
         WHERE pb.id = $1
     `, [id]);
     
