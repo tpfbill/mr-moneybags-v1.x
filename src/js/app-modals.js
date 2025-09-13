@@ -608,51 +608,106 @@ export async function deleteFund(id, rowEl) {
  */
 export async function openAccountModal(id) {
     const modal = document.getElementById('account-modal');
-    const form = modal.querySelector('form');
+    const form  = modal.querySelector('form');
     const title = modal.querySelector('.modal-title');
-    
-    // Reset form
+
+    /* ------------------------------------------- */
+    /* Reset form & meta                            */
+    /* ------------------------------------------- */
     form.reset();
     form.dataset.id = id || '';
-    
-    // Set modal title
     title.textContent = id ? 'Edit Account' : 'Create Account';
-    
-    // Populate entity dropdown
-    const entitySelect = form.querySelector('#account-entity-id');
-    entitySelect.innerHTML = '';
-    
-    appState.entities.forEach(entity => {
-        const option = document.createElement('option');
-        option.value = entity.id;
-        option.textContent = entity.name;
-        entitySelect.appendChild(option);
+
+    /* ------------------------------------------- */
+    /* Populate Entity dropdown                     */
+    /* ------------------------------------------- */
+    const entitySel = form.querySelector('#account-entity-code');
+    entitySel.innerHTML = '<option value="">Select…</option>';
+    appState.entities.forEach(ent => {
+        const opt = document.createElement('option');
+        opt.value = ent.code;
+        opt.textContent = `${ent.code} — ${ent.name}`;
+        entitySel.appendChild(opt);
     });
-    
-    // Set default entity to currently selected entity
-    if (appState.selectedEntityId) {
-        entitySelect.value = appState.selectedEntityId;
+
+    /* ------------------------------------------- */
+    /* Ensure GL codes loaded                       */
+    /* ------------------------------------------- */
+    if (!appState.glCodes.length) {
+        try {
+            appState.glCodes = await fetchData('gl-codes');
+        } catch (e) {
+            console.warn('Failed to fetch GL codes:', e);
+        }
     }
-    
-    // If editing, populate form with account data
+
+    /* Populate GL Code dropdown */
+    const glSel = form.querySelector('#account-gl-code');
+    glSel.innerHTML = '<option value="">Select…</option>';
+    appState.glCodes.forEach(rec => {
+        const opt = document.createElement('option');
+        opt.value = rec.code;
+        opt.textContent = `${rec.code}${rec.description ? ' — ' + rec.description : ''}`;
+        opt.dataset.classification = rec.classification || '';
+        glSel.appendChild(opt);
+    });
+
+    /* Populate Fund Number dropdown */
+    const fundSel = form.querySelector('#account-fund-number');
+    fundSel.innerHTML = '<option value="">Select…</option>';
+    appState.funds.forEach(fund => {
+        const opt = document.createElement('option');
+        opt.value = fund.fund_number;
+        opt.textContent = `${fund.fund_number} — ${fund.fund_name}`;
+        opt.dataset.restriction = fund.restriction || '';
+        fundSel.appendChild(opt);
+    });
+
+    /* ------------------------------------------- */
+    /* Wire change events to update previews        */
+    /* ------------------------------------------- */
+    [entitySel, glSel, fundSel].forEach(sel =>
+        sel.addEventListener('change', updateAccountDerivedFields)
+    );
+
+    /* ------------------------------------------- */
+    /* Edit mode – load record                      */
+    /* ------------------------------------------- */
     if (id) {
         try {
-            const account = await fetchData(`accounts/${id}`);
-            
-            form.elements['account-code'].value = account.code || '';
-            form.elements['account-description'].value = account.description || '';
-            form.elements['account-classifications'].value = account.classifications || '';
-            form.elements['account-entity-id'].value = account.entity_id || '';
-            form.elements['account-status'].value = account.status || 'Active';
-            // NEW: populate report code (simple 4-digit) field
-            form.elements['account-report-code'].value = account.report_code || '';
-        } catch (error) {
-            console.error('Error fetching account data:', error);
+            const acc = await fetchData(`accounts/${id}`);
+
+            entitySel.value = acc.entity_code || '';
+            glSel.value     = acc.gl_code     || '';
+            fundSel.value   = acc.fund_number || '';
+
+            form.querySelector('#account-description-input').value =
+                acc.description || '';
+            form.querySelector('#account-status-select').value =
+                acc.status || 'Active';
+            form.querySelector('#account-balance-sheet-select').value =
+                acc.balance_sheet || 'No';
+            form.querySelector('#account-beginning-balance').value =
+                acc.beginning_balance != null
+                    ? parseFloat(acc.beginning_balance).toFixed(2)
+                    : '';
+            if (acc.beginning_balance_date) {
+                form.querySelector('#account-beginning-balance-date').value =
+                    acc.beginning_balance_date.split('T')[0];
+            }
+            if (acc.last_used) {
+                form.querySelector('#account-last-used').value =
+                    acc.last_used.split('T')[0];
+            }
+        } catch (err) {
+            console.error('Error fetching account:', err);
             showToast('Error loading account data', 'error');
         }
     }
-    
-    // Show the modal
+
+    /* Update derived previews after values filled */
+    updateAccountDerivedFields();
+
     showModal('account-modal');
 }
 
@@ -662,45 +717,90 @@ export async function openAccountModal(id) {
  */
 export async function saveAccount(event) {
     event.preventDefault();
-    
+
     const form = event.target;
-    const id = form.dataset.id;
-    
-    // Validate form
+    const id   = form.dataset.id;
+
     if (!validateForm(form)) return;
-    
-    // Get form data
+
     const data = {
-        code: form.elements['account-code'].value,
-        report_code: form.elements['account-report-code'].value,
-        description: form.elements['account-description'].value,
-        classifications: form.elements['account-classifications'].value,
-        entity_id: form.elements['account-entity-id'].value,
-        status: form.elements['account-status'].value
+        entity_code            : form.querySelector('#account-entity-code').value,
+        gl_code                : form.querySelector('#account-gl-code').value,
+        fund_number            : form.querySelector('#account-fund-number').value,
+        description            : form.querySelector('#account-description-input').value,
+        status                 : form.querySelector('#account-status-select').value,
+        balance_sheet          : form.querySelector('#account-balance-sheet-select').value,
+        beginning_balance      : form.querySelector('#account-beginning-balance').value || null,
+        beginning_balance_date : form.querySelector('#account-beginning-balance-date').value || null,
+        last_used              : form.querySelector('#account-last-used').value || null
     };
-    
+
     try {
         if (id) {
-            // Update existing account
             await saveData(`accounts/${id}`, data, 'PUT');
             showToast('Account updated successfully', 'success');
         } else {
-            // Create new account
             await saveData('accounts', data);
             showToast('Account created successfully', 'success');
         }
-        
-        // Reload account data
-        if (typeof loadAccountData === 'function') {
-            await loadAccountData();
-        }
-        
-        // Hide the modal
+
+        await loadAccountData?.();
         hideModal('account-modal');
-    } catch (error) {
-        console.error('Error saving account:', error);
+    } catch (err) {
+        console.error('Save account error:', err);
         showToast('Error saving account', 'error');
     }
+}
+
+
+/* --------------------------------------------------------------
+ * Helper – update derived previews
+ * -------------------------------------------------------------- */
+function updateAccountDerivedFields() {
+    const form         = document.getElementById('account-modal-form');
+    if (!form) return;
+
+    const entityCode   = form.querySelector('#account-entity-code').value;
+    const glCode       = form.querySelector('#account-gl-code').value;
+    const fundNumber   = form.querySelector('#account-fund-number').value;
+
+    /* Account code preview */
+    const codePrev     = form.querySelector('#account-code-preview');
+    if (codePrev) {
+        codePrev.value = [entityCode, glCode, fundNumber].filter(Boolean).join('-');
+    }
+
+    /* Restriction preview from selected fund */
+    const fundSel      = form.querySelector('#account-fund-number');
+    const selFundOpt   = fundSel?.selectedOptions[0];
+    const restriction  = selFundOpt?.dataset.restriction || '';
+    const restPrev     = form.querySelector('#account-restriction-preview');
+    if (restPrev) restPrev.value = restriction;
+
+    /* Classification preview */
+    let classification = '';
+    const glSel        = form.querySelector('#account-gl-code');
+    const selGLOpt     = glSel?.selectedOptions[0];
+    classification = selGLOpt?.dataset.classification || '';
+
+    /* Fallback: infer by first digit of GL code */
+    if (!classification && glCode) {
+        const d = glCode[0];
+        classification =
+            d === '1'
+                ? 'Asset'
+                : d === '2'
+                ? 'Liability'
+                : d === '3'
+                ? 'Equity'
+                : d === '4'
+                ? 'Revenue'
+                : d === '5'
+                ? 'Expense'
+                : '';
+    }
+    const classPrev = form.querySelector('#account-classification-preview');
+    if (classPrev) classPrev.value = classification;
 }
 
 /**

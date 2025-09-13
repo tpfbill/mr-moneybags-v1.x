@@ -589,3 +589,58 @@ textarea.form-input:focus {
     min-width: 8ch;
     max-width: 8ch;
 }
+
+/* ------------------------------------------------------------------
+   Chart of Accounts – Wide table with sticky first columns
+   ------------------------------------------------------------------ */
+
+.coa-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* smooth scroll on iOS */
+}
+
+/* Prevent wrapping so cells stay on a single line for horizontal scroll */
+.wide-table th,
+.wide-table td {
+    white-space: nowrap;
+    padding: 10px 12px;          /* slightly denser padding */
+}
+
+/* Sticky header */
+.wide-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #f9f9f9;
+}
+
+/* Sticky first column (Account Code) */
+.wide-table th:nth-child(1),
+.wide-table td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #fff;
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
+}
+
+/* Sticky second column (Description) */
+.wide-table th:nth-child(2),
+.wide-table td:nth-child(2) {
+    position: sticky;
+    left: 180px; /* equal to first column width */
+    z-index: 2;
+    background: #fff;
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
+}
+
+/* Ensure sticky header cells of first two columns appear above table body */
+.wide-table thead th:nth-child(1),
+.wide-table thead th:nth-child(2) {
+    z-index: 4;
+}
