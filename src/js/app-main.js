@@ -505,15 +505,17 @@ function renderFundBalanceReport(fundId) {
     }
 
     const entityName =
-        appState.entities.find(e => e.id === fund.entity_id)?.name || 'Unknown';
+        fund.entity_name ||
+        appState.entities.find(e => e.id === fund.entity_id)?.name ||
+        'Unknown';
 
     container.innerHTML = `
         <table class="data-table">
             <tbody>
-                <tr><th>Fund</th><td>${fund.code} - ${fund.name}</td></tr>
+                <tr><th>Fund</th><td>${fund.fund_code} - ${fund.fund_name}</td></tr>
                 <tr><th>Entity</th><td>${entityName}</td></tr>
-                <tr><th>Type</th><td>${fund.type || 'N/A'}</td></tr>
-                <tr><th>Balance</th><td>${formatCurrency(fund.balance)}</td></tr>
+                <tr><th>Restriction</th><td>${fund.restriction || 'N/A'}</td></tr>
+                <tr><th>Balance</th><td>${formatCurrency(fund.balance ?? fund.starting_balance ?? 0)}</td></tr>
                 <tr><th>As of</th><td>${formatDate(new Date())}</td></tr>
             </tbody>
         </table>
@@ -653,16 +655,26 @@ function renderFundsComparisonReport() {
         return;
     }
 
-    const total = funds.reduce((s, f) => s + parseFloat(f.balance || 0), 0);
+    const total = funds.reduce(
+        (s, f) => s + parseFloat(f.balance ?? f.starting_balance ?? 0),
+        0
+    );
 
     const rowsHtml = funds
-        .sort((a, b) => parseFloat(b.balance) - parseFloat(a.balance))
+        .sort(
+            (a, b) =>
+                parseFloat(b.balance ?? b.starting_balance ?? 0) -
+                parseFloat(a.balance ?? a.starting_balance ?? 0)
+        )
         .map(f => {
-            const pct = total ? formatPercentage(f.balance, total) : '—';
+            const balanceVal = parseFloat(
+                f.balance ?? f.starting_balance ?? 0
+            );
+            const pct = total ? formatPercentage(balanceVal, total) : '—';
             return `<tr>
-                <td>${f.code} - ${f.name}</td>
-                <td>${f.type || 'N/A'}</td>
-                <td class="text-right">${formatCurrency(f.balance)}</td>
+                <td>${f.fund_code} - ${f.fund_name}</td>
+                <td>${f.restriction || 'N/A'}</td>
+                <td class="text-right">${formatCurrency(balanceVal)}</td>
                 <td class="text-right">${pct}</td>
             </tr>`;
         })
@@ -671,7 +683,7 @@ function renderFundsComparisonReport() {
     container.innerHTML = `
         <table class="data-table">
             <thead>
-                <tr><th>Fund</th><th>Type</th><th class="text-right">Balance</th><th class="text-right">% of Total</th></tr>
+                <tr><th>Fund</th><th>Restriction</th><th class="text-right">Balance</th><th class="text-right">% of Total</th></tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
             <tfoot>
