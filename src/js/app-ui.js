@@ -162,7 +162,14 @@ export function updateDashboardSummaryCards() {
     const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
     // Calculate summary values
-    const totalAssets = relevantFunds.reduce((sum, fund) => sum + parseFloat(fund.balance || 0), 0);
+    const totalAssets = relevantFunds.reduce(
+        (sum, fund) =>
+            sum +
+            parseFloat(
+                fund.balance ?? fund.starting_balance ?? 0
+            ),
+        0
+    );
     const totalLiabilities = 0; // This would need to be calculated from accounts if available
     const netAssets = totalAssets - totalLiabilities;
     
@@ -213,11 +220,19 @@ export function updateDashboardFundBalances() {
     // Get relevant funds based on selected entity and consolidated view
     const relevantFunds = Array.isArray(getRelevantFunds()) ? [...getRelevantFunds()] : [];
     
-    // Sort funds by balance (descending)
-    relevantFunds.sort((a, b) => parseFloat(b.balance || 0) - parseFloat(a.balance || 0));
+    // Sort funds by balance (descending) with fallback to starting_balance
+    relevantFunds.sort(
+        (a, b) =>
+            parseFloat(b.balance ?? b.starting_balance ?? 0) -
+            parseFloat(a.balance ?? a.starting_balance ?? 0)
+    );
     
-    // Calculate total for percentage
-    const totalBalance = relevantFunds.reduce((sum, fund) => sum + parseFloat(fund.balance || 0), 0);
+    // Calculate total for percentage (balance fallback)
+    const totalBalance = relevantFunds.reduce(
+        (sum, fund) =>
+            sum + parseFloat(fund.balance ?? fund.starting_balance ?? 0),
+        0
+    );
     
     // Update the fund balances table
     fundBalancesTbody.innerHTML = '';
@@ -232,14 +247,21 @@ export function updateDashboardFundBalances() {
     }
     
     relevantFunds.forEach(fund => {
-        const entityName = appState.entities.find(entity => entity.id === fund.entity_id)?.name || 'Unknown';
-        const fundBalance = parseFloat(fund.balance || 0);
+        const fallbackEntityName =
+            fund.entity_name ||
+            appState.entities.find(entity => entity.id === fund.entity_id)?.name ||
+            'Unknown';
+        const fundBalance = parseFloat(
+            fund.balance ?? fund.starting_balance ?? 0
+        );
         const percentage = formatPercentage(fundBalance, totalBalance);
         
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${fund.name}${appState.isConsolidatedView ? ` (${entityName})` : ''}</td>
-            <td>${fund.type || 'N/A'}</td>
+            <td>${fund.fund_name || fund.name || '—'}${
+                appState.isConsolidatedView ? ` (${fallbackEntityName})` : ''
+            }</td>
+            <td>${fund.restriction || 'N/A'}</td>
             <td>${formatCurrency(fundBalance)}</td>
             <td>${percentage}</td>
         `;
@@ -529,14 +551,14 @@ export function updateFundsTable() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${fund.fund_number || '—'}</td>
-            <td>${fund.fund_code}</td>
+            <td class="fund-code">${fund.fund_code}</td>
             <td>${fund.entity_code || '—'}</td>
             <td>${fund.entity_name || '—'}</td>
             <td>${fund.fund_name}</td>
             <td>${fund.restriction || '—'}</td>
             <td>${fund.budget || '—'}</td>
             <td>${fund.balance_sheet || '—'}</td>
-            <td>${formatCurrency(fund.balance)}</td>
+            <td>${formatCurrency(fund.balance ?? fund.starting_balance)}</td>
             <td>${formatCurrency(fund.starting_balance)}</td>
             <td>${fund.starting_balance_date ? formatDate(fund.starting_balance_date) : '—'}</td>
             <td>${fund.last_used ? formatDate(fund.last_used) : '—'}</td>
@@ -1284,8 +1306,13 @@ function initializeFundBalanceChart() {
     const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
     // Prepare data
-    const fundNames = relevantFunds.slice(0, 5).map(fund => fund.name);
-    const fundBalances = relevantFunds.slice(0, 5).map(fund => parseFloat(fund.balance || 0));
+    const topFunds = relevantFunds.slice(0, 5);
+    const fundNames = topFunds.map(
+        fund => fund.fund_name || fund.name || '—'
+    );
+    const fundBalances = topFunds.map(fund =>
+        parseFloat(fund.balance ?? fund.starting_balance ?? 0)
+    );
     
     // Create chart
     new Chart(canvas, {
@@ -1424,19 +1451,19 @@ function initializeFundDistributionChart() {
     // Get relevant funds
     const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
-    // Group funds by type
-    const fundTypes = {};
+    // Group funds by restriction
+    const byRestriction = {};
     relevantFunds.forEach(fund => {
-        const type = fund.type || 'Other';
-        if (!fundTypes[type]) {
-            fundTypes[type] = 0;
-        }
-        fundTypes[type] += parseFloat(fund.balance || 0);
+        const key = fund.restriction || 'Other';
+        if (!byRestriction[key]) byRestriction[key] = 0;
+        byRestriction[key] += parseFloat(
+            fund.balance ?? fund.starting_balance ?? 0
+        );
     });
-    
+
     // Prepare data
-    const types = Object.keys(fundTypes);
-    const balances = Object.values(fundTypes);
+    const types     = Object.keys(byRestriction);
+    const balances  = Object.values(byRestriction);
     
     // Create chart
     new Chart(canvas, {
