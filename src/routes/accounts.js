@@ -30,12 +30,14 @@ function isValidDateYYYYMMDD(v) {
 }
 
 function normalizeHeaderKey(key = '') {
+  // Strip surrounding quotes first, then normalise
   return key
     .toString()
+    .replace(/^['"]+|['"]+$/g, '') // remove leading/trailing quotes
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+    .replace(/[^a-z0-9]+/g, '_')   // collapse to underscores
+    .replace(/^_+|_+$/g, '');      // trim leading/trailing underscores
 }
 
 const REQUIRED_HEADERS = [
