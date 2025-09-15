@@ -3,6 +3,11 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
+const multer = require('multer');
+const { parse } = require('csv-parse/sync');
+
+// Multer – in-memory storage for CSV uploads
+const upload = multer({ storage: multer.memoryStorage() });
 
 /* ---------------------------------------------------------------------------
  * Helpers
@@ -18,6 +23,43 @@ function toDateYYYYMMDD(v) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+}
+
+function isValidDateYYYYMMDD(v) {
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+function normalizeHeaderKey(key = '') {
+  return key
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+const REQUIRED_HEADERS = [
+  'account_code',
+  'entity_code',
+  'gl_code',
+  'fund_number',
+  'description',
+  'status',
+  'balance_sheet',
+  'beginning_balance',
+  'beginning_balance_date',
+  'last_used',
+  'restriction',
+  'classification'
+];
+
+function mapCsvRecordStrict(rec) {
+  const out = {};
+  Object.entries(rec).forEach(([k, v]) => {
+    const canon = normalizeHeaderKey(k);
+    if (REQUIRED_HEADERS.includes(canon)) out[canon] = v;
+  });
+  return out;
 }
 
 /* ---------------------------------------------------------------------------
@@ -151,6 +193,213 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
   res.json(rows[0]);
 }));
+
+/* ---------------------------------------------------------------------------
+ * POST /api/accounts/import  – CSV upload (stop-on-first-error)
+ * -------------------------------------------------------------------------*/
+router.post(
+  '/import',
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    let records;
+    try {
+      records = parse(req.file.buffer.toString('utf8'), {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true
+      });
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid CSV', details: err.message });
+    }
+
+    if (!records.length) {
+      return res.status(400).json({ error: 'CSV has no data rows' });
+    }
+
+    /* ---------------------------------
+     * Header validation
+     * --------------------------------*/
+    const hdrSet = new Set(
+      Object.keys(records[0]).map(h => normalizeHeaderKey(h))
+    );
+    const missing = REQUIRED_HEADERS.filter(h => !hdrSet.has(h));
+    if (missing.length) {
+      return res
+        .status(400)
+        .json({ error: 'Missing required headers', details: missing });
+    }
+
+    /* ---------------------------------
+     * Validation pass – stop on first error
+     * --------------------------------*/
+    const client = await pool.connect();
+    const logLines = [];
+    const nowStr = new Date()
+      .toISOString()
+      .replace(/[:T]/g, '')
+      .split('.')[0];
+    function sendCsv(statusCode) {
+      const header =
+        'status,action,row_number,account_code,message\r\n' +
+        logLines.join('\r\n');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=\"accounts_import_${nowStr}.csv\"`
+      );
+      res.setHeader('Content-Type', 'text/csv');
+      res.status(statusCode).send(header);
+    }
+
+    try {
+      // quick reference caches to reduce queries
+      const entitiesCache = new Set(
+        (await pool.query('SELECT code FROM entities')).rows.map(r =>
+          r.code.toString().trim()
+        )
+      );
+      const glCache = new Set(
+        (await pool.query('SELECT code FROM gl_codes')).rows.map(r =>
+          r.code.toString().trim()
+        )
+      );
+
+      await client.query('BEGIN');
+
+      for (let idx = 0; idx < records.length; idx++) {
+        const raw = mapCsvRecordStrict(records[idx]);
+        const rowNum = idx + 2; // +2 to account for header + 1-based
+        const {
+          account_code,
+          entity_code,
+          gl_code,
+          fund_number,
+          description,
+          status,
+          balance_sheet,
+          beginning_balance,
+          beginning_balance_date,
+          last_used,
+          restriction,
+          classification
+        } = raw;
+
+        // basic validations
+        if (
+          account_code !== `${entity_code}-${gl_code}-${fund_number}`
+        ) {
+          logLines.push(
+            `Failed,-,${rowNum},${account_code},"account_code mismatch"`
+          );
+          await client.query('ROLLBACK');
+          return sendCsv(400);
+        }
+        if (!entitiesCache.has(entity_code)) {
+          logLines.push(
+            `Failed,-,${rowNum},${account_code},"entity_code not found"`
+          );
+          await client.query('ROLLBACK');
+          return sendCsv(400);
+        }
+        if (!glCache.has(gl_code)) {
+          logLines.push(
+            `Failed,-,${rowNum},${account_code},"gl_code not found"`
+          );
+          await client.query('ROLLBACK');
+          return sendCsv(400);
+        }
+        if (
+          !isValidDateYYYYMMDD(beginning_balance_date) ||
+          !isValidDateYYYYMMDD(last_used)
+        ) {
+          logLines.push(
+            `Failed,-,${rowNum},${account_code},"Invalid date format"`
+          );
+          await client.query('ROLLBACK');
+          return sendCsv(400);
+        }
+        if (isNaN(Number(beginning_balance))) {
+          logLines.push(
+            `Failed,-,${rowNum},${account_code},"beginning_balance not numeric"`
+          );
+          await client.query('ROLLBACK');
+          return sendCsv(400);
+        }
+
+        // upsert
+        const ex = await client.query(
+          'SELECT id FROM accounts WHERE LOWER(account_code)=LOWER($1) LIMIT 1',
+          [account_code]
+        );
+        if (ex.rows.length) {
+          await client.query(
+            `UPDATE accounts
+               SET entity_code=$2, gl_code=$3, fund_number=$4, description=$5,
+                   status=$6, balance_sheet=$7,
+                   beginning_balance=$8::numeric,
+                   beginning_balance_date=$9::date,
+                   last_used=$10::date,
+                   restriction=$11,
+                   classification=$12
+             WHERE id=$1`,
+            [
+              ex.rows[0].id,
+              entity_code,
+              gl_code,
+              fund_number,
+              description,
+              status,
+              balance_sheet,
+              beginning_balance,
+              beginning_balance_date,
+              last_used,
+              restriction,
+              classification
+            ]
+          );
+          logLines.push(`OK,Updated,${rowNum},${account_code},`);
+        } else {
+          await client.query(
+            `INSERT INTO accounts
+              (account_code,entity_code,gl_code,fund_number,description,
+               status,balance_sheet,beginning_balance,beginning_balance_date,
+               last_used,restriction,classification)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$9::date,$10::date,$11,$12)`,
+            [
+              account_code,
+              entity_code,
+              gl_code,
+              fund_number,
+              description,
+              status,
+              balance_sheet,
+              beginning_balance,
+              beginning_balance_date,
+              last_used,
+              restriction,
+              classification
+            ]
+          );
+          logLines.push(`OK,Inserted,${rowNum},${account_code},`);
+        }
+      }
+
+      await client.query('COMMIT');
+      return sendCsv(200);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('[Accounts CSV Import] Fatal:', err);
+      res
+        .status(500)
+        .json({ error: 'Import failed', details: err.message || '' });
+    } finally {
+      client.release();
+    }
+  })
+);
 
 /* ---------------------------------------------------------------------------
  * DELETE /api/accounts/:id

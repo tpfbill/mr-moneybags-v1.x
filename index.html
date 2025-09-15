@@ -138,7 +138,14 @@
         <div id="chart-of-accounts-page" class="page">
             <div class="content-header">
                 <h2>Chart of Accounts</h2>
-                <button class="action-button" id="btnAddAccount">Add Account</button>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="file"
+                           id="accountCsvFile"
+                           accept=".csv"
+                           style="width:auto;">
+                    <button class="btn-secondary" id="importAccountsBtn">Import CSV</button>
+                    <button class="action-button" id="btnAddAccount">Add Account</button>
+                </div>
             </div>
             <div class="coa-table-wrapper">
                 <table class="data-table wide-table" id="chart-of-accounts-table">
