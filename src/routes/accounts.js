@@ -4,280 +4,183 @@ const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 
-/**
+/* ---------------------------------------------------------------------------
+ * Helpers
+ * -------------------------------------------------------------------------*/
+function normalizeYN(v) {
+  const t = (v || '').toString().trim().toLowerCase();
+  if (!t) return 'No';
+  return ['1', 'yes', 'y', 'true'].includes(t) ? 'Yes' : 'No';
+}
+
+function toDateYYYYMMDD(v) {
+  if (!v) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+}
+
+/* ---------------------------------------------------------------------------
  * GET /api/accounts
- * Returns all accounts, optionally filtered by entity_id
- */
+ * Optional query params: entity_code, gl_code, fund_number, status
+ * -------------------------------------------------------------------------*/
 router.get('/', asyncHandler(async (req, res) => {
-    const { entity_id, classifications, status } = req.query;
-    
-    let query = `
-        SELECT a.*, e.name as entity_name
-        FROM accounts a
-        LEFT JOIN entities e ON a.entity_id = e.id
-        WHERE 1=1
-    `;
-    
-    const params = [];
-    let paramIndex = 1;
-    
-    if (entity_id) {
-        query += ` AND a.entity_id = $${paramIndex++}`;
-        params.push(entity_id);
-    }
-    
-    if (classifications) {
-        query += ` AND a.classifications = $${paramIndex++}`;
-        params.push(classifications);
-    }
-    
-    if (status) {
-        query += ` AND a.status = $${paramIndex++}`;
-        params.push(status);
-    }
-    
-    query += ` ORDER BY a.code, a.description`;
-    
-    const { rows } = await pool.query(query, params);
-    res.json(rows);
+  const { entity_code, gl_code, fund_number, status } = req.query;
+
+  let query = 'SELECT * FROM accounts WHERE 1=1';
+  const params = [];
+  let i = 1;
+
+  if (entity_code) { query += ` AND entity_code = $${i++}`; params.push(entity_code); }
+  if (gl_code)     { query += ` AND gl_code = $${i++}`;     params.push(gl_code); }
+  if (fund_number) { query += ` AND fund_number = $${i++}`; params.push(fund_number); }
+  if (status)      { query += ` AND status = $${i++}`;      params.push(status); }
+
+  query += ' ORDER BY account_code, description';
+
+  const { rows } = await pool.query(query, params);
+  res.json(rows);
 }));
 
-/**
+/* ---------------------------------------------------------------------------
  * POST /api/accounts
- * Creates a new account
- */
+ * Create new account (new schema)
+ * -------------------------------------------------------------------------*/
 router.post('/', asyncHandler(async (req, res) => {
-    const {
-        entity_id,
-        code,
-        report_code,
-        chart_code,
-        description,
-        classifications,
-        status
-    } = req.body;
-    
-    // Validate required fields
-    if (!entity_id) {
-        return res.status(400).json({ error: 'Entity ID is required' });
-    }
-    
-    if (!code) {
-        return res.status(400).json({ error: 'Account code is required' });
-    }
+  const {
+    entity_code,
+    gl_code,
+    fund_number,
+    description,
+    status,
+    balance_sheet,
+    beginning_balance,
+    beginning_balance_date,
+    last_used
+  } = req.body;
 
-    // Validate report_code
-    if (!report_code) {
-        return res.status(400).json({ error: 'Report code is required' });
-    }
-    if (!/^[0-9]{4}$/.test(report_code)) {
-        return res.status(400).json({ error: 'Report code must be exactly 4 digits' });
-    }
-    
-    if (!description) {
-        return res.status(400).json({ error: 'Account description is required' });
-    }
-    
-    if (!classifications) {
-        return res.status(400).json({ error: 'Account classifications is required' });
-    }
-    
-    // Validate entity exists
-    const entityCheck = await pool.query('SELECT id FROM entities WHERE id = $1', [entity_id]);
-    if (entityCheck.rows.length === 0) {
-        return res.status(400).json({ error: 'Entity not found' });
-    }
-    
-    // Check if account code already exists for this entity
-    const codeCheck = await pool.query(
-        'SELECT id FROM accounts WHERE entity_id = $1 AND code = $2',
-        [entity_id, code]
-    );
-    
-    if (codeCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Account code already exists for this entity',
-            details: 'Each account code must be unique within an entity'
-        });
-    }
-    
-    const { rows } = await pool.query(`
-        INSERT INTO accounts (
-            entity_id,
-            code,
-            report_code,
-            chart_code,
-            description,
-            classifications,
-            status,
-            balance
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING *
-    `, [
-        entity_id,
-        code,
-        report_code,
-        chart_code || null,
-        description,
-        classifications,
-        status || 'Active',
-        0.00 // Initial balance
-    ]);
-    
-    res.status(201).json(rows[0]);
+  if (!entity_code) return res.status(400).json({ error: 'entity_code is required' });
+  if (!gl_code)     return res.status(400).json({ error: 'gl_code is required' });
+  if (!fund_number) return res.status(400).json({ error: 'fund_number is required' });
+  if (!description) return res.status(400).json({ error: 'description is required' });
+
+  const bbNum   = beginning_balance === '' || beginning_balance == null ? null : Number(beginning_balance);
+  const bbDate  = toDateYYYYMMDD(beginning_balance_date);
+  const lastUse = toDateYYYYMMDD(last_used);
+
+  const { rows } = await pool.query(
+    `INSERT INTO accounts
+       (entity_code, gl_code, fund_number, description, status, balance_sheet,
+        beginning_balance, beginning_balance_date, last_used)
+     VALUES ($1,$2,$3,$4,$5,$6,
+             COALESCE($7::numeric,0::numeric),
+             COALESCE($8::date, CURRENT_DATE),
+             COALESCE($9::date, CURRENT_DATE))
+     RETURNING *`,
+    [
+      entity_code,
+      gl_code,
+      fund_number,
+      description,
+      status || 'Active',
+      normalizeYN(balance_sheet),
+      bbNum,
+      bbDate,
+      lastUse
+    ]
+  );
+
+  res.status(201).json(rows[0]);
 }));
 
-/**
+/* ---------------------------------------------------------------------------
  * PUT /api/accounts/:id
- * Updates an existing account
- */
+ * Update account
+ * -------------------------------------------------------------------------*/
 router.put('/:id', asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const {
-        entity_id,
-        code,
-        report_code,
-        chart_code,
-        description,
-        classifications,
-        status,
-        balance
-    } = req.body;
-    
-    // Validate required fields
-    if (!entity_id) {
-        return res.status(400).json({ error: 'Entity ID is required' });
-    }
-    
-    if (!code) {
-        return res.status(400).json({ error: 'Account code is required' });
-    }
-    
-    // Validate report_code
-    if (!report_code) {
-        return res.status(400).json({ error: 'Report code is required' });
-    }
-    if (!/^[0-9]{4}$/.test(report_code)) {
-        return res.status(400).json({ error: 'Report code must be exactly 4 digits' });
-    }
+  const { id } = req.params;
+  const {
+    entity_code,
+    gl_code,
+    fund_number,
+    description,
+    status,
+    balance_sheet,
+    beginning_balance,
+    beginning_balance_date,
+    last_used
+  } = req.body;
 
-    if (!description) {
-        return res.status(400).json({ error: 'Account description is required' });
-    }
-    
-    if (!classifications) {
-        return res.status(400).json({ error: 'Account classifications is required' });
-    }
-    
-    // Check if account exists
-    const accountCheck = await pool.query('SELECT id FROM accounts WHERE id = $1', [id]);
-    if (accountCheck.rows.length === 0) {
-        return res.status(404).json({ error: 'Account not found' });
-    }
-    
-    // Check if account code already exists for this entity (excluding this account)
-    const codeCheck = await pool.query(
-        'SELECT id FROM accounts WHERE entity_id = $1 AND code = $2 AND id != $3',
-        [entity_id, code, id]
-    );
-    
-    if (codeCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Account code already exists for this entity',
-            details: 'Each account code must be unique within an entity'
-        });
-    }
-    
-    const { rows } = await pool.query(`
-        UPDATE accounts
-        SET entity_id      = $1,
-            code           = $2,
-            report_code    = $3,
-            chart_code     = $4,
-            description    = $5,
-            classifications= $6,
-            status         = $7,
-            balance        = $8,
-            updated_at     = NOW()
-        WHERE id = $9
-        RETURNING *
-    `, [
-        entity_id,
-        code,
-        report_code,
-        chart_code || null,
-        description,
-        classifications,
-        status,
-        balance || 0.00,
-        id
-    ]);
-    
-    res.json(rows[0]);
+  const chk = await pool.query('SELECT id FROM accounts WHERE id = $1', [id]);
+  if (!chk.rows.length) return res.status(404).json({ error: 'Account not found' });
+
+  if (!entity_code || !gl_code || !fund_number || !description) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const bbNum   = beginning_balance === '' || beginning_balance == null ? null : Number(beginning_balance);
+  const bbDate  = toDateYYYYMMDD(beginning_balance_date);
+  const lastUse = toDateYYYYMMDD(last_used);
+
+  const { rows } = await pool.query(
+    `UPDATE accounts
+        SET entity_code            = $1,
+            gl_code                = $2,
+            fund_number            = $3,
+            description            = $4,
+            status                 = $5,
+            balance_sheet          = $6,
+            beginning_balance      = COALESCE($7::numeric, beginning_balance),
+            beginning_balance_date = COALESCE($8::date, beginning_balance_date),
+            last_used              = COALESCE($9::date, last_used)
+      WHERE id = $10
+      RETURNING *`,
+    [
+      entity_code,
+      gl_code,
+      fund_number,
+      description,
+      status || 'Active',
+      normalizeYN(balance_sheet),
+      bbNum,
+      bbDate,
+      lastUse,
+      id
+    ]
+  );
+
+  res.json(rows[0]);
 }));
 
-/**
+/* ---------------------------------------------------------------------------
  * DELETE /api/accounts/:id
- * Deletes an account if it has no dependencies
- */
+ * -------------------------------------------------------------------------*/
 router.delete('/:id', asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    
-    // Check for journal entry items using this account
-    const journalItemsCheck = await pool.query(
-        'SELECT id FROM journal_entry_items WHERE account_id = $1 LIMIT 1',
-        [id]
-    );
-    
-    if (journalItemsCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Cannot delete account with journal entry items',
-            details: 'This account is referenced in journal entries and cannot be deleted'
-        });
-    }
-    
-    // Check for budgets using this account
-    const budgetsCheck = await pool.query(
-        'SELECT id FROM budgets WHERE account_id = $1 LIMIT 1',
-        [id]
-    );
-    
-    if (budgetsCheck.rows.length > 0) {
-        return res.status(409).json({ 
-            error: 'Cannot delete account with budget entries',
-            details: 'This account is referenced in budgets and cannot be deleted'
-        });
-    }
-    
-    // If no dependencies, delete the account
-    const result = await pool.query('DELETE FROM accounts WHERE id = $1 RETURNING id', [id]);
-    
-    if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Account not found' });
-    }
-    
-    res.status(204).send();
+  const { id } = req.params;
+
+  // Prevent deletion when referenced by journal items
+  const check = await pool.query('SELECT 1 FROM journal_entry_items WHERE account_id = $1 LIMIT 1', [id]);
+  if (check.rows.length) {
+    return res.status(409).json({
+      error: 'Cannot delete account with journal entry items',
+      details: 'This account is referenced in journal entries and cannot be deleted'
+    });
+  }
+
+  const result = await pool.query('DELETE FROM accounts WHERE id = $1 RETURNING id', [id]);
+  if (!result.rows.length) return res.status(404).json({ error: 'Account not found' });
+
+  res.status(204).send();
 }));
 
-/**
+/* ---------------------------------------------------------------------------
  * GET /api/accounts/:id
- * Returns a specific account by ID
- */
+ * -------------------------------------------------------------------------*/
 router.get('/:id', asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    
-    const { rows } = await pool.query(`
-        SELECT a.*, e.name as entity_name
-        FROM accounts a
-        LEFT JOIN entities e ON a.entity_id = e.id
-        WHERE a.id = $1
-    `, [id]);
-    
-    if (rows.length === 0) {
-        return res.status(404).json({ error: 'Account not found' });
-    }
-    
-    res.json(rows[0]);
+  const { id } = req.params;
+  const { rows } = await pool.query('SELECT * FROM accounts WHERE id = $1', [id]);
+  if (!rows.length) return res.status(404).json({ error: 'Account not found' });
+  res.json(rows[0]);
 }));
 
 module.exports = router;

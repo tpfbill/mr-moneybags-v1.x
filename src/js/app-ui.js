@@ -94,11 +94,22 @@ export function updateEntitySelector() {
         entitySelector.appendChild(option);
     });
     
-    // Set default selected entity
+    // Set default selected entity (prefer rootEntity if present)
     if (!appState.selectedEntityId && rootEntity) {
         appState.selectedEntityId = rootEntity.id;
         entitySelector.value = rootEntity.id;
     } else if (appState.selectedEntityId) {
+        entitySelector.value = appState.selectedEntityId;
+    }
+
+    /* ------------------------------------------------------------------
+     * Fallback: if nothing selected yet, default to first option
+     * ------------------------------------------------------------------ */
+    if (
+        !appState.selectedEntityId &&
+        entitySelector.options.length > 0
+    ) {
+        appState.selectedEntityId = entitySelector.options[0].value;
         entitySelector.value = appState.selectedEntityId;
     }
     
@@ -117,17 +128,25 @@ export function updateDashboardTitle() {
     const dashboardTitle = document.getElementById('dashboard-title');
     const dashboardCurrentEntity = document.getElementById('dashboard-current-entity');
     
-    if (!dashboardTitle || !appState.selectedEntityId) return;
-    
-    const selectedEntity = appState.entities.find(entity => entity.id === appState.selectedEntityId);
-    if (selectedEntity) {
-        dashboardTitle.textContent = 'Dashboard';
-        
-        if (dashboardCurrentEntity) {
+    if (!dashboardTitle) return;
+
+    dashboardTitle.textContent = 'Dashboard';
+
+    const selectedEntity = appState.entities.find(
+        entity => entity.id === appState.selectedEntityId
+    );
+
+    if (dashboardCurrentEntity) {
+        if (selectedEntity) {
             dashboardCurrentEntity.textContent = selectedEntity.name;
-            if (appState.isConsolidatedView && selectedEntity.is_consolidated) {
+            if (
+                appState.isConsolidatedView &&
+                selectedEntity.is_consolidated
+            ) {
                 dashboardCurrentEntity.textContent += ' (Consolidated)';
             }
+        } else {
+            dashboardCurrentEntity.textContent = 'All Entities';
         }
     }
 }
@@ -137,13 +156,20 @@ export function updateDashboardTitle() {
  */
 export function updateDashboardSummaryCards() {
     const summaryCardsContainer = document.getElementById('dashboard-summary-cards');
-    if (!summaryCardsContainer || !appState.selectedEntityId) return;
+    if (!summaryCardsContainer) return;
     
     // Get relevant funds based on selected entity and consolidated view
     const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
     // Calculate summary values
-    const totalAssets = relevantFunds.reduce((sum, fund) => sum + parseFloat(fund.balance || 0), 0);
+    const totalAssets = relevantFunds.reduce(
+        (sum, fund) =>
+            sum +
+            parseFloat(
+                fund.balance ?? fund.starting_balance ?? 0
+            ),
+        0
+    );
     const totalLiabilities = 0; // This would need to be calculated from accounts if available
     const netAssets = totalAssets - totalLiabilities;
     
@@ -186,7 +212,7 @@ export function updateDashboardSummaryCards() {
  */
 export function updateDashboardFundBalances() {
     const fundBalancesTable = document.getElementById('dashboard-fund-balances-table');
-    if (!fundBalancesTable || !appState.selectedEntityId) return;
+    if (!fundBalancesTable) return;
     
     const fundBalancesTbody = fundBalancesTable.querySelector('tbody');
     if (!fundBalancesTbody) return;
@@ -194,11 +220,19 @@ export function updateDashboardFundBalances() {
     // Get relevant funds based on selected entity and consolidated view
     const relevantFunds = Array.isArray(getRelevantFunds()) ? [...getRelevantFunds()] : [];
     
-    // Sort funds by balance (descending)
-    relevantFunds.sort((a, b) => parseFloat(b.balance || 0) - parseFloat(a.balance || 0));
+    // Sort funds by balance (descending) with fallback to starting_balance
+    relevantFunds.sort(
+        (a, b) =>
+            parseFloat(b.balance ?? b.starting_balance ?? 0) -
+            parseFloat(a.balance ?? a.starting_balance ?? 0)
+    );
     
-    // Calculate total for percentage
-    const totalBalance = relevantFunds.reduce((sum, fund) => sum + parseFloat(fund.balance || 0), 0);
+    // Calculate total for percentage (balance fallback)
+    const totalBalance = relevantFunds.reduce(
+        (sum, fund) =>
+            sum + parseFloat(fund.balance ?? fund.starting_balance ?? 0),
+        0
+    );
     
     // Update the fund balances table
     fundBalancesTbody.innerHTML = '';
@@ -213,14 +247,21 @@ export function updateDashboardFundBalances() {
     }
     
     relevantFunds.forEach(fund => {
-        const entityName = appState.entities.find(entity => entity.id === fund.entity_id)?.name || 'Unknown';
-        const fundBalance = parseFloat(fund.balance || 0);
+        const fallbackEntityName =
+            fund.entity_name ||
+            appState.entities.find(entity => entity.id === fund.entity_id)?.name ||
+            'Unknown';
+        const fundBalance = parseFloat(
+            fund.balance ?? fund.starting_balance ?? 0
+        );
         const percentage = formatPercentage(fundBalance, totalBalance);
         
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${fund.name}${appState.isConsolidatedView ? ` (${entityName})` : ''}</td>
-            <td>${fund.type || 'N/A'}</td>
+            <td>${fund.fund_name || fund.name || '—'}${
+                appState.isConsolidatedView ? ` (${fallbackEntityName})` : ''
+            }</td>
+            <td>${fund.restriction || 'N/A'}</td>
             <td>${formatCurrency(fundBalance)}</td>
             <td>${percentage}</td>
         `;
@@ -358,70 +399,112 @@ export function updateDashboardUnpostedEntries() {
  * Update chart of accounts table
  */
 export function updateChartOfAccountsTable() {
-    const chartOfAccountsTable = document.getElementById('chart-of-accounts-table');
-    if (!chartOfAccountsTable) return;
-    
-    const chartOfAccountsTbody = chartOfAccountsTable.querySelector('tbody');
-    if (!chartOfAccountsTbody) return;
-    
-    // Sort accounts by code
-    const sortedAccounts = Array.isArray(appState.accounts) ? [...appState.accounts] : [];
-    sortedAccounts.sort((a, b) => a.code.localeCompare(b.code));
-    
-    // Update the chart of accounts table
-    chartOfAccountsTbody.innerHTML = '';
-    
-    if (sortedAccounts.length === 0) {
-        chartOfAccountsTbody.innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center">No accounts found</td>
-            </tr>
-        `;
-        return;
-    }
-    
-    sortedAccounts.forEach(account => {
-        const entityName =
-            account.entity_name ||
-            (appState.entities.find(e => e.id === account.entity_id)?.name ||
-                'Unknown');
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${account.chart_code || account.code}</td>
-            <td>${account.description}</td>
-            <td>${account.classifications}</td>
-            <td>${entityName}</td>
-            <td>${formatCurrency(account.balance)}</td>
-            <td><span class="status status-${account.status.toLowerCase()}">${account.status}</span></td>
-            <td>
-                <button class="action-button btn-edit-account" data-id="${account.id}">Edit</button>
-                <button class="action-button btn-delete-account" style="margin-left:6px;" data-id="${account.id}">Delete</button>
-            </td>
-        `;
-        chartOfAccountsTbody.appendChild(row);
-    });
-    
-    // Add event listeners for edit buttons
-    chartOfAccountsTbody.querySelectorAll('.btn-edit-account').forEach(button => {
-        button.addEventListener('click', () => {
-            // This will be connected to the modal module in app-main.js
-            const event = new CustomEvent('openAccountModal', { 
-                detail: { id: button.dataset.id } 
-            });
-            document.dispatchEvent(event);
-        });
+    const table = document.getElementById('chart-of-accounts-table');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    // Determine admin privileges (case-insensitive)
+    const isAdmin =
+        (appState.currentUser?.role || '').toLowerCase() === 'admin';
+
+    /* ------------------------------------------------------------------
+     * Build display list and sort by derived account_code
+     * ------------------------------------------------------------------ */
+    const displayAccounts = Array.isArray(appState.accounts)
+        ? [...appState.accounts]
+        : [];
+
+    displayAccounts.sort((a, b) => {
+        const codeA =
+            a.account_code ||
+            `${a.entity_code || ''}-${a.gl_code || ''}-${a.fund_number || ''}`;
+        const codeB =
+            b.account_code ||
+            `${b.entity_code || ''}-${b.gl_code || ''}-${b.fund_number || ''}`;
+        return codeA.localeCompare(codeB);
     });
 
-    // Add event listeners for delete buttons
-    chartOfAccountsTbody.querySelectorAll('.btn-delete-account').forEach(button => {
-        button.addEventListener('click', () => {
-            const rowEl = button.closest('tr');
-            const evt = new CustomEvent('deleteAccount', {
-                detail: { id: button.dataset.id, rowEl }
-            });
-            document.dispatchEvent(evt);
-        });
+    /* ------------------------------------------------------------------
+     * Render table body
+     * ------------------------------------------------------------------ */
+    tbody.innerHTML = '';
+
+    if (displayAccounts.length === 0) {
+        tbody.innerHTML =
+            '<tr><td colspan="13" class="text-center">No accounts found</td></tr>';
+        return;
+    }
+
+    displayAccounts.forEach(acc => {
+        const row = document.createElement('tr');
+
+        const acctCode =
+            acc.account_code ||
+            `${acc.entity_code || ''}-${acc.gl_code || ''}-${
+                acc.fund_number || ''
+            }`;
+        const begBal = isNaN(parseFloat(acc.beginning_balance))
+            ? 0
+            : parseFloat(acc.beginning_balance);
+        const begDate = acc.beginning_balance_date
+            ? formatDate(acc.beginning_balance_date)
+            : '—';
+        const lastUsed = acc.last_used ? formatDate(acc.last_used) : '—';
+        const status = acc.status || 'Active';
+        const balanceSheet = acc.balance_sheet || 'No';
+
+        let actionsHtml = '';
+        if (isAdmin) {
+            actionsHtml = `
+                <button class="action-button btn-edit-account" data-id="${acc.id}" style="margin-right:6px;">Edit</button>
+                <button class="action-button btn-delete-account" data-id="${acc.id}">Delete</button>
+            `;
+        }
+
+        row.innerHTML = `
+            <td>${acctCode}</td>
+            <td>${acc.description || ''}</td>
+            <td>${acc.entity_code || ''}</td>
+            <td>${acc.gl_code || ''}</td>
+            <td>${acc.fund_number || ''}</td>
+            <td>${acc.restriction || ''}</td>
+            <td>${acc.classification || ''}</td>
+            <td><span class="status status-${status.toLowerCase()}">${status}</span></td>
+            <td>${balanceSheet}</td>
+            <td>${formatCurrency(begBal)}</td>
+            <td>${begDate}</td>
+            <td>${lastUsed}</td>
+            <td>${actionsHtml}</td>
+        `;
+
+        tbody.appendChild(row);
     });
+
+    /* ------------------------------------------------------------------
+     * Bind admin-only actions (edit / delete)
+     * ------------------------------------------------------------------ */
+    if (isAdmin) {
+        tbody.querySelectorAll('.btn-edit-account').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const evt = new CustomEvent('openAccountModal', {
+                    detail: { id: btn.dataset.id }
+                });
+                document.dispatchEvent(evt);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-delete-account').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rowEl = btn.closest('tr');
+                const evt = new CustomEvent('deleteAccount', {
+                    detail: { id: btn.dataset.id, rowEl }
+                });
+                document.dispatchEvent(evt);
+            });
+        });
+    }
 }
 
 /**
@@ -468,14 +551,14 @@ export function updateFundsTable() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${fund.fund_number || '—'}</td>
-            <td>${fund.fund_code}</td>
+            <td class="fund-code">${fund.fund_code}</td>
             <td>${fund.entity_code || '—'}</td>
             <td>${fund.entity_name || '—'}</td>
             <td>${fund.fund_name}</td>
             <td>${fund.restriction || '—'}</td>
             <td>${fund.budget || '—'}</td>
             <td>${fund.balance_sheet || '—'}</td>
-            <td>${formatCurrency(fund.balance)}</td>
+            <td>${formatCurrency(fund.balance ?? fund.starting_balance)}</td>
             <td>${formatCurrency(fund.starting_balance)}</td>
             <td>${fund.starting_balance_date ? formatDate(fund.starting_balance_date) : '—'}</td>
             <td>${fund.last_used ? formatDate(fund.last_used) : '—'}</td>
@@ -1223,8 +1306,13 @@ function initializeFundBalanceChart() {
     const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
     // Prepare data
-    const fundNames = relevantFunds.slice(0, 5).map(fund => fund.name);
-    const fundBalances = relevantFunds.slice(0, 5).map(fund => parseFloat(fund.balance || 0));
+    const topFunds = relevantFunds.slice(0, 5);
+    const fundNames = topFunds.map(
+        fund => fund.fund_name || fund.name || '—'
+    );
+    const fundBalances = topFunds.map(fund =>
+        parseFloat(fund.balance ?? fund.starting_balance ?? 0)
+    );
     
     // Create chart
     new Chart(canvas, {
@@ -1363,19 +1451,19 @@ function initializeFundDistributionChart() {
     // Get relevant funds
     const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
     
-    // Group funds by type
-    const fundTypes = {};
+    // Group funds by restriction
+    const byRestriction = {};
     relevantFunds.forEach(fund => {
-        const type = fund.type || 'Other';
-        if (!fundTypes[type]) {
-            fundTypes[type] = 0;
-        }
-        fundTypes[type] += parseFloat(fund.balance || 0);
+        const key = fund.restriction || 'Other';
+        if (!byRestriction[key]) byRestriction[key] = 0;
+        byRestriction[key] += parseFloat(
+            fund.balance ?? fund.starting_balance ?? 0
+        );
     });
-    
+
     // Prepare data
-    const types = Object.keys(fundTypes);
-    const balances = Object.values(fundTypes);
+    const types     = Object.keys(byRestriction);
+    const balances  = Object.values(byRestriction);
     
     // Create chart
     new Chart(canvas, {

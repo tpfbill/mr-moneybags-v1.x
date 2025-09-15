@@ -157,3 +157,4 @@ docker-compose.yml
 # Local API session cookie jars
 cookiejar.txt
 cookies.txt
+*.pid

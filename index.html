@@ -81,7 +81,7 @@
                 <div class="card-grid" id="dashboard-summary-cards"><p class="preview-placeholder">Dashboard cards loading...</p></div>
                 <h3 class="mt-20">Fund Balances</h3>
                 <table class="data-table" id="dashboard-fund-balances-table">
-                    <thead><tr><th>Fund Name</th><th>Type</th><th>Balance</th><th>% of Total</th></tr></thead>
+                    <thead><tr><th>Fund Name</th><th>Restriction</th><th>Balance</th><th>% of Total</th></tr></thead>
                     <tbody><tr><td colspan="4" class="preview-placeholder">Fund balances loading...</td></tr></tbody>
                 </table>
                 <!-- Fund Balance Trends over Time -->
@@ -140,10 +140,28 @@
                 <h2>Chart of Accounts</h2>
                 <button class="action-button" id="btnAddAccount">Add Account</button>
             </div>
-            <table class="data-table" id="chart-of-accounts-table">
-                <thead><tr><th>Account</th><th>Description</th><th>Classifications</th><th>Entity</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody></tbody>
-            </table>
+            <div class="coa-table-wrapper">
+                <table class="data-table wide-table" id="chart-of-accounts-table">
+                    <thead>
+                        <tr>
+                            <th>Account Code</th>
+                            <th>Description</th>
+                            <th>Entity Code</th>
+                            <th>GL Code</th>
+                            <th>Fund Number</th>
+                            <th>Restriction</th>
+                            <th>Classification</th>
+                            <th>Status</th>
+                            <th>Balance Sheet</th>
+                            <th>Beginning Balance</th>
+                            <th>Beginning Balance Date</th>
+                            <th>Last Used</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
 
         <!-- ================= GL Codes Page ================= -->
@@ -183,7 +201,7 @@
                 <thead>
                     <tr>
                         <th>Number</th>
-                        <th>Code</th>
+                        <th class="fund-code">Code</th>
                         <th>Entity&nbsp;Code</th>
                         <th>Entity&nbsp;Name</th>
                         <th>Name</th>
@@ -415,77 +433,104 @@
             <!-- ---------- Account Form (captured by app-modals.js) ---------- -->
             <form id="account-modal-form">
                 <div class="modal-body">
-                    <input type="hidden" id="edit-account-id-input">
+                  <input type="hidden" id="edit-account-id-input">
 
-                    <div class="form-group">
-                        <label class="form-label" for="account-code-input">Account *</label>
-                        <input type="text"
-                               id="account-code-input"
-                               name="account-code"
-                               class="form-input"
-                               required>
-                    </div>
-
-                    <!-- Simple report code for aggregation -->
-                    <div class="form-group">
-                        <label class="form-label" for="account-report-code-input">Report Code (Simple) *</label>
-                        <input type="text"
-                               id="account-report-code-input"
-                               name="account-report-code"
-                               class="form-input"
-                               placeholder="e.g., 4000"
-                               required>
-                        <small class="form-help">Required 4-digit code (XXXX) used for reporting/aggregation</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="account-description-input">Description *</label>
-                        <input type="text"
-                               id="account-description-input"
-                               name="account-description"
-                               class="form-input"
-                               required>
-                    </div>
-
-                    <!-- Entity selector injected ahead of type / status -->
-                    <div class="form-group">
-                        <label class="form-label" for="account-entity-id">Entity</label>
-                        <select id="account-entity-id"
-                                name="account-entity-id"
-                                class="form-input">
-                            <option value="">Select Entity…</option>
+                  <div class="form-row">
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-entity-code">Entity Code *</label>
+                        <select id="account-entity-code" class="form-input" required>
+                          <option value="">Select…</option>
                         </select>
+                      </div>
                     </div>
-
-                    <div class="form-row">
-                        <div class="form-column">
-                            <div class="form-group">
-                                <label class="form-label" for="account-classifications-select">Classifications *</label>
-                                <select id="account-classifications-select"
-                                        name="account-classifications"
-                                        class="form-input"
-                                        required>
-                                    <option value="Asset">Asset</option>
-                                    <option value="Liability">Liability</option>
-                                    <option value="Equity">Equity</option>
-                                    <option value="Revenue">Revenue</option>
-                                    <option value="Expense">Expense</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-column">
-                            <div class="form-group">
-                                <label class="form-label" for="account-status-select">Status</label>
-                                <select id="account-status-select"
-                                        name="account-status"
-                                        class="form-input">
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-gl-code">GL Code *</label>
+                        <select id="account-gl-code" class="form-input" required>
+                          <option value="">Select…</option>
+                        </select>
+                      </div>
                     </div>
+                  </div>
 
+                  <div class="form-row">
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-fund-number">Fund Number *</label>
+                        <select id="account-fund-number" class="form-input" required>
+                          <option value="">Select…</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-description-input">Description *</label>
+                        <input type="text" id="account-description-input" class="form-input" required>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-status-select">Status</label>
+                        <select id="account-status-select" class="form-input">
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-balance-sheet-select">Balance Sheet</label>
+                        <select id="account-balance-sheet-select" class="form-input">
+                          <option value="No">No</option>
+                          <option value="Yes">Yes</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-beginning-balance">Beginning Balance</label>
+                        <input type="number" step="0.01" id="account-beginning-balance" class="form-input" placeholder="0.00">
+                      </div>
+                    </div>
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-beginning-balance-date">Beginning Balance Date</label>
+                        <input type="date" id="account-beginning-balance-date" class="form-input">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="account-last-used">Last Used</label>
+                    <input type="date" id="account-last-used" class="form-input">
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-restriction-preview">Restriction (auto)</label>
+                        <input type="text" id="account-restriction-preview" class="form-input" readonly>
+                      </div>
+                    </div>
+                    <div class="form-column">
+                      <div class="form-group">
+                        <label class="form-label" for="account-classification-preview">Classification (auto)</label>
+                        <input type="text" id="account-classification-preview" class="form-input" readonly>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="account-code-preview">Account Code (auto)</label>
+                    <input type="text" id="account-code-preview" class="form-input" readonly>
+                  </div>
                 </div>
 
                 <div class="modal-footer">
