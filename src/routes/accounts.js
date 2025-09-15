@@ -311,6 +311,20 @@ router.post(
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
+        /* ------------------------------------------------------------------
+         * Validate fund exists for given entity_code + fund_number
+         * ---------------------------------------------------------------- */
+        const fundChk = await client.query(
+          'SELECT 1 FROM funds WHERE entity_code = $1 AND fund_number = $2 LIMIT 1',
+          [entity_code, fund_number]
+        );
+        if (!fundChk.rows.length) {
+          logLines.push(
+            `Failed,-,${rowNum},${account_code},"fund_number not found for entity_code"`
+          );
+          await client.query('ROLLBACK');
+          return sendCsv(400);
+        }
         if (
           !isValidDateYYYYMMDD(beginning_balance_date) ||
           !isValidDateYYYYMMDD(last_used)
