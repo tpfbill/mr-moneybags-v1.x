@@ -40,6 +40,13 @@ function normalizeHeaderKey(key = '') {
     .replace(/^_+|_+$/g, '');      // trim leading/trailing underscores
 }
 
+// Canonicalise codes by stripping all non-alphanumerics and lower-casing
+function canonCode(v) {
+  return (v == null ? '' : String(v))
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
 const REQUIRED_HEADERS = [
   'account_code',
   'entity_code',
@@ -260,12 +267,12 @@ router.post(
       // quick reference caches to reduce queries
       const entitiesCache = new Set(
         (await pool.query('SELECT code FROM entities')).rows.map(r =>
-          r.code.toString().trim()
+          canonCode(r.code)
         )
       );
       const glCache = new Set(
         (await pool.query('SELECT code FROM gl_codes')).rows.map(r =>
-          r.code.toString().trim()
+          canonCode(r.code)
         )
       );
 
@@ -289,26 +296,32 @@ router.post(
           classification
         } = raw;
 
-        // basic validations
-        if (
-          account_code !== `${entity_code}-${gl_code}-${fund_number}`
-        ) {
+        // ------------------------------------------------------------------
+        // Canonicalisation & raw trims
+        // ------------------------------------------------------------------
+        const eRaw = (entity_code || '').toString().trim();
+        const gRaw = (gl_code || '').toString().trim();
+        const fRaw = (fund_number || '').toString().trim();
+        const acRaw = (account_code || '').toString().trim();
+
+        const eCanon = canonCode(eRaw);
+        const gCanon = canonCode(gRaw);
+        const fCanon = canonCode(fRaw);
+        const acCanon = canonCode(acRaw);
+
+        // ---------------------------------------------------------------
+        // Defer account_code validation until we also know restriction
+        // ---------------------------------------------------------------
+        if (!entitiesCache.has(eCanon)) {
           logLines.push(
-            `Failed,-,${rowNum},${account_code},"account_code mismatch"`
+            `Failed,-,${rowNum},${acRaw},"entity_code not found"`
           );
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
-        if (!entitiesCache.has(entity_code)) {
+        if (!glCache.has(gCanon)) {
           logLines.push(
-            `Failed,-,${rowNum},${account_code},"entity_code not found"`
-          );
-          await client.query('ROLLBACK');
-          return sendCsv(400);
-        }
-        if (!glCache.has(gl_code)) {
-          logLines.push(
-            `Failed,-,${rowNum},${account_code},"gl_code not found"`
+            `Failed,-,${rowNum},${acRaw},"gl_code not found"`
           );
           await client.query('ROLLBACK');
           return sendCsv(400);
@@ -317,12 +330,27 @@ router.post(
          * Validate fund exists for given entity_code + fund_number
          * ---------------------------------------------------------------- */
         const fundChk = await client.query(
-          'SELECT 1 FROM funds WHERE entity_code = $1 AND fund_number = $2 LIMIT 1',
-          [entity_code, fund_number]
+          'SELECT restriction FROM funds WHERE entity_code = $1 AND fund_number = $2 LIMIT 1',
+          [eCanon, fCanon]
         );
         if (!fundChk.rows.length) {
           logLines.push(
-            `Failed,-,${rowNum},${account_code},"fund_number not found for entity_code"`
+            `Failed,-,${rowNum},${acRaw},"fund_number not found for entity_code"`
+          );
+          await client.query('ROLLBACK');
+          return sendCsv(400);
+        }
+
+        // ------------------------------------------------------------------
+        // Now that we have the fund, add its restriction to canonical check
+        // ------------------------------------------------------------------
+        const fundRestriction = fundChk.rows[0].restriction || '';
+        const rCanon = canonCode(fundRestriction);
+        const expectedCanon = eCanon + gCanon + fCanon + rCanon;
+
+        if (acCanon !== expectedCanon) {
+          logLines.push(
+            `Failed,-,${rowNum},${acRaw},"account_code mismatch"`
           );
           await client.query('ROLLBACK');
           return sendCsv(400);
@@ -347,8 +375,8 @@ router.post(
 
         // upsert
         const ex = await client.query(
-          'SELECT id FROM accounts WHERE LOWER(account_code)=LOWER($1) LIMIT 1',
-          [account_code]
+          "SELECT id FROM accounts WHERE regexp_replace(lower(account_code), '[^a-z0-9]', '', 'g') = $1 LIMIT 1",
+          [acCanon]
         );
         if (ex.rows.length) {
           await client.query(
@@ -363,9 +391,9 @@ router.post(
              WHERE id=$1`,
             [
               ex.rows[0].id,
-              entity_code,
-              gl_code,
-              fund_number,
+              eCanon,
+              gCanon,
+              fCanon,
               description,
               status,
               balance_sheet,
@@ -376,7 +404,7 @@ router.post(
               classification
             ]
           );
-          logLines.push(`OK,Updated,${rowNum},${account_code},`);
+          logLines.push(`OK,Updated,${rowNum},${acRaw},`);
         } else {
           await client.query(
             `INSERT INTO accounts
@@ -385,10 +413,10 @@ router.post(
                last_used,restriction,classification)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$9::date,$10::date,$11,$12)`,
             [
-              account_code,
-              entity_code,
-              gl_code,
-              fund_number,
+              acRaw,
+              eCanon,
+              gCanon,
+              fCanon,
               description,
               status,
               balance_sheet,
@@ -399,7 +427,7 @@ router.post(
               classification
             ]
           );
-          logLines.push(`OK,Inserted,${rowNum},${account_code},`);
+          logLines.push(`OK,Inserted,${rowNum},${acRaw},`);
         }
       }
 
