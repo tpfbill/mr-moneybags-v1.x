@@ -374,7 +374,7 @@ export async function openFundModal(id) {
     const restrictionSelect = form.querySelector('#fund-restriction');
     if (restrictionSelect) {
         restrictionSelect.innerHTML = '';
-        const restrictions = ['00', '01'];
+        const restrictions = ['00', '01', '02', '03'];
         restrictions.forEach(restriction => {
             const option = document.createElement('option');
             option.value = restriction;
