@@ -210,8 +210,30 @@ router.post(
   '/import',
   upload.single('file'),
   asyncHandler(async (req, res) => {
+    /* ---------------------------------------------------------------
+     * Helpers for every outcome (success or any error)
+     * ------------------------------------------------------------- */
+    const nowStr = new Date().toISOString().replace(/[:T]/g, '').split('.')[0];
+    const logLines = [];
+    function sendCsv(statusCode) {
+      const csv =
+        'status,action,row_number,account_code,message\r\n' +
+        logLines.join('\r\n');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="accounts_import_${nowStr}.csv"`
+      );
+      res.setHeader('Content-Type', 'text/csv');
+      return res.status(statusCode).send(csv);
+    }
+
+    /* ---------------------------------------------------------------
+     * Pre-flight checks
+     * ------------------------------------------------------------- */
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      logLines.push('Failed,-,1,,"No file uploaded"');
+      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
+      return sendCsv(400);
     }
 
     let records;
@@ -222,11 +244,15 @@ router.post(
         trim: true
       });
     } catch (err) {
-      return res.status(400).json({ error: 'Invalid CSV', details: err.message });
+      logLines.push(`Failed,-,1,,"Invalid CSV (${err.message})"`);
+      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
+      return sendCsv(400);
     }
 
     if (!records.length) {
-      return res.status(400).json({ error: 'CSV has no data rows' });
+      logLines.push('Failed,-,1,,"CSV has no data rows"');
+      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
+      return sendCsv(400);
     }
 
     /* ---------------------------------
@@ -237,9 +263,11 @@ router.post(
     );
     const missing = REQUIRED_HEADERS.filter(h => !hdrSet.has(h));
     if (missing.length) {
-      return res
-        .status(400)
-        .json({ error: 'Missing required headers', details: missing });
+      logLines.push(
+        `Failed,-,1,,"Missing required headers: ${missing.join(', ')}"`
+      );
+      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
+      return sendCsv(400);
     }
 
     /* ---------------------------------
@@ -316,6 +344,7 @@ router.post(
           logLines.push(
             `Failed,-,${rowNum},${acRaw},"entity_code not found"`
           );
+          console.warn('[Accounts CSV Import] First failure:', logLines[0]);
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
@@ -323,6 +352,7 @@ router.post(
           logLines.push(
             `Failed,-,${rowNum},${acRaw},"gl_code not found"`
           );
+          console.warn('[Accounts CSV Import] First failure:', logLines[0]);
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
@@ -337,6 +367,7 @@ router.post(
           logLines.push(
             `Failed,-,${rowNum},${acRaw},"fund_number not found for entity_code"`
           );
+          console.warn('[Accounts CSV Import] First failure:', logLines[0]);
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
@@ -352,6 +383,7 @@ router.post(
           logLines.push(
             `Failed,-,${rowNum},${acRaw},"account_code mismatch"`
           );
+          console.warn('[Accounts CSV Import] First failure:', logLines[0]);
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
@@ -362,6 +394,7 @@ router.post(
           logLines.push(
             `Failed,-,${rowNum},${account_code},"Invalid date format"`
           );
+          console.warn('[Accounts CSV Import] First failure:', logLines[0]);
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
@@ -369,6 +402,7 @@ router.post(
           logLines.push(
             `Failed,-,${rowNum},${account_code},"beginning_balance not numeric"`
           );
+          console.warn('[Accounts CSV Import] First failure:', logLines[0]);
           await client.query('ROLLBACK');
           return sendCsv(400);
         }
