@@ -285,12 +285,16 @@ router.post(
       )
     );
     
-    // Build funds map keyed by canonical entity_code|fund_number -> restriction
-    const fundsResult = await pool.query('SELECT entity_code, fund_number, restriction FROM funds');
-    const fundsMap = new Map();
-    fundsResult.rows.forEach(row => {
-      const key = `${canonCode(row.entity_code)}|${canonCode(row.fund_number)}`;
-      fundsMap.set(key, row.restriction);
+    // Build funds map keyed by canonical entity_code|fund_number -> Set(restrictions)
+    const fundsResult = await pool.query(
+      'SELECT entity_code, fund_number, restriction FROM funds'
+    );
+    const fundsMap = new Map(); // key => Set of canonical restrictions
+    fundsResult.rows.forEach(r => {
+      const key = `${canonCode(r.entity_code)}|${canonCode(r.fund_number)}`;
+      const set = fundsMap.get(key) || new Set();
+      set.add(canonCode(r.restriction));
+      fundsMap.set(key, set);
     });
 
     /* ---------------------------------
@@ -345,25 +349,64 @@ router.post(
         continue; // Skip to next row
       }
       
-      // Validate fund exists for given entity_code + fund_number
+      // Determine restriction canon for this row
+      let rCanonCsv = canonCode(restriction || '');
+      if (!rCanonCsv) {
+        // try to extract 4th token from account_code
+        const acParts = acRaw
+          .replace(/[^A-Za-z0-9]+/g, ' ')
+          .trim()
+          .split(/\s+/)
+          .map(canonCode);
+        rCanonCsv = acParts[3] || '';
+      }
+      if (!rCanonCsv) {
+        logLines.push(
+          `Failed,-,${rowNum},${acRaw},"restriction missing (CSV and account_code)"`
+        );
+        continue;
+      }
+
+      // Validate fund exists and has this restriction
       const fundKey = `${eCanon}|${fCanon}`;
-      if (!fundsMap.has(fundKey)) {
+      const restrSet = fundsMap.get(fundKey);
+      if (!restrSet) {
         logLines.push(
           `Failed,-,${rowNum},${acRaw},"fund_number not found for entity_code"`
         );
-        continue; // Skip to next row
+        continue;
+      }
+      if (!restrSet.has(rCanonCsv)) {
+        logLines.push(
+          `Failed,-,${rowNum},${acRaw},"fund restriction not found for entity_code+fund_number (have: ${[
+            ...restrSet
+          ].join('/')}; got: ${rCanonCsv})"`
+        );
+        continue;
       }
 
-      // Get fund restriction and validate account_code
-      const fundRestriction = fundsMap.get(fundKey) || '';
-      const rCanon = canonCode(fundRestriction);
-      const expectedCanon = eCanon + gCanon + fCanon + rCanon;
+      // Build expected canonical with the derived restriction
+      const expectedCanon = eCanon + gCanon + fCanon + rCanonCsv;
 
       if (acCanon !== expectedCanon) {
+        // analyse parts to give detailed mismatch
+        const parts = acRaw
+          .replace(/[^A-Za-z0-9]+/g, ' ')
+          .trim()
+          .split(/\s+/)
+          .map(canonCode);
+        const mism = [];
+        if ((parts[0] || '') !== eCanon) mism.push(`entity ${parts[0] || ''}`);
+        if ((parts[1] || '') !== gCanon) mism.push(`gl ${parts[1] || ''}`);
+        if ((parts[2] || '') !== fCanon) mism.push(`fund ${parts[2] || ''}`);
+        if ((parts[3] || '') !== rCanonCsv)
+          mism.push(`restriction ${parts[3] || ''}`);
         logLines.push(
-          `Failed,-,${rowNum},${acRaw},"account_code mismatch"`
+          `Failed,-,${rowNum},${acRaw},"account_code mismatch – ${mism.join(
+            '; '
+          )}; expected ${expectedCanon}"`
         );
-        continue; // Skip to next row
+        continue;
       }
       
       // Validate dates
@@ -396,7 +439,7 @@ router.post(
         beginning_balance,
         beginning_balance_date,
         last_used,
-        restriction: fundRestriction, // Use restriction from fund
+        restriction: rCanonCsv, // use validated restriction
         classification
       });
     }
