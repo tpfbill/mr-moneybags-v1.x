@@ -59,6 +59,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
  */
 router.post('/', asyncHandler(async (req, res) => {
     const {
+        entity_id,
         bank_name,
         account_name,
         account_number,
@@ -79,8 +80,21 @@ router.post('/', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Account name is required' });
     }
     
+    // Determine entity_id: use provided value if present; otherwise default to the primary entity
+    let entityId = entity_id;
+    if (!entityId) {
+        const ent = await pool.query(
+            `SELECT id FROM entities ORDER BY (code = 'TPF_PARENT') DESC, created_at ASC LIMIT 1`
+        );
+        entityId = ent.rows[0]?.id || null;
+    }
+    if (!entityId) {
+        return res.status(400).json({ error: 'No entity available to assign bank account to' });
+    }
+
     const { rows } = await pool.query(`
         INSERT INTO bank_accounts (
+            entity_id,
             bank_name,
             account_name,
             account_number,
@@ -90,9 +104,10 @@ router.post('/', asyncHandler(async (req, res) => {
             balance,
             connection_method,
             description
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
     `, [
+        entityId,
         bank_name,
         account_name,
         account_number,
