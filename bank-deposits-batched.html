@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Deposits (Batched) - Mr. MoneyBags v1.x</title>
+    <link rel="stylesheet" href="src/css/styles.css">
+    <link rel="stylesheet" href="src/css/bank-deposits.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Mr. MoneyBags v1.x</h1>
+            <div class="header-right-controls">
+                <div class="db-status-container">
+                    <span id="db-status-indicator" class="offline">DB Offline</span>
+                </div>
+                <div class="consolidated-view-container">
+                    <label for="consolidated-view-toggle">Consolidated View:</label>
+                    <input type="checkbox" id="consolidated-view-toggle">
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                    <select id="entity-selector">
+                        <option value="">Loading Entities...</option>
+                    </select>
+                </div>
+                <div class="user-info"><span>User</span><button class="logout-button" id="btnLogout">Logout</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="text-center mb-4">
+            <button class="action-button" onclick="window.location.href='index.html'">
+                Back to Dashboard
+            </button>
+        </div>
+
+        <div class="page-header">
+            <h2>Bank Deposits (Batched)</h2>
+            <div class="page-actions" style="gap:10px;display:flex;align-items:center;">
+                <input type="file" id="batchedDepositCsvFile" accept=".csv" style="width:auto;">
+                <button id="importBatchedDepositsBtn" class="btn-secondary">Import CSV</button>
+                <button id="refresh-batched-deposits-btn" class="action-button">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="tab-navigation">
+            <div class="tab-item active" data-tab="batched-list">Deposits</div>
+            <div class="tab-item" data-tab="batched-import-log">Last Import Log</div>
+        </div>
+
+        <div id="batched-list" class="tab-panel active">
+            <div class="table-container">
+                <table id="batched-deposits-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Bank Account</th>
+                            <th>Reference</th>
+                            <th>Description</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="empty-row">
+                            <td colspan="7" class="text-center">No deposits yet. Import a CSV to begin.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="batched-import-log" class="tab-panel">
+            <div class="table-container">
+                <table id="batched-import-log-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Line</th>
+                            <th>Status</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="empty-row">
+                            <td colspan="3" class="text-center">No import run yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container"></div>
+
+    <script src="src/js/app.js"></script>
+    <script type="module" src="src/js/bank-deposits-batched.js"></script>
+</body>
+</html>

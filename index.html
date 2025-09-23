@@ -50,7 +50,8 @@
             <!-- Vendor Payments navigation -->
             <div class="nav-item" onclick="window.location.href='vendor-payments.html'">Vendor Payments</div>
             <!-- Bank Deposits navigation -->
-            <div class="nav-item" onclick="window.location.href='bank-deposits.html'">Bank Deposits</div>
+            <div class="nav-item" onclick="window.location.href='bank-deposits-batched.html'">Bank Deposits (Batched)</div>
+            <div class="nav-item" onclick="window.location.href='bank-deposits.html'">Bank Deposits (Checks)</div>
             <!-- Check Printing navigation -->
             <div class="nav-item" onclick="window.location.href='check-printing.html'">Check Printing</div>
             <!-- Bank Reconciliation navigation -->
@@ -1034,13 +1035,10 @@
                                 </select>
                             </div>
                         </div>
-
                         <div class="form-column">
                             <div class="form-group">
                                 <label class="form-label" for="user-status">Status</label>
-                                <select id="user-status"
-                                        name="user-status"
-                                        class="form-input">
+                                <select id="user-status" name="user-status" class="form-input">
                                     <option value="active">Active</option>
                                     <option value="inactive">Inactive</option>
                                 </select>
