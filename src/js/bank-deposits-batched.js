@@ -28,12 +28,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${API_BASE}/api/bank-deposits/batched/import`, {
+      const url = `${API_BASE}/api/bank-deposits/batched/import`;
+      console.debug('[Batched Import] POST', url);
+      const res = await fetch(url, {
         method: 'POST',
         credentials: 'include',
         body: fd
       });
-      const data = await res.json();
+      const ctype = res.headers.get('content-type') || '';
+      const isJson = ctype.includes('application/json');
+      const data = isJson ? await res.json() : { error: await res.text() };
       if (!res.ok) throw new Error(data?.error || `Import failed (${res.status})`);
 
       // Populate import log
