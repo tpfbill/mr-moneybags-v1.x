@@ -68,7 +68,9 @@ router.post('/', asyncHandler(async (req, res) => {
         status,
         balance,
         connection_method,
-        description
+        description,
+        gl_account_id,
+        cash_account_id
     } = req.body;
     
     // Validate required fields
@@ -92,6 +94,16 @@ router.post('/', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'No entity available to assign bank account to' });
     }
 
+    // Determine synchronized GL/cash account mapping (both point to same accounts.id)
+    let syncedAccountId = cash_account_id || gl_account_id || null;
+    if (syncedAccountId) {
+        // Validate the referenced account exists
+        const chk = await pool.query('SELECT 1 FROM accounts WHERE id = $1', [syncedAccountId]);
+        if (!chk.rows.length) {
+            return res.status(400).json({ error: 'Mapped cash/GL account not found' });
+        }
+    }
+
     const { rows } = await pool.query(`
         INSERT INTO bank_accounts (
             entity_id,
@@ -103,8 +115,10 @@ router.post('/', asyncHandler(async (req, res) => {
             status,
             balance,
             connection_method,
-            description
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            description,
+            gl_account_id,
+            cash_account_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
     `, [
         entityId,
@@ -116,7 +130,9 @@ router.post('/', asyncHandler(async (req, res) => {
         status || 'Active',
         balance || 0.00,
         connection_method || 'Manual',
-        description || ''
+        description || '',
+        syncedAccountId,
+        syncedAccountId
     ]);
     
     res.status(201).json(rows[0]);
@@ -138,7 +154,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
         balance,
         connection_method,
         description,
-        last_sync
+        last_sync,
+        gl_account_id,
+        cash_account_id
     } = req.body;
     
     // Validate required fields
@@ -156,6 +174,16 @@ router.put('/:id', asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Bank account not found' });
     }
     
+    // Determine synchronized GL/cash account mapping
+    let syncedAccountId = cash_account_id || gl_account_id || null;
+    if (syncedAccountId) {
+        // Validate exists
+        const chk = await pool.query('SELECT 1 FROM accounts WHERE id = $1', [syncedAccountId]);
+        if (!chk.rows.length) {
+            return res.status(400).json({ error: 'Mapped cash/GL account not found' });
+        }
+    }
+
     const { rows } = await pool.query(`
         UPDATE bank_accounts
         SET bank_name = $1,
@@ -168,6 +196,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
             connection_method = $8,
             description = $9,
             last_sync = $10,
+            gl_account_id = COALESCE($12, gl_account_id),
+            cash_account_id = COALESCE($12, cash_account_id),
             updated_at = NOW()
         WHERE id = $11
         RETURNING *
@@ -182,7 +212,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
         connection_method,
         description,
         last_sync,
-        id
+        id,
+        syncedAccountId
     ]);
     
     res.json(rows[0]);

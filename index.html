@@ -1158,6 +1158,15 @@
                     </div>
                 </div>
 
+                <!-- Cash GL account mapping (limits to Asset/Cash accounts) -->
+                <div class="form-group">
+                    <label class="form-label" for="bank-cash-account-select">Cash GL Account</label>
+                    <select id="bank-cash-account-select" class="form-input">
+                        <option value="">Select Cash Account…</option>
+                    </select>
+                    <small class="form-help">Used for automatic posting (debits) on deposits and for bank reconciliation matching. Only Asset/Cash accounts are shown.</small>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label" for="bank-account-description-textarea">Description</label>
                     <textarea id="bank-account-description-textarea" class="form-input" rows="3"></textarea>

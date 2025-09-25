@@ -1296,6 +1296,40 @@ export async function openBankAccountModal(id) {
     // Title
     titleEl.textContent = id ? 'Edit Bank Account' : 'Add Bank Account';
 
+    // Populate Cash GL Account selector (Asset/Cash accounts only)
+    try {
+        // Ensure accounts are loaded
+        if (!Array.isArray(appState.accounts) || appState.accounts.length === 0) {
+            appState.accounts = await fetchData('accounts');
+        }
+
+        const sel = form.querySelector('#bank-cash-account-select');
+        if (sel) {
+            sel.innerHTML = '<option value="">Select Cash Account…</option>';
+
+            // Simple filter: classification === 'Asset' and (desc contains 'cash' OR gl_code starts with '1')
+            const cashAccounts = appState.accounts.filter(a => {
+                const cls = (a.classification || a.classifications || '').toString();
+                const desc = (a.description || '').toLowerCase();
+                const glc = (a.gl_code || a.code || '').toString();
+                return cls === 'Asset' && (desc.includes('cash') || /^1/.test(glc));
+            });
+
+            // Sort for usability
+            cashAccounts.sort((a, b) => (a.account_code || a.code || '').localeCompare(b.account_code || b.code || ''));
+
+            for (const a of cashAccounts) {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                const labelCode = a.account_code || a.code || a.gl_code || '';
+                opt.textContent = `${labelCode} — ${a.description || ''}`.trim();
+                sel.appendChild(opt);
+            }
+        }
+    } catch (e) {
+        console.warn('Unable to populate Cash GL Account select:', e);
+    }
+
     if (id) {
         try {
             const acct = await fetchData(`bank-accounts/${id}`);
@@ -1308,6 +1342,13 @@ export async function openBankAccountModal(id) {
             form.querySelector('#connection-method-select').value      = acct.connection_method   || 'Manual';
             form.querySelector('#initial-balance-input').value         = acct.balance             || 0;
             form.querySelector('#bank-account-description-textarea').value = acct.description     || '';
+
+            // Set cash account selection (prefer cash_account_id, then gl_account_id)
+            const cashSel = form.querySelector('#bank-cash-account-select');
+            if (cashSel) {
+                const selVal = acct.cash_account_id || acct.gl_account_id || '';
+                cashSel.value = selVal || '';
+            }
         } catch (err) {
             console.error('Error loading bank account:', err);
             showToast('Error loading bank account', 'error');
@@ -1340,6 +1381,14 @@ export async function saveBankAccount(event) {
         connection_method: form.querySelector('#connection-method-select').value,
         description      : form.querySelector('#bank-account-description-textarea').value
     };
+
+    // Include cash/gl account mapping (keep in sync)
+    const cashSel = form.querySelector('#bank-cash-account-select');
+    if (cashSel) {
+        const val = cashSel.value || null;
+        data.cash_account_id = val;
+        data.gl_account_id   = val; // keep synchronized per requirements
+    }
 
     try {
         if (id) {
