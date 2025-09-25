@@ -25,6 +25,17 @@ function normalizeYN(v) {
     return ['1', 'yes', 'y', 'true'].includes(t) ? 'Yes' : 'No';
 }
 
+function normalizeRestriction(v) {
+  const s = (v || '').toString().trim();
+  if (!s) return null;
+  const d = s.replace(/[^0-9]/g, '');
+  if (d === '0'  || d === '00') return '00';
+  if (d === '1'  || d === '01') return '01';
+  if (d === '2'  || d === '02') return '02';
+  if (d === '3'  || d === '03') return '03';
+  return null;
+}
+
 function toDateYYYYMMDD(v) {
     if (!v) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
@@ -173,6 +184,12 @@ router.post('/', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'entity_name and entity_code are required' });
     }
 
+    // Normalize restriction
+    const restrictionNorm = normalizeRestriction(restriction);
+    if (!restrictionNorm) {
+        return res.status(400).json({ error: 'restriction must be one of 00,01,02,03' });
+    }
+
     // Normalize starting_balance and starting_balance_date
     const starting_balance_num = (starting_balance === '' || starting_balance == null) ? null : Number(starting_balance);
     const starting_balance_date_str = toDateYYYYMMDD(starting_balance_date);
@@ -212,7 +229,7 @@ router.post('/', asyncHandler(async (req, res) => {
         fund_name,
         entity_name,
         entity_code,
-        restriction,
+        restrictionNorm,
         budget,
         balance_sheet,
         status || 'Active',
@@ -251,6 +268,12 @@ router.put('/:id', asyncHandler(async (req, res) => {
     }
     if (!fund_name) {
         return res.status(400).json({ error: 'fund_name is required' });
+    }
+    
+    // Normalize restriction
+    const restrictionNorm = normalizeRestriction(restriction);
+    if (!restrictionNorm) {
+        return res.status(400).json({ error: 'restriction must be one of 00,01,02,03' });
     }
     
     // Normalize starting_balance and starting_balance_date
@@ -298,7 +321,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
         fund_name,
         entity_name,
         entity_code,
-        restriction,
+        restrictionNorm,
         budget,
         balance_sheet,
         status || 'Active',
@@ -436,7 +459,7 @@ router.post(
                     fund_name: fund_name.trim(),
                     entity_name: entity_name.trim(),
                     entity_code: entity_code.trim(),
-                    restriction: rec.restriction || null,
+                    restriction: normalizeRestriction(rec.restriction),
                     budget: normalizeYN(rec.budget),
                     balance_sheet: normalizeYN(rec.balance_sheet),
                     status: normalizeStatus(rec.status),

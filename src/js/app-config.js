@@ -6,10 +6,27 @@
  */
 
 // ---------------------------------------------------------------------------
-// Dynamic API base URL – automatically uses current host (works with
-// localhost, Tailscale IP/hostname, or any other network interface)
+// Dynamic API base URL
+// - If frontend is served on 8080 (dev), point API to :3000 on same host
+// - Otherwise default to current origin (single-port deployments)
 // ---------------------------------------------------------------------------
-const API_BASE = window.location.origin;
+const API_BASE = (() => {
+    try {
+        const loc = window.location;
+        const apiPort = '3000';
+        // If we're on 8080 or any non-API port, target the API port on same host
+        if (loc.port && loc.port !== apiPort) {
+            return `${loc.protocol}//${loc.hostname}:${apiPort}`;
+        }
+        // Fallback to current origin (includes port if present)
+        return loc.origin;
+    } catch {
+        return window.location.origin;
+    }
+})();
+
+// Expose globally for fetch interceptor (api-base-prefix.js)
+window.API_BASE = API_BASE;
 
 export { API_BASE };
 

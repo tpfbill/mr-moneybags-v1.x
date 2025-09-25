@@ -879,6 +879,68 @@ function initializePageElements() {
                 fundCsvInput.value = '';
             }
         });
+
+        /* end funds binding */
+    }
+
+    /* -----------------------------------------------------------
+     * Accounts CSV Import button
+     * ---------------------------------------------------------*/
+    const importAccountsBtn = document.getElementById('importAccountsBtn');
+    const accountCsvInput   = document.getElementById('accountCsvFile');
+
+    if (importAccountsBtn && accountCsvInput && !importAccountsBtn.__bound) {
+        importAccountsBtn.__bound = true;
+
+        importAccountsBtn.addEventListener('click', async () => {
+            const file = accountCsvInput.files && accountCsvInput.files[0];
+            if (!file) {
+                showToast('Please choose a CSV file to import', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/accounts/import`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                // Always download the results CSV (success or error)
+                const blob = await res.blob();
+                let filename = 'accounts_import_results.csv';
+                const cd     = res.headers.get('content-disposition') || '';
+                const m      = cd.match(/filename\\*=UTF-8''([^;]+)|filename=\"?([^\";]+)/i);
+                if (m) filename = decodeURIComponent(m[1] || m[2]);
+
+                const url = URL.createObjectURL(blob);
+                const a   = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                    a.remove();
+                }, 100);
+
+                if (res.ok) {
+                    showToast('Accounts import completed — results log downloaded', 'success');
+                    await loadAccountData();
+                } else {
+                    showToast('Accounts import failed — see results log', 'error');
+                }
+            } catch (err) {
+                console.error('[Accounts CSV Import] Error:', err);
+                showToast('Accounts import failed: ' + err.message, 'error');
+            } finally {
+                // clear selection so the same file can be chosen again
+                accountCsvInput.value = '';
+            }
+        });
     }
 }
 

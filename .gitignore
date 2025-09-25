@@ -38,6 +38,7 @@ database/dumps/
 !database/schema-only.sql
 !database/sample-data-part1.sql
 !database/sample-data-part2.sql
+!database/migrations/**/*.sql
 
 # Log files
 logs/

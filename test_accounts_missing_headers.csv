@@ -1,0 +1,2 @@
+account_code,entity_code,gl_code,fund_number,description,status,balance_sheet,beginning_balance,beginning_balance_date,last_used
+"1 1008 005 00",1,1008,005,Test Cash Account,Active,Yes,0,2025-01-01,2025-01-01

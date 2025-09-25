@@ -374,7 +374,7 @@ export async function openFundModal(id) {
     const restrictionSelect = form.querySelector('#fund-restriction');
     if (restrictionSelect) {
         restrictionSelect.innerHTML = '';
-        const restrictions = ['00', '01'];
+        const restrictions = ['00', '01', '02', '03'];
         restrictions.forEach(restriction => {
             const option = document.createElement('option');
             option.value = restriction;
@@ -1296,6 +1296,47 @@ export async function openBankAccountModal(id) {
     // Title
     titleEl.textContent = id ? 'Edit Bank Account' : 'Add Bank Account';
 
+    // Populate Cash GL Account selector (per org: classifications 'Bank Accounts' or 'Investments')
+    try {
+        // Ensure accounts are loaded
+        if (!Array.isArray(appState.accounts) || appState.accounts.length === 0) {
+            const fetched = await fetchData('accounts');
+            appState.accounts = Array.isArray(fetched) ? fetched : [];
+        }
+
+        const sel = form.querySelector('#bank-cash-account-select');
+        if (sel) {
+            sel.innerHTML = '<option value="">Select Cash Account…</option>';
+
+            // Filter: classification IN ('Bank Accounts','Investments') AND gl_code starts with '1'
+            const allAccounts = Array.isArray(appState.accounts) ? appState.accounts : [];
+            const cashAccounts = allAccounts.filter(a => {
+                const cls = (a.classification || a.classifications || '').toString();
+                const glc = (a.gl_code || a.code || '').toString();
+                return (cls === 'Bank Accounts' || cls === 'Investments') && /^1/.test(glc);
+            });
+
+            console.log(`[BankAccount Modal] Accounts fetched: ${allAccounts.length}; eligible cash accounts: ${cashAccounts.length}`);
+            if (allAccounts.length > 0 && cashAccounts.length === 0) {
+                // Inform user in UI if nothing matches the current filter
+                try { showToast('No GL accounts match Bank Accounts/Investments with GL code starting with 1', 'warning'); } catch (_) {}
+            }
+
+            // Sort for usability
+            cashAccounts.sort((a, b) => (a.account_code || a.code || a.gl_code || '').localeCompare(b.account_code || b.code || b.gl_code || ''));
+
+            for (const a of cashAccounts) {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                const labelCode = a.account_code || a.code || a.gl_code || '';
+                opt.textContent = `${labelCode} — ${a.description || ''}`.trim();
+                sel.appendChild(opt);
+            }
+        }
+    } catch (e) {
+        console.warn('Unable to populate Cash GL Account select:', e);
+    }
+
     if (id) {
         try {
             const acct = await fetchData(`bank-accounts/${id}`);
@@ -1308,6 +1349,13 @@ export async function openBankAccountModal(id) {
             form.querySelector('#connection-method-select').value      = acct.connection_method   || 'Manual';
             form.querySelector('#initial-balance-input').value         = acct.balance             || 0;
             form.querySelector('#bank-account-description-textarea').value = acct.description     || '';
+
+            // Set cash account selection (prefer cash_account_id, then gl_account_id)
+            const cashSel = form.querySelector('#bank-cash-account-select');
+            if (cashSel) {
+                const selVal = acct.cash_account_id || acct.gl_account_id || '';
+                cashSel.value = selVal || '';
+            }
         } catch (err) {
             console.error('Error loading bank account:', err);
             showToast('Error loading bank account', 'error');
@@ -1340,6 +1388,14 @@ export async function saveBankAccount(event) {
         connection_method: form.querySelector('#connection-method-select').value,
         description      : form.querySelector('#bank-account-description-textarea').value
     };
+
+    // Include cash/gl account mapping (keep in sync)
+    const cashSel = form.querySelector('#bank-cash-account-select');
+    if (cashSel) {
+        const val = cashSel.value || null;
+        data.cash_account_id = val;
+        data.gl_account_id   = val; // keep synchronized per requirements
+    }
 
     try {
         if (id) {

@@ -59,6 +59,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
  */
 router.post('/', asyncHandler(async (req, res) => {
     const {
+        entity_id,
         bank_name,
         account_name,
         account_number,
@@ -67,7 +68,9 @@ router.post('/', asyncHandler(async (req, res) => {
         status,
         balance,
         connection_method,
-        description
+        description,
+        gl_account_id,
+        cash_account_id
     } = req.body;
     
     // Validate required fields
@@ -79,8 +82,31 @@ router.post('/', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Account name is required' });
     }
     
+    // Determine entity_id: use provided value if present; otherwise default to the primary entity
+    let entityId = entity_id;
+    if (!entityId) {
+        const ent = await pool.query(
+            `SELECT id FROM entities ORDER BY (code = 'TPF_PARENT') DESC, created_at ASC LIMIT 1`
+        );
+        entityId = ent.rows[0]?.id || null;
+    }
+    if (!entityId) {
+        return res.status(400).json({ error: 'No entity available to assign bank account to' });
+    }
+
+    // Determine synchronized GL/cash account mapping (both point to same accounts.id)
+    let syncedAccountId = cash_account_id || gl_account_id || null;
+    if (syncedAccountId) {
+        // Validate the referenced account exists
+        const chk = await pool.query('SELECT 1 FROM accounts WHERE id = $1', [syncedAccountId]);
+        if (!chk.rows.length) {
+            return res.status(400).json({ error: 'Mapped cash/GL account not found' });
+        }
+    }
+
     const { rows } = await pool.query(`
         INSERT INTO bank_accounts (
+            entity_id,
             bank_name,
             account_name,
             account_number,
@@ -89,10 +115,13 @@ router.post('/', asyncHandler(async (req, res) => {
             status,
             balance,
             connection_method,
-            description
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            description,
+            gl_account_id,
+            cash_account_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
     `, [
+        entityId,
         bank_name,
         account_name,
         account_number,
@@ -101,7 +130,9 @@ router.post('/', asyncHandler(async (req, res) => {
         status || 'Active',
         balance || 0.00,
         connection_method || 'Manual',
-        description || ''
+        description || '',
+        syncedAccountId,
+        syncedAccountId
     ]);
     
     res.status(201).json(rows[0]);
@@ -123,7 +154,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
         balance,
         connection_method,
         description,
-        last_sync
+        last_sync,
+        gl_account_id,
+        cash_account_id
     } = req.body;
     
     // Validate required fields
@@ -141,34 +174,55 @@ router.put('/:id', asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Bank account not found' });
     }
     
-    const { rows } = await pool.query(`
-        UPDATE bank_accounts
-        SET bank_name = $1,
-            account_name = $2,
-            account_number = $3,
-            routing_number = $4,
-            type = $5,
-            status = $6,
-            balance = $7,
-            connection_method = $8,
-            description = $9,
-            last_sync = $10,
-            updated_at = NOW()
-        WHERE id = $11
-        RETURNING *
-    `, [
-        bank_name,
-        account_name,
-        account_number,
-        routing_number,
-        type,
-        status,
-        balance,
-        connection_method,
-        description,
-        last_sync,
-        id
-    ]);
+    // Determine if mapping was explicitly provided; if so, validate and sync
+    const mappingProvided = Object.prototype.hasOwnProperty.call(req.body, 'cash_account_id') ||
+                            Object.prototype.hasOwnProperty.call(req.body, 'gl_account_id');
+    let syncedAccountId = cash_account_id || gl_account_id || null;
+    if (mappingProvided) {
+        if (syncedAccountId) {
+            const chk = await pool.query('SELECT 1 FROM accounts WHERE id = $1', [syncedAccountId]);
+            if (!chk.rows.length) {
+                return res.status(400).json({ error: 'Mapped cash/GL account not found' });
+            }
+        }
+    }
+
+    // Build dynamic UPDATE to avoid unintentionally nulling fields
+    const updateFields = [];
+    const params = [];
+    let idx = 1;
+
+    // Required fields (always updated)
+    updateFields.push(`bank_name = $${idx++}`);        params.push(bank_name);
+    updateFields.push(`account_name = $${idx++}`);     params.push(account_name);
+
+    if (typeof account_number !== 'undefined') { updateFields.push(`account_number = $${idx++}`); params.push(account_number); }
+    if (typeof routing_number !== 'undefined') { updateFields.push(`routing_number = $${idx++}`); params.push(routing_number); }
+    if (typeof type !== 'undefined')           { updateFields.push(`type = $${idx++}`);           params.push(type); }
+    if (typeof status !== 'undefined')         { updateFields.push(`status = $${idx++}`);         params.push(status); }
+    if (typeof balance !== 'undefined')        { updateFields.push(`balance = $${idx++}`);        params.push(balance); }
+    if (typeof connection_method !== 'undefined') { updateFields.push(`connection_method = $${idx++}`); params.push(connection_method); }
+    if (typeof description !== 'undefined')    { updateFields.push(`description = $${idx++}`);    params.push(description); }
+    if (typeof last_sync !== 'undefined')      { updateFields.push(`last_sync = $${idx++}`);      params.push(last_sync); }
+
+    if (mappingProvided) {
+        // Set both columns to the same value (can be NULL to clear)
+        updateFields.push(`gl_account_id = $${idx}, cash_account_id = $${idx}`);
+        params.push(syncedAccountId);
+        idx++;
+    }
+
+    updateFields.push('updated_at = NOW()');
+
+    params.push(id);
+
+    const { rows } = await pool.query(
+        `UPDATE bank_accounts
+            SET ${updateFields.join(', ')}
+          WHERE id = $${idx}
+          RETURNING *`,
+        params
+    );
     
     res.json(rows[0]);
 }));

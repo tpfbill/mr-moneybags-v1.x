@@ -50,7 +50,8 @@
             <!-- Vendor Payments navigation -->
             <div class="nav-item" onclick="window.location.href='vendor-payments.html'">Vendor Payments</div>
             <!-- Bank Deposits navigation -->
-            <div class="nav-item" onclick="window.location.href='bank-deposits.html'">Bank Deposits</div>
+            <div class="nav-item" onclick="window.location.href='bank-deposits-batched.html'">Bank Deposits (Batched)</div>
+            <div class="nav-item" onclick="window.location.href='bank-deposits.html'">Bank Deposits (Checks)</div>
             <!-- Check Printing navigation -->
             <div class="nav-item" onclick="window.location.href='check-printing.html'">Check Printing</div>
             <!-- Bank Reconciliation navigation -->
@@ -138,7 +139,14 @@
         <div id="chart-of-accounts-page" class="page">
             <div class="content-header">
                 <h2>Chart of Accounts</h2>
-                <button class="action-button" id="btnAddAccount">Add Account</button>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="file"
+                           id="accountCsvFile"
+                           accept=".csv"
+                           style="width:auto;">
+                    <button class="btn-secondary" id="importAccountsBtn">Import CSV</button>
+                    <button class="action-button" id="btnAddAccount">Add Account</button>
+                </div>
             </div>
             <div class="coa-table-wrapper">
                 <table class="data-table wide-table" id="chart-of-accounts-table">
@@ -1027,13 +1035,10 @@
                                 </select>
                             </div>
                         </div>
-
                         <div class="form-column">
                             <div class="form-group">
                                 <label class="form-label" for="user-status">Status</label>
-                                <select id="user-status"
-                                        name="user-status"
-                                        class="form-input">
+                                <select id="user-status" name="user-status" class="form-input">
                                     <option value="active">Active</option>
                                     <option value="inactive">Inactive</option>
                                 </select>
@@ -1151,6 +1156,15 @@
                             <input type="number" step="0.01" id="initial-balance-input" class="form-input" placeholder="0.00">
                         </div>
                     </div>
+                </div>
+
+                <!-- Cash GL account mapping (limits to Asset/Cash accounts) -->
+                <div class="form-group">
+                    <label class="form-label" for="bank-cash-account-select">Cash GL Account</label>
+                    <select id="bank-cash-account-select" class="form-input">
+                        <option value="">Select Cash Account…</option>
+                    </select>
+                    <small class="form-help">Used for automatic posting (debits) on deposits and for bank reconciliation matching. Only Asset/Cash accounts are shown.</small>
                 </div>
 
                 <div class="form-group">

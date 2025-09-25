@@ -3,6 +3,27 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
+const multer = require('multer');
+const { parse } = require('csv-parse/sync');
+
+// Multer – in-memory for CSV upload
+const upload = multer({ storage: multer.memoryStorage() });
+
+function canon(s) {
+    return (s == null ? '' : String(s)).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function normHeader(k = '') {
+    return String(k).replace(/^['"]+|['"]+$/g, '')
+        .trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function parseAmount(v) {
+    if (v == null) return 0;
+    const t = String(v).replace(/[",\s]/g, '');
+    const num = parseFloat(t);
+    return isNaN(num) ? 0 : num;
+}
 
 /**
  * GET /api/bank-deposits
@@ -210,6 +231,237 @@ router.get('/item-types', asyncHandler(async (req, res) => {
     ];
 
     res.json(itemTypes);
+}));
+
+/**
+ * POST /api/bank-deposits/batched/import
+ * Import AccuFund-style batched deposits CSV
+ */
+router.post('/batched/import', upload.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    let records;
+    try {
+        records = parse(req.file.buffer.toString('utf8'), {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true
+        });
+    } catch (e) {
+        return res.status(400).json({ error: `Invalid CSV: ${e.message}` });
+    }
+
+    if (!records.length) return res.status(400).json({ error: 'CSV has no data rows' });
+
+    // Header mapping
+    const headers = Object.keys(records[0]).reduce((acc, h) => {
+        acc[normHeader(h)] = h; return acc;
+    }, {});
+
+    const required = ['reference', 'activity_date', 'description', 'amount', 'account_number', 'bank'];
+    const missing = required.filter(k => !headers[k] && !(k === 'amount' && headers['amount_']));
+    if (missing.length) return res.status(400).json({ error: `Missing required headers: ${missing.join(', ')}` });
+
+    // Group by reference
+    const groups = new Map();
+    const log = [];
+    let lineNo = 1; // header line = 1
+    for (const row of records) {
+        lineNo++;
+        const ref = (row[headers['reference']] || '').toString().trim();
+        const dateStr = (row[headers['activity_date']] || '').toString().trim();
+        const desc = (row[headers['description']] || '').toString().trim();
+        const amt = parseAmount(row[headers['amount'] || headers['amount_']]);
+        const acct = (row[headers['account_number']] || '').toString();
+        const bankName = (row[headers['bank']] || '').toString().trim();
+
+        if (!ref || !dateStr || !acct || !bankName) {
+            log.push({ line: lineNo, status: 'Failed', message: 'Missing reference/date/account_number/bank' });
+            continue;
+        }
+        if (!amt || amt === 0) {
+            log.push({ line: lineNo, status: 'Failed', message: 'Amount missing or zero' });
+            continue;
+        }
+
+        const key = ref;
+        const item = { line: lineNo, ref, dateStr, desc, amt, acctCanon: canon(acct), bankName };
+        const arr = groups.get(key) || [];
+        arr.push(item);
+        groups.set(key, arr);
+    }
+
+    if (groups.size === 0) {
+        return res.status(400).json({ error: 'No valid rows parsed', log });
+    }
+
+    const client = await pool.connect();
+    let createdDeposits = 0;
+    let createdItems = 0;
+    let errors = 0;
+    try {
+        await client.query('BEGIN');
+
+        for (const [ref, items] of groups.entries()) {
+            // Enforce global uniqueness of reference_number
+            const dup = await client.query(
+                'SELECT id FROM bank_deposits WHERE reference_number = $1 LIMIT 1',
+                [ref]
+            );
+            if (dup.rows.length) {
+                errors++;
+                log.push({ line: items[0].line, status: 'Failed', message: `Duplicate reference number: ${ref}` });
+                continue;
+            }
+
+            // Resolve bank account using bank name from first item
+            const bankName = items[0].bankName;
+            const baRes = await client.query(
+                `SELECT id FROM bank_accounts 
+                 WHERE lower(account_name) = lower($1) OR lower(bank_name) = lower($1)
+                    OR account_name ILIKE '%'||$1||'%' OR bank_name ILIKE '%'||$1||'%'
+                 ORDER BY (status = 'Active') DESC, account_name ASC LIMIT 1`,
+                [bankName]
+            );
+            const bank_account_id = baRes.rows[0]?.id;
+            if (!bank_account_id) {
+                errors++;
+                log.push({ line: items[0].line, status: 'Failed', message: `Bank account not found for "${bankName}" (ref ${ref})` });
+                continue;
+            }
+
+            // Fetch bank account details for entity and cash account mapping
+            const baFull = await client.query(
+                'SELECT id, entity_id, cash_account_id FROM bank_accounts WHERE id = $1',
+                [bank_account_id]
+            );
+            const entity_id = baFull.rows[0]?.entity_id || null;
+            const cash_account_id = baFull.rows[0]?.cash_account_id || null;
+            if (!cash_account_id) {
+                errors++;
+                log.push({ line: items[0].line, status: 'Failed', message: `Bank account missing cash_account_id mapping (ref ${ref})` });
+                continue;
+            }
+
+            // Determine deposit date (first item's date)
+            const d = new Date(items[0].dateStr);
+            const deposit_date = isNaN(d.getTime()) ? new Date() : d;
+            const ymd = deposit_date.toISOString().slice(0, 10);
+
+            // Build valid items with resolved account and fund
+            const validItems = [];
+            const fundTotals = new Map(); // fund_id -> sum amount (for cash debits)
+            for (const it of items) {
+                // Resolve account record
+                const accRes = await client.query(
+                    "SELECT id, entity_code, fund_number, restriction FROM accounts WHERE regexp_replace(lower(account_code), '[^a-z0-9]', '', 'g') = $1 LIMIT 1",
+                    [it.acctCanon]
+                );
+                const account_id = accRes.rows[0]?.id;
+                if (!account_id) {
+                    errors++;
+                    log.push({ line: it.line, status: 'Failed', message: `Account not found for code (${it.acctCanon}) – ref ${ref}` });
+                    continue;
+                }
+
+                // Resolve fund by entity_code + fund_number + restriction
+                const { entity_code, fund_number, restriction } = accRes.rows[0];
+                const fundRes = await client.query(
+                    `SELECT id FROM funds WHERE lower(entity_code)=lower($1) AND fund_number=$2 AND restriction=$3 LIMIT 1`,
+                    [entity_code, fund_number, restriction]
+                );
+                const fund_id = fundRes.rows[0]?.id || null;
+                if (!fund_id) {
+                    errors++;
+                    log.push({ line: it.line, status: 'Failed', message: `Fund not found for entity=${entity_code} fund=${fund_number} restr=${restriction}` });
+                    continue;
+                }
+
+                validItems.push({ ...it, account_id, fund_id });
+                fundTotals.set(fund_id, (fundTotals.get(fund_id) || 0) + it.amt);
+            }
+
+            if (validItems.length === 0) {
+                errors++;
+                log.push({ line: items[0].line, status: 'Failed', message: `No valid items for reference ${ref}` });
+                continue;
+            }
+
+            // Create deposit (Submitted immediately)
+            const depRes = await client.query(
+                `INSERT INTO bank_deposits (bank_account_id, deposit_date, deposit_type, reference_number, description, status, created_by)
+                 VALUES ($1,$2,'Mixed',$3,$4,'Submitted',$5) RETURNING id`,
+                [bank_account_id, ymd, ref, items[0].desc || `Batched import ${ref}`, req.user?.id]
+            );
+            const deposit_id = depRes.rows[0].id;
+            createdDeposits++;
+
+            // Insert deposit items
+            for (const it of validItems) {
+                await client.query(
+                    `INSERT INTO bank_deposit_items (deposit_id, item_type, amount, description, gl_account_id, created_by)
+                     VALUES ($1,'Electronic',$2,$3,$4,$5)`,
+                    [deposit_id, it.amt, it.desc || null, it.account_id, req.user?.id]
+                );
+                createdItems++;
+                log.push({ line: it.line, status: 'OK', message: `Added item $${it.amt.toFixed(2)}` });
+            }
+
+            // Create Journal Entry (Posted, Auto)
+            const jeDesc = `Auto deposit ${ref} for bank account ${bankName}`;
+            const jeRes = await client.query(
+                `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, type, status, total_amount, created_by, entry_mode)
+                 VALUES ($1,$2,$3,$4,'Standard','Posted',$5,$6,'Auto') RETURNING id`,
+                [
+                    entity_id,
+                    ymd,
+                    ref,
+                    jeDesc,
+                    validItems.reduce((s, v) => s + v.amt, 0),
+                    req.user?.id
+                ]
+            );
+            const journal_entry_id = jeRes.rows[0].id;
+
+            // Debit cash per fund
+            for (const [fund_id, amt] of fundTotals.entries()) {
+                await client.query(
+                    `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                     VALUES ($1,$2,$3,$4,$5,0)`,
+                    [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash`, amt]
+                );
+            }
+
+            // Credit revenue items per account/fund
+            for (const it of validItems) {
+                await client.query(
+                    `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                     VALUES ($1,$2,$3,$4,0,$5)`,
+                    [journal_entry_id, it.account_id, it.fund_id, it.desc || `Deposit ${ref}`, it.amt]
+                );
+            }
+
+            // Link deposit items to the JE
+            await client.query(
+                `UPDATE bank_deposit_items SET journal_entry_id = $1 WHERE deposit_id = $2`,
+                [journal_entry_id, deposit_id]
+            );
+        }
+
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK');
+        return res.status(500).json({ error: e.message, log });
+    } finally {
+        client.release();
+    }
+
+    res.json({
+        created_deposits: createdDeposits,
+        created_items: createdItems,
+        errors,
+        log
+    });
 }));
 
 /**
