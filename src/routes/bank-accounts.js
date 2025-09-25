@@ -174,47 +174,55 @@ router.put('/:id', asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Bank account not found' });
     }
     
-    // Determine synchronized GL/cash account mapping
+    // Determine if mapping was explicitly provided; if so, validate and sync
+    const mappingProvided = Object.prototype.hasOwnProperty.call(req.body, 'cash_account_id') ||
+                            Object.prototype.hasOwnProperty.call(req.body, 'gl_account_id');
     let syncedAccountId = cash_account_id || gl_account_id || null;
-    if (syncedAccountId) {
-        // Validate exists
-        const chk = await pool.query('SELECT 1 FROM accounts WHERE id = $1', [syncedAccountId]);
-        if (!chk.rows.length) {
-            return res.status(400).json({ error: 'Mapped cash/GL account not found' });
+    if (mappingProvided) {
+        if (syncedAccountId) {
+            const chk = await pool.query('SELECT 1 FROM accounts WHERE id = $1', [syncedAccountId]);
+            if (!chk.rows.length) {
+                return res.status(400).json({ error: 'Mapped cash/GL account not found' });
+            }
         }
     }
 
-    const { rows } = await pool.query(`
-        UPDATE bank_accounts
-        SET bank_name = $1,
-            account_name = $2,
-            account_number = $3,
-            routing_number = $4,
-            type = $5,
-            status = $6,
-            balance = $7,
-            connection_method = $8,
-            description = $9,
-            last_sync = $10,
-            gl_account_id = COALESCE($12, gl_account_id),
-            cash_account_id = COALESCE($12, cash_account_id),
-            updated_at = NOW()
-        WHERE id = $11
-        RETURNING *
-    `, [
-        bank_name,
-        account_name,
-        account_number,
-        routing_number,
-        type,
-        status,
-        balance,
-        connection_method,
-        description,
-        last_sync,
-        id,
-        syncedAccountId
-    ]);
+    // Build dynamic UPDATE to avoid unintentionally nulling fields
+    const updateFields = [];
+    const params = [];
+    let idx = 1;
+
+    // Required fields (always updated)
+    updateFields.push(`bank_name = $${idx++}`);        params.push(bank_name);
+    updateFields.push(`account_name = $${idx++}`);     params.push(account_name);
+
+    if (typeof account_number !== 'undefined') { updateFields.push(`account_number = $${idx++}`); params.push(account_number); }
+    if (typeof routing_number !== 'undefined') { updateFields.push(`routing_number = $${idx++}`); params.push(routing_number); }
+    if (typeof type !== 'undefined')           { updateFields.push(`type = $${idx++}`);           params.push(type); }
+    if (typeof status !== 'undefined')         { updateFields.push(`status = $${idx++}`);         params.push(status); }
+    if (typeof balance !== 'undefined')        { updateFields.push(`balance = $${idx++}`);        params.push(balance); }
+    if (typeof connection_method !== 'undefined') { updateFields.push(`connection_method = $${idx++}`); params.push(connection_method); }
+    if (typeof description !== 'undefined')    { updateFields.push(`description = $${idx++}`);    params.push(description); }
+    if (typeof last_sync !== 'undefined')      { updateFields.push(`last_sync = $${idx++}`);      params.push(last_sync); }
+
+    if (mappingProvided) {
+        // Set both columns to the same value (can be NULL to clear)
+        updateFields.push(`gl_account_id = $${idx}, cash_account_id = $${idx}`);
+        params.push(syncedAccountId);
+        idx++;
+    }
+
+    updateFields.push('updated_at = NOW()');
+
+    params.push(id);
+
+    const { rows } = await pool.query(
+        `UPDATE bank_accounts
+            SET ${updateFields.join(', ')}
+          WHERE id = $${idx}
+          RETURNING *`,
+        params
+    );
     
     res.json(rows[0]);
 }));
