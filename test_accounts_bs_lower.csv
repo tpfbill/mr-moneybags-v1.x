@@ -1,0 +1,2 @@
+account_code,entity_code,gl_code,fund_number,description,status,balance_sheet,beginning_balance,beginning_balance_date,last_used,restriction,classification
+"1 1008 235 01",1,1008,235,Test lower yes,Active,yes,0,2025-01-01,2025-01-01,01,Asset

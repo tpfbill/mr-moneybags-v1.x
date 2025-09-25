@@ -1296,27 +1296,34 @@ export async function openBankAccountModal(id) {
     // Title
     titleEl.textContent = id ? 'Edit Bank Account' : 'Add Bank Account';
 
-    // Populate Cash GL Account selector (Asset/Cash accounts only)
+    // Populate Cash GL Account selector (per org: classifications 'Bank Accounts' or 'Investments')
     try {
         // Ensure accounts are loaded
         if (!Array.isArray(appState.accounts) || appState.accounts.length === 0) {
-            appState.accounts = await fetchData('accounts');
+            const fetched = await fetchData('accounts');
+            appState.accounts = Array.isArray(fetched) ? fetched : [];
         }
 
         const sel = form.querySelector('#bank-cash-account-select');
         if (sel) {
             sel.innerHTML = '<option value="">Select Cash Account…</option>';
 
-            // Simple filter: classification === 'Asset' and (desc contains 'cash' OR gl_code starts with '1')
-            const cashAccounts = appState.accounts.filter(a => {
+            // Filter: classification IN ('Bank Accounts','Investments') AND gl_code starts with '1'
+            const allAccounts = Array.isArray(appState.accounts) ? appState.accounts : [];
+            const cashAccounts = allAccounts.filter(a => {
                 const cls = (a.classification || a.classifications || '').toString();
-                const desc = (a.description || '').toLowerCase();
                 const glc = (a.gl_code || a.code || '').toString();
-                return cls === 'Asset' && (desc.includes('cash') || /^1/.test(glc));
+                return (cls === 'Bank Accounts' || cls === 'Investments') && /^1/.test(glc);
             });
 
+            console.log(`[BankAccount Modal] Accounts fetched: ${allAccounts.length}; eligible cash accounts: ${cashAccounts.length}`);
+            if (allAccounts.length > 0 && cashAccounts.length === 0) {
+                // Inform user in UI if nothing matches the current filter
+                try { showToast('No GL accounts match Bank Accounts/Investments with GL code starting with 1', 'warning'); } catch (_) {}
+            }
+
             // Sort for usability
-            cashAccounts.sort((a, b) => (a.account_code || a.code || '').localeCompare(b.account_code || b.code || ''));
+            cashAccounts.sort((a, b) => (a.account_code || a.code || a.gl_code || '').localeCompare(b.account_code || b.code || b.gl_code || ''));
 
             for (const a of cashAccounts) {
                 const opt = document.createElement('option');
