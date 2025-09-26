@@ -410,7 +410,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
             // Create Journal Entry (Posted, Auto)
             const jeDesc = `Auto deposit ${ref} for bank account ${bankName}`;
             const jeRes = await client.query(
-                `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, type, status, total_amount, created_by, entry_mode)
+                `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, entry_type, status, total_amount, created_by, entry_mode)
                  VALUES ($1,$2,$3,$4,'Standard','Posted',$5,$6,'Auto') RETURNING id`,
                 [
                     entity_id,

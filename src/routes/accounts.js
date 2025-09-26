@@ -78,16 +78,30 @@ function mapCsvRecordStrict(rec) {
 router.get('/', asyncHandler(async (req, res) => {
   const { entity_code, gl_code, fund_number, status } = req.query;
 
-  let query = 'SELECT * FROM accounts WHERE 1=1';
+  let query = `
+    SELECT 
+      a.*,
+      COALESCE(a.beginning_balance, 0) + COALESCE(
+        (SELECT 
+           SUM(jei.debit - jei.credit) 
+         FROM journal_entry_items jei
+         JOIN journal_entries je ON jei.journal_entry_id = je.id
+         WHERE jei.account_id = a.id 
+           AND je.status = 'Posted'
+        ), 0
+      ) as current_balance
+    FROM accounts a 
+    WHERE 1=1
+  `;
   const params = [];
   let i = 1;
 
-  if (entity_code) { query += ` AND entity_code = $${i++}`; params.push(entity_code); }
-  if (gl_code)     { query += ` AND gl_code = $${i++}`;     params.push(gl_code); }
-  if (fund_number) { query += ` AND fund_number = $${i++}`; params.push(fund_number); }
-  if (status)      { query += ` AND status = $${i++}`;      params.push(status); }
+  if (entity_code) { query += ` AND a.entity_code = $${i++}`; params.push(entity_code); }
+  if (gl_code)     { query += ` AND a.gl_code = $${i++}`;     params.push(gl_code); }
+  if (fund_number) { query += ` AND a.fund_number = $${i++}`; params.push(fund_number); }
+  if (status)      { query += ` AND a.status = $${i++}`;      params.push(status); }
 
-  query += ' ORDER BY account_code, description';
+  query += ' ORDER BY a.account_code, a.description';
 
   const { rows } = await pool.query(query, params);
   res.json(rows);
