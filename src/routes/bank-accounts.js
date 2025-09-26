@@ -6,13 +6,46 @@ const { asyncHandler } = require('../utils/helpers');
 
 /**
  * GET /api/bank-accounts
- * Returns all bank accounts, optionally filtered by status
+ * Returns all bank accounts with calculated current balances based on linked GL accounts
  */
 router.get('/', asyncHandler(async (req, res) => {
     const { status, type } = req.query;
     
     let query = `
-        SELECT * FROM bank_accounts
+        SELECT 
+            ba.id,
+            ba.entity_id,
+            ba.gl_account_id,
+            ba.bank_name,
+            ba.account_name,
+            ba.account_number,
+            ba.routing_number,
+            ba.type,
+            ba.balance,
+            ba.beginning_balance,
+            ba.beginning_balance_date,
+            ba.last_reconciliation_date,
+            ba.status,
+            ba.created_at,
+            ba.updated_at,
+            ba.last_reconciliation_id,
+            ba.reconciled_balance,
+            ba.connection_method,
+            ba.last_sync,
+            ba.description,
+            ba.cash_account_id,
+            CASE 
+                WHEN ba.cash_account_id IS NOT NULL THEN
+                    COALESCE(ba.beginning_balance, 0) + COALESCE((
+                        SELECT SUM(jei.debit - jei.credit) 
+                        FROM journal_entry_items jei 
+                        JOIN journal_entries je ON jei.journal_entry_id = je.id 
+                        WHERE jei.account_id = ba.cash_account_id 
+                        AND je.status = 'Posted'
+                    ), 0)
+                ELSE ba.balance
+            END as current_balance
+        FROM bank_accounts ba
         WHERE 1=1
     `;
     
@@ -20,16 +53,16 @@ router.get('/', asyncHandler(async (req, res) => {
     let paramIndex = 1;
     
     if (status) {
-        query += ` AND status = $${paramIndex++}`;
+        query += ` AND ba.status = $${paramIndex++}`;
         params.push(status);
     }
     
     if (type) {
-        query += ` AND type = $${paramIndex++}`;
+        query += ` AND ba.type = $${paramIndex++}`;
         params.push(type);
     }
     
-    query += ` ORDER BY bank_name, account_name`;
+    query += ` ORDER BY ba.bank_name, ba.account_name`;
     
     const { rows } = await pool.query(query, params);
     res.json(rows);

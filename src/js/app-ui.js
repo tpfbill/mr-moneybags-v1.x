@@ -433,7 +433,7 @@ export function updateChartOfAccountsTable() {
 
     if (displayAccounts.length === 0) {
         tbody.innerHTML =
-            '<tr><td colspan="13" class="text-center">No accounts found</td></tr>';
+            '<tr><td colspan="14" class="text-center">No accounts found</td></tr>';
         return;
     }
 
@@ -448,6 +448,9 @@ export function updateChartOfAccountsTable() {
         const begBal = isNaN(parseFloat(acc.beginning_balance))
             ? 0
             : parseFloat(acc.beginning_balance);
+        const currentBal = isNaN(parseFloat(acc.current_balance))
+            ? begBal
+            : parseFloat(acc.current_balance);
         const begDate = acc.beginning_balance_date
             ? formatDate(acc.beginning_balance_date)
             : '—';
@@ -474,6 +477,7 @@ export function updateChartOfAccountsTable() {
             <td><span class="status status-${status.toLowerCase()}">${status}</span></td>
             <td>${balanceSheet}</td>
             <td>${formatCurrency(begBal)}</td>
+            <td>${formatCurrency(currentBal)}</td>
             <td>${begDate}</td>
             <td>${lastUsed}</td>
             <td>${actionsHtml}</td>
@@ -829,7 +833,7 @@ export function updateBankAccountsTable() {
     if (sortedAccounts.length === 0) {
         bankAccountsTbody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center">No bank accounts connected.</td>
+                <td colspan="9" class="text-center">No bank accounts connected.</td>
             </tr>
         `;
         return;
@@ -837,13 +841,17 @@ export function updateBankAccountsTable() {
 
     sortedAccounts.forEach(acct => {
         const row = document.createElement('tr');
+        const beginningBalance = isNaN(parseFloat(acct.beginning_balance)) ? 0 : parseFloat(acct.beginning_balance);
+        const currentBalance = isNaN(parseFloat(acct.current_balance)) ? beginningBalance : parseFloat(acct.current_balance);
+        
         row.innerHTML = `
             <td>${acct.bank_name || 'N/A'}</td>
             <td>${acct.account_name || 'N/A'}</td>
             <td>${acct.account_number || '—'}</td>
             <td>${acct.type || 'N/A'}</td>
             <td><span class="status status-${(acct.status || 'Active').toLowerCase()}">${acct.status || 'Active'}</span></td>
-            <td>${formatCurrency(acct.balance)}</td>
+            <td>${formatCurrency(beginningBalance)}</td>
+            <td>${formatCurrency(currentBalance)}</td>
             <td>${acct.last_sync ? formatDate(acct.last_sync) : 'Never'}</td>
             <td>
                 <button class="action-button btn-edit-bank-account" data-id="${acct.id}">Edit</button>
