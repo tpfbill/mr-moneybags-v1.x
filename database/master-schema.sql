@@ -121,31 +121,30 @@ CREATE INDEX IF NOT EXISTS idx_funds_code ON funds(code);
 CREATE INDEX IF NOT EXISTS idx_funds_type ON funds(type);
 COMMENT ON TABLE funds IS 'Accounting funds for tracking restricted and unrestricted resources';
 
--- Accounts table (chart of accounts)
+-- Canonical Accounts table (entity_code, gl_code, fund_number, restriction)
 CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-    code VARCHAR(50) NOT NULL,
-    -- Four-digit reporting code required for GL aggregation
-    report_code VARCHAR(20) NOT NULL,
-    -- Long formatted chart-of-accounts code (e.g., "1 4000 001 00")
-    chart_code VARCHAR(50),
-    description VARCHAR(255) NOT NULL,
-    classifications VARCHAR(50) NOT NULL,
-    subtype VARCHAR(50),
-    is_contra BOOLEAN DEFAULT FALSE,
-    balance DECIMAL(15,2) DEFAULT 0.00,
-    status VARCHAR(20) DEFAULT 'active',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT chk_account_classifications CHECK (classifications IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
-    CONSTRAINT chk_account_status CHECK (status IN ('active', 'inactive', 'archived')),
-    CONSTRAINT unique_account_code_entity UNIQUE(entity_id, code)
+    account_code VARCHAR(25) NOT NULL,
+    description VARCHAR(100) NOT NULL,
+    entity_code VARCHAR(10) NOT NULL,
+    gl_code VARCHAR(10) NOT NULL,
+    fund_number VARCHAR(10) NOT NULL,
+    restriction VARCHAR(10) NOT NULL,
+    classification VARCHAR(25),
+    status VARCHAR(10) NOT NULL CHECK (status IN ('Active','Inactive')),
+    balance_sheet VARCHAR(10) NOT NULL CHECK (balance_sheet IN ('Yes','No')),
+    beginning_balance DECIMAL(14,2),
+    beginning_balance_date DATE,
+    last_used DATE NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT fk_accounts_entity_code FOREIGN KEY (entity_code)
+        REFERENCES entities(code) ON DELETE RESTRICT,
+    CONSTRAINT fk_accounts_gl_code FOREIGN KEY (gl_code)
+        REFERENCES gl_codes(code) ON DELETE RESTRICT
 );
-CREATE INDEX IF NOT EXISTS idx_accounts_code ON accounts(code);
-CREATE INDEX IF NOT EXISTS idx_accounts_classifications ON accounts(classifications);
-CREATE INDEX IF NOT EXISTS idx_accounts_entity ON accounts(entity_id);
-COMMENT ON TABLE accounts IS 'Chart of accounts for the accounting system';
+CREATE INDEX IF NOT EXISTS idx_accounts_account_code ON accounts(account_code);
+CREATE INDEX IF NOT EXISTS idx_accounts_gl_code ON accounts(gl_code);
+CREATE INDEX IF NOT EXISTS idx_accounts_fund_number ON accounts(fund_number);
+COMMENT ON TABLE accounts IS 'Chart of accounts with entity_code/gl_code/fund_number model';
 
 -- Journal Entries table
 CREATE TABLE IF NOT EXISTS journal_entries (
@@ -202,6 +201,22 @@ CREATE TABLE IF NOT EXISTS custom_report_definitions (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 COMMENT ON TABLE custom_report_definitions IS 'Custom report definitions created by users';
+
+-- ---------------------------------------------------------------------------
+-- GL CODES (referenced by accounts.gl_code)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS gl_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(10) NOT NULL,
+    description VARCHAR(100) NOT NULL,
+    classification VARCHAR(25) NOT NULL,
+    status VARCHAR(10) NOT NULL DEFAULT 'Active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT uidx_gl_codes_code UNIQUE (code),
+    CONSTRAINT chk_gl_codes_status CHECK (status IN ('Active','Inactive'))
+);
+CREATE INDEX IF NOT EXISTS idx_gl_codes_classification ON gl_codes(classification);
 
 CREATE TABLE IF NOT EXISTS bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -574,6 +589,42 @@ CREATE INDEX IF NOT EXISTS idx_bank_deposit_items_fund ON bank_deposit_items(fun
 CREATE INDEX IF NOT EXISTS idx_bank_deposit_items_account ON bank_deposit_items(account_id);
 COMMENT ON TABLE bank_deposit_items IS 'Individual items within a bank deposit';
 
+-- ---------------------------------------------------------------------------
+-- Accounts derive trigger function (classification from gl_codes; compose account_code)
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION accounts_derive_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Derive classification from gl_codes
+    SELECT gc.classification INTO NEW.classification
+      FROM gl_codes gc
+     WHERE gc.code = NEW.gl_code
+     LIMIT 1;
+
+    -- Compose account_code from parts
+    NEW.account_code := CONCAT(
+        COALESCE(NEW.entity_code, ''), ' ',
+        COALESCE(NEW.gl_code, ''), ' ',
+        COALESCE(NEW.fund_number, ''), ' ',
+        COALESCE(NEW.restriction, '')
+    );
+
+    -- Ensure last_used defaults
+    IF TG_OP = 'INSERT' AND NEW.last_used IS NULL THEN
+        NEW.last_used := CURRENT_DATE;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_accounts_derive_fields ON accounts;
+CREATE TRIGGER trg_accounts_derive_fields
+BEFORE INSERT OR UPDATE OF entity_code, gl_code, fund_number, restriction
+ON accounts
+FOR EACH ROW
+EXECUTE FUNCTION accounts_derive_fields();
+
 -- -----------------------------------------------------------------------------
 -- CHECK PRINTING MODULE TABLES
 -- -----------------------------------------------------------------------------
@@ -686,33 +737,58 @@ BEGIN
     END;
 END $$;
 
-DO $$
-DECLARE
-    main_entity_id UUID;
-BEGIN
-    SELECT id INTO main_entity_id FROM entities WHERE code = 'TPF_MAIN';
+-- Seed GL codes (idempotent)
+INSERT INTO gl_codes (code, description, classification, status)
+VALUES
+    ('1000','Cash - Operating','Asset','Active'),
+    ('1100','Cash - Savings','Asset','Active'),
+    ('1200','Accounts Receivable','Asset','Active'),
+    ('1500','Fixed Assets','Asset','Active'),
+    ('2000','Accounts Payable','Liability','Active'),
+    ('2100','Accrued Expenses','Liability','Active'),
+    ('3000','Net Assets','Equity','Active'),
+    ('3100','Temp Restricted Net Assets','Equity','Active'),
+    ('3200','Perm Restricted Net Assets','Equity','Active'),
+    ('4000','Contribution Revenue','Revenue','Active'),
+    ('4100','Grant Revenue','Revenue','Active'),
+    ('4200','Program Service Revenue','Revenue','Active'),
+    ('5000','Salaries Expense','Expense','Active'),
+    ('5100','Benefits Expense','Expense','Active'),
+    ('5200','Rent Expense','Expense','Active'),
+    ('5300','Utilities Expense','Expense','Active'),
+    ('5400','Program Expense','Expense','Active')
+ON CONFLICT (code) DO NOTHING;
 
-    INSERT INTO accounts (entity_id, code, description, classifications, balance, status)
-    VALUES 
-        (main_entity_id, '1000', 'Cash - Operating', 'Asset', 325000.00, 'active'),
-        (main_entity_id, '1100', 'Cash - Savings', 'Asset', 750000.00, 'active'),
-        (main_entity_id, '1200', 'Accounts Receivable', 'Asset', 15000.00, 'active'),
-        (main_entity_id, '1500', 'Fixed Assets', 'Asset', 500000.00, 'active'),
-        (main_entity_id, '2000', 'Accounts Payable', 'Liability', 12500.00, 'active'),
-        (main_entity_id, '2100', 'Accrued Expenses', 'Liability', 7500.00, 'active'),
-        (main_entity_id, '3000', 'Unrestricted Net Assets', 'Equity', 500000.00, 'active'),
-        (main_entity_id, '3100', 'Temporarily Restricted Net Assets', 'Equity', 75000.00, 'active'),
-        (main_entity_id, '3200', 'Permanently Restricted Net Assets', 'Equity', 1000000.00, 'active'),
-        (main_entity_id, '4000', 'Contribution Revenue', 'Revenue', 0.00, 'active'),
-        (main_entity_id, '4100', 'Grant Revenue', 'Revenue', 0.00, 'active'),
-        (main_entity_id, '4200', 'Program Service Revenue', 'Revenue', 0.00, 'active'),
-        (main_entity_id, '5000', 'Salaries Expense', 'Expense', 0.00, 'active'),
-        (main_entity_id, '5100', 'Benefits Expense', 'Expense', 0.00, 'active'),
-        (main_entity_id, '5200', 'Rent Expense', 'Expense', 0.00, 'active'),
-        (main_entity_id, '5300', 'Utilities Expense', 'Expense', 0.00, 'active'),
-        (main_entity_id, '5400', 'Program Expense', 'Expense', 0.00, 'active')
-    ON CONFLICT (entity_id, code) DO NOTHING;
-END $$;
+-- Seed Accounts in canonical shape (idempotent via NOT EXISTS predicate)
+INSERT INTO accounts (account_code, description, entity_code, gl_code, fund_number, restriction,
+                      balance_sheet, beginning_balance, beginning_balance_date, last_used)
+SELECT
+    CONCAT('TPF_MAIN',' ','1000',' ','GEN',' ','00'),
+    'Cash - Operating', 'TPF_MAIN', '1000', 'GEN', '00',
+    'Yes', 325000.00, CURRENT_DATE, CURRENT_DATE
+WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE entity_code='TPF_MAIN' AND gl_code='1000' AND fund_number='GEN' AND restriction='00'
+);
+
+INSERT INTO accounts (account_code, description, entity_code, gl_code, fund_number, restriction,
+                      balance_sheet, beginning_balance, beginning_balance_date, last_used)
+SELECT
+    CONCAT('TPF_MAIN',' ','4000',' ','GEN',' ','00'),
+    'Contribution Revenue', 'TPF_MAIN', '4000', 'GEN', '00',
+    'No', 0.00, CURRENT_DATE, CURRENT_DATE
+WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE entity_code='TPF_MAIN' AND gl_code='4000' AND fund_number='GEN' AND restriction='00'
+);
+
+INSERT INTO accounts (account_code, description, entity_code, gl_code, fund_number, restriction,
+                      balance_sheet, beginning_balance, beginning_balance_date, last_used)
+SELECT
+    CONCAT('TPF_MAIN',' ','5000',' ','GEN',' ','00'),
+    'Salaries Expense', 'TPF_MAIN', '5000', 'GEN', '00',
+    'No', 0.00, CURRENT_DATE, CURRENT_DATE
+WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE entity_code='TPF_MAIN' AND gl_code='5000' AND fund_number='GEN' AND restriction='00'
+);
 
 -- Insert default bank account
 DO $$
@@ -893,9 +969,12 @@ DECLARE
 BEGIN
     SELECT id INTO ent_main FROM entities WHERE code = 'TPF_MAIN';
     SELECT id INTO fund_gen FROM funds WHERE code  = 'GEN_OP';
-    SELECT id INTO acc_cash FROM accounts WHERE code = '1000';   -- Cash
-    SELECT id INTO acc_rev  FROM accounts WHERE code = '4000';   -- Contribution Revenue
-    SELECT id INTO acc_exp  FROM accounts WHERE code = '5000';   -- Salaries Expense
+    SELECT id INTO acc_cash FROM accounts 
+      WHERE entity_code='TPF_MAIN' AND gl_code='1000' AND fund_number='GEN' AND restriction='00' LIMIT 1;   -- Cash
+    SELECT id INTO acc_rev  FROM accounts 
+      WHERE entity_code='TPF_MAIN' AND gl_code='4000' AND fund_number='GEN' AND restriction='00' LIMIT 1;   -- Contribution Revenue
+    SELECT id INTO acc_exp  FROM accounts 
+      WHERE entity_code='TPF_MAIN' AND gl_code='5000' AND fund_number='GEN' AND restriction='00' LIMIT 1;   -- Salaries Expense
 
     /* Contribution revenue entry */
     INSERT INTO journal_entries

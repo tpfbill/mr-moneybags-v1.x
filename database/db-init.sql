@@ -53,53 +53,79 @@ CREATE TABLE IF NOT EXISTS entities (
 );
 
 -- =============================================================================
--- ACCOUNTS TABLE
--- Chart of accounts for the accounting system
+-- GL_CODES TABLE
+-- Stores general ledger code definitions referenced by accounts.gl_code
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS gl_codes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(10) NOT NULL,
+    description VARCHAR(100) NOT NULL,
+    classification VARCHAR(25) NOT NULL,
+    status VARCHAR(10) NOT NULL DEFAULT 'Active',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uidx_gl_codes_code UNIQUE (code),
+    CONSTRAINT chk_gl_codes_status CHECK (status IN ('Active','Inactive'))
+);
+CREATE INDEX IF NOT EXISTS idx_gl_codes_classification ON gl_codes(classification);
+
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    entity_id UUID NOT NULL REFERENCES entities(id),
-    code VARCHAR(20) NOT NULL,
-    report_code VARCHAR(20),
+    account_code VARCHAR(25) NOT NULL,
     description VARCHAR(100) NOT NULL,
-    classifications VARCHAR(50) NOT NULL,
-    subtype VARCHAR(50),
-    parent_id UUID REFERENCES accounts(id),
-    balance DECIMAL(15,2) DEFAULT 0.00,
-    is_active BOOLEAN DEFAULT TRUE,
-    status VARCHAR(20) DEFAULT 'Active',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(entity_id, code)
+    entity_code VARCHAR(10) NOT NULL,
+    gl_code VARCHAR(10) NOT NULL,
+    fund_number VARCHAR(10) NOT NULL,
+    restriction VARCHAR(10) NOT NULL,
+    classification VARCHAR(25),
+    status VARCHAR(10) NOT NULL CHECK (status IN ('Active','Inactive')),
+    balance_sheet VARCHAR(10) NOT NULL CHECK (balance_sheet IN ('Yes','No')),
+    beginning_balance DECIMAL(14,2),
+    beginning_balance_date DATE,
+    last_used DATE NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT fk_accounts_entity_code FOREIGN KEY (entity_code)
+        REFERENCES entities(code) ON DELETE RESTRICT,
+    CONSTRAINT fk_accounts_gl_code FOREIGN KEY (gl_code)
+        REFERENCES gl_codes(code) ON DELETE RESTRICT
 );
+CREATE INDEX IF NOT EXISTS idx_accounts_account_code ON accounts(account_code);
+CREATE INDEX IF NOT EXISTS idx_accounts_gl_code ON accounts(gl_code);
+CREATE INDEX IF NOT EXISTS idx_accounts_fund_number ON accounts(fund_number);
 
--- ---------------------------------------------------------------------------
--- Accounts post-create migration: ensure report_code column exists (idempotent)
--- ---------------------------------------------------------------------------
-DO $$
+-- Derivation trigger for accounts: classification from gl_codes; compose account_code
+CREATE OR REPLACE FUNCTION accounts_derive_fields()
+RETURNS TRIGGER AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'accounts'
-          AND column_name = 'report_code'
-    ) THEN
-        ALTER TABLE accounts ADD COLUMN report_code VARCHAR(20);
-    END IF;
-END $$;
+    -- Derive classification from gl_codes
+    SELECT gc.classification INTO NEW.classification
+      FROM gl_codes gc
+     WHERE gc.code = NEW.gl_code
+     LIMIT 1;
 
--- ---------------------------------------------------------------------------
--- Accounts post-create migration: ensure chart_code column exists (idempotent)
--- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'accounts'
-          AND column_name = 'chart_code'
-    ) THEN
-        ALTER TABLE accounts ADD COLUMN chart_code VARCHAR(50);
+    -- Compose account_code from parts
+    NEW.account_code := CONCAT(
+        COALESCE(NEW.entity_code, ''), ' ',
+        COALESCE(NEW.gl_code, ''), ' ',
+        COALESCE(NEW.fund_number, ''), ' ',
+        COALESCE(NEW.restriction, '')
+    );
+
+    -- Ensure last_used defaults
+    IF TG_OP = 'INSERT' AND NEW.last_used IS NULL THEN
+        NEW.last_used := CURRENT_DATE;
     END IF;
-END $$;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_accounts_derive_fields ON accounts;
+CREATE TRIGGER trg_accounts_derive_fields
+BEFORE INSERT OR UPDATE OF entity_code, gl_code, fund_number, restriction
+ON accounts
+FOR EACH ROW
+EXECUTE FUNCTION accounts_derive_fields();
 
 -- =============================================================================
 -- FUNDS TABLE
@@ -924,7 +950,6 @@ CREATE INDEX IF NOT EXISTS idx_journal_entries_entry_date ON journal_entries(ent
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_journal_entry_id ON journal_entry_items(journal_entry_id);
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_account_id ON journal_entry_items(account_id);
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_fund_id ON journal_entry_items(fund_id);
-CREATE INDEX IF NOT EXISTS idx_accounts_entity_id ON accounts(entity_id);
 CREATE INDEX IF NOT EXISTS idx_funds_entity_id ON funds(entity_id);
 CREATE INDEX IF NOT EXISTS idx_payment_items_payment_batch_id ON payment_items(payment_batch_id);
 
@@ -963,41 +988,44 @@ WHERE  p.code = 'TPF_PARENT'
   AND  e.code IN ('TPF-ES', 'TPF-IF')
   AND  e.parent_entity_id IS NULL;
 
--- Sample Accounts
-INSERT INTO accounts (id, entity_id, code, description, classifications, balance, status)
+-- Seed GL codes (minimal set used by sample data)
+INSERT INTO gl_codes (code, description, classification, status)
 VALUES
-    ('a1b2c3d4-e5f6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1000', 'Cash - Operating', 'Asset', 100000.00, 'Active'),
-    ('b2c3d4e5-f6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1200', 'Accounts Receivable', 'Asset', 25000.00, 'Active'),
-    ('c3d4e5f6-a7b8-6c7d-0e1f-3a4b5c6d7e8f', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '2000', 'Accounts Payable', 'Liability', 15000.00, 'Active'),
-    ('d4e5f6a7-b8c9-7d8e-1f2a-4b5c6d7e8f9a', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '3000', 'Fund Balance', 'Equity', 110000.00, 'Active'),
-    ('e5f6a7b8-c9d0-8e9f-2a3b-5c6d7e8f9a0b', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '4000', 'Contribution Revenue', 'Revenue', 0.00, 'Active'),
-    ('f6a7b8c9-d0e1-9f0a-3b4c-6d7e8f9a0b1c', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '5000', 'Program Expenses', 'Expense', 0.00, 'Active'),
-    ('a7b8c9d0-e1f2-0a1b-4c5d-7e8f9a0b1c2d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), '1900', 'Due From TPF-ES', 'Asset', 5000.00, 'Active'),
-    ('b8c9d0e1-f2a3-1b2c-5d6e-8f9a0b1c2d3e', (SELECT id FROM entities WHERE code = 'TPF-ES'),      '2900', 'Due To TPF Parent', 'Liability', 5000.00, 'Active')
-ON CONFLICT (entity_id, code) DO NOTHING;
+    ('1000','Cash - Operating','Asset','Active'),
+    ('4000','Contribution Revenue','Revenue','Active'),
+    ('5000','Program Expenses','Expense','Active')
+ON CONFLICT (code) DO NOTHING;
 
--- Backfill report_code where NULL using 4-digit code; then enforce NOT NULL when safe
-DO $$
-DECLARE
-    null_count INTEGER;
-BEGIN
-    -- Populate report_code for simple 4-digit account codes
-    UPDATE accounts
-       SET report_code = code
-     WHERE report_code IS NULL
-       AND code ~ '^[0-9]{4}$';
+-- Seed Accounts in canonical shape for TPF_PARENT (idempotent via NOT EXISTS)
+INSERT INTO accounts (account_code, description, entity_code, gl_code, fund_number, restriction,
+                      balance_sheet, beginning_balance, beginning_balance_date, last_used)
+SELECT
+    CONCAT('TPF_PARENT',' ','1000',' ','GEN',' ','00'),
+    'Cash - Operating', 'TPF_PARENT', '1000', 'GEN', '00',
+    'Yes', 100000.00, CURRENT_DATE, CURRENT_DATE
+WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='1000' AND fund_number='GEN' AND restriction='00'
+);
 
-    -- If all accounts now have a report_code, set column NOT NULL (safe & idempotent)
-    SELECT COUNT(*) INTO null_count FROM accounts WHERE report_code IS NULL;
-    IF null_count = 0 THEN
-        BEGIN
-            ALTER TABLE accounts ALTER COLUMN report_code SET NOT NULL;
-        EXCEPTION WHEN others THEN
-            -- Ignore if already altered or insufficient privileges
-            NULL;
-        END;
-    END IF;
-END $$;
+INSERT INTO accounts (account_code, description, entity_code, gl_code, fund_number, restriction,
+                      balance_sheet, beginning_balance, beginning_balance_date, last_used)
+SELECT
+    CONCAT('TPF_PARENT',' ','4000',' ','GEN',' ','00'),
+    'Contribution Revenue', 'TPF_PARENT', '4000', 'GEN', '00',
+    'No', 0.00, CURRENT_DATE, CURRENT_DATE
+WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='4000' AND fund_number='GEN' AND restriction='00'
+);
+
+INSERT INTO accounts (account_code, description, entity_code, gl_code, fund_number, restriction,
+                      balance_sheet, beginning_balance, beginning_balance_date, last_used)
+SELECT
+    CONCAT('TPF_PARENT',' ','5000',' ','GEN',' ','00'),
+    'Program Expenses', 'TPF_PARENT', '5000', 'GEN', '00',
+    'No', 0.00, CURRENT_DATE, CURRENT_DATE
+WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='5000' AND fund_number='GEN' AND restriction='00'
+);
 
 -- Sample Funds
 INSERT INTO funds (id, entity_id, code, name, type, restriction_type, balance, status)
@@ -1019,19 +1047,19 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
 VALUES
     ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d',
-        (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='1000' AND fund_number='GEN' AND restriction='00'),
         (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
         10000.00, 0.00, 'Cash received'),
     ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d',
-        (SELECT id FROM accounts WHERE code = '4000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='4000' AND fund_number='GEN' AND restriction='00'),
         (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
         0.00, 10000.00, 'Donation revenue'),
     ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e',
-        (SELECT id FROM accounts WHERE code = '5000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='5000' AND fund_number='GEN' AND restriction='00'),
         (SELECT id FROM funds    WHERE code = 'EDU-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
         2500.00, 0.00, 'Educational materials expense'),
     ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e',
-        (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='1000' AND fund_number='GEN' AND restriction='00'),
         (SELECT id FROM funds    WHERE code = 'EDU-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
         0.00, 2500.00, 'Cash payment')
 ON CONFLICT DO NOTHING;
@@ -1047,7 +1075,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO bank_accounts (entity_id, gl_account_id, bank_name, account_name, account_number, routing_number, type, balance, status)
 VALUES
     ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
-        (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='1000' AND fund_number='GEN' AND restriction='00'),
         'First National Bank', 'Operating Account', '1234567890', '021000021', 'Checking', 100000.00, 'Active'),
     ((SELECT id FROM entities WHERE code = 'TPF-ES'),
         NULL,
@@ -1074,11 +1102,11 @@ INSERT INTO budgets (entity_id, fund_id, account_id, fiscal_year, period, amount
 VALUES
     ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
         (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
-        (SELECT id FROM accounts WHERE code = '4000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='4000' AND fund_number='GEN' AND restriction='00'),
         '2025', 'Q1', 25000.00),
     ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
         (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
-        (SELECT id FROM accounts WHERE code = '5000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM accounts WHERE entity_code='TPF_PARENT' AND gl_code='5000' AND fund_number='GEN' AND restriction='00'),
         '2025', 'Q1', 20000.00)
 ON CONFLICT DO NOTHING;
 
