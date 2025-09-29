@@ -80,7 +80,19 @@ router.get('/', asyncHandler(async (req, res) => {
 
   let query = `
     SELECT 
-      a.*,
+      a.id,
+      a.account_code,
+      a.description,
+      a.entity_code,
+      a.gl_code,
+      a.fund_number,
+      a.restriction,
+      a.classification,
+      a.status,
+      a.balance_sheet,
+      a.beginning_balance,
+      a.beginning_balance_date,
+      a.last_used,
       COALESCE(a.beginning_balance, 0) + COALESCE(
         (SELECT 
            SUM(jei.debit - jei.credit) 
@@ -575,7 +587,24 @@ router.delete('/:id', asyncHandler(async (req, res) => {
  * -------------------------------------------------------------------------*/
 router.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { rows } = await pool.query('SELECT * FROM accounts WHERE id = $1', [id]);
+  const { rows } = await pool.query(`
+    SELECT 
+      a.id,
+      a.account_code,
+      a.description,
+      a.entity_code,
+      a.gl_code,
+      a.fund_number,
+      a.restriction,
+      a.classification,
+      a.status,
+      a.balance_sheet,
+      a.beginning_balance,
+      a.beginning_balance_date,
+      a.last_used
+    FROM accounts a
+    WHERE a.id = $1
+  `, [id]);
   if (!rows.length) return res.status(404).json({ error: 'Account not found' });
   res.json(rows[0]);
 }));
