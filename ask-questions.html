@@ -320,8 +320,9 @@
 
                     // Add dynamic fund-based suggestions (first 3 funds)
                     funds.slice(0, 3).forEach(fund => {
-                        suggestions.push(`Show me activity for ${fund.name}`);
-                        suggestions.push(`What expenses over $100 for ${fund.name}?`);
+                        const fName = fund.fund_name || fund.name || fund.fund_code || fund.code || 'this fund';
+                        suggestions.push(`Show me activity for ${fName}`);
+                        suggestions.push(`What expenses over $100 for ${fName}?`);
                     });
 
                     // Limit to a reasonable number for UI clarity
@@ -376,18 +377,20 @@
                         console.log('Fetched journal entries:', journalEntries.length);
                         console.log('Fetched funds for mapping:', allFunds.length);
                         
-                        // Create a lookup map: entity_id -> fund names
+                        // Create a lookup map: entity (name/code/id) -> fund display names
                         const entityFundMap = {};
                         allFunds.forEach(fund => {
-                            if (!entityFundMap[fund.entity_id]) {
-                                entityFundMap[fund.entity_id] = [];
-                            }
-                            entityFundMap[fund.entity_id].push(fund.name);
+                            const key = fund.entity_name || fund.entity_code || fund.entity_id;
+                            const fname = fund.fund_name || fund.name || fund.fund_code || fund.code || 'General';
+                            if (!key) return;
+                            if (!entityFundMap[key]) entityFundMap[key] = [];
+                            entityFundMap[key].push(fname);
                         });
                         
                         rawData = journalEntries.map(je => {
                             // Get fund names for this entity (use first fund or 'General' as fallback)
-                            const entityFunds = entityFundMap[je.entity_id] || ['General'];
+                            const lookupKey = je.entity_name || je.entity_id;
+                            const entityFunds = entityFundMap[lookupKey] || ['General'];
                             const primaryFund = entityFunds[0] || 'General';
                             
                             return {
@@ -613,7 +616,7 @@
                         /fund.*?balanc(?:e|es)?/i
                     ], 
                     dataSource: 'funds', 
-                    fields: ['name', 'code', 'type', 'balance', 'entity_name'] 
+                    fields: ['fund_name', 'fund_code', 'status', 'balance_sheet', 'entity_name', 'starting_balance', 'starting_balance_date'] 
                 },
                 
                 // General transaction queries
@@ -665,11 +668,19 @@
             function extractFundNames(text) {
                 const fundMatches = [];
                 state.availableFunds.forEach(fund => {
-                    const nameRegex = new RegExp(`\\b${fund.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-                    const codeRegex = new RegExp(`\\b${fund.code}\\b`, 'i');
-                    if (nameRegex.test(text) || codeRegex.test(text)) {
-                        fundMatches.push(fund);
+                    const name = fund.fund_name || fund.name || '';
+                    const code = fund.fund_code || fund.code || '';
+                    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    let matched = false;
+                    if (name) {
+                        const nameRegex = new RegExp(`\\b${esc(name)}\\b`, 'i');
+                        if (nameRegex.test(text)) matched = true;
                     }
+                    if (!matched && code) {
+                        const codeRegex = new RegExp(`\\b${esc(code)}\\b`, 'i');
+                        if (codeRegex.test(text)) matched = true;
+                    }
+                    if (matched) fundMatches.push(fund);
                 });
                 return fundMatches;
             }
@@ -862,26 +873,29 @@
                     sortBy: [{ field: matchedPattern.fields[0], direction: 'DESC' }]
                 };
                 const fundMatches = extractFundNames(query);
-                // Enable fund filtering for both funds and journal_entry_lines data sources
+                // Enable fund filtering for both funds and journal_entry_items data sources
                 if (fundMatches.length > 0) {
+                    const namesCsv = fundMatches
+                        .map(f => (f.fund_name || f.name || f.fund_code || f.code))
+                        .join(',');
                     if (matchedPattern.dataSource === 'funds') {
-                        reportDefinition.filters.push({
-                            field: 'name',
-                            operator: 'IN',
-                            value: fundMatches.map(f => f.name).join(',')
-                        });
-                    } else if (matchedPattern.dataSource === 'journal_entry_lines') {
                         reportDefinition.filters.push({
                             field: 'fund_name',
                             operator: 'IN',
-                            value: fundMatches.map(f => f.name).join(',')
+                            value: namesCsv
+                        });
+                    } else if (matchedPattern.dataSource === 'journal_entry_items') {
+                        reportDefinition.filters.push({
+                            field: 'fund_name',
+                            operator: 'IN',
+                            value: namesCsv
                         });
                     }
                 }
                 reportDefinition.filters.push(...extractDateRange(query));
                 reportDefinition.filters.push(...extractAmountConditions(query));
                 let explanation = `I interpreted your query as: "${query}"\n\nSearching in: ${matchedPattern.dataSource.replace(/_/g, ' ')}\nShowing fields: ${reportDefinition.fields.join(', ')}`;
-                if (fundMatches.length > 0) explanation += `\nFiltered to funds: ${fundMatches.map(f => f.name).join(', ')}`;
+                if (fundMatches.length > 0) explanation += `\nFiltered to funds: ${fundMatches.map(f => (f.fund_name || f.name || f.fund_code || f.code)).join(', ')}`;
                 if (extractDateRange(query).length > 0) explanation += `\nDate filters applied`;
                 if (extractAmountConditions(query).length > 0) explanation += `\nAmount conditions applied`;
                 return { reportDefinition, explanation };
