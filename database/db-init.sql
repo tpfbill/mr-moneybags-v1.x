@@ -101,23 +101,20 @@ BEGIN
     END IF;
 END $$;
 
--- =============================================================================
--- FUNDS TABLE
--- Stores fund definitions for fund accounting
--- =============================================================================
 CREATE TABLE IF NOT EXISTS funds (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    entity_id UUID NOT NULL REFERENCES entities(id),
-    code VARCHAR(20) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    restriction_type VARCHAR(50) DEFAULT 'unrestricted',
-    description TEXT,
-    balance DECIMAL(15,2) DEFAULT 0.00,
-    status VARCHAR(20) DEFAULT 'Active',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(entity_id, code)
+    fund_number VARCHAR(10) NOT NULL,
+    fund_code   VARCHAR(50) NOT NULL,
+    fund_name   VARCHAR(255) NOT NULL,
+    entity_name VARCHAR(255) NOT NULL,
+    entity_code VARCHAR(20) NOT NULL REFERENCES entities(code) ON DELETE RESTRICT,
+    restriction VARCHAR(10) NOT NULL, -- 00/01/02/03
+    budget VARCHAR(10) NOT NULL CHECK (budget IN ('Yes','No')),
+    balance_sheet VARCHAR(10) NOT NULL CHECK (balance_sheet IN ('Yes','No')),
+    status VARCHAR(10) NOT NULL CHECK (status IN ('Active','Inactive')),
+    starting_balance DECIMAL(15,2) DEFAULT 0.00,
+    starting_balance_date DATE DEFAULT CURRENT_DATE,
+    last_used DATE DEFAULT CURRENT_DATE
 );
 
 -- =============================================================================
@@ -925,7 +922,9 @@ CREATE INDEX IF NOT EXISTS idx_journal_entry_items_journal_entry_id ON journal_e
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_account_id ON journal_entry_items(account_id);
 CREATE INDEX IF NOT EXISTS idx_journal_entry_items_fund_id ON journal_entry_items(fund_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_entity_id ON accounts(entity_id);
-CREATE INDEX IF NOT EXISTS idx_funds_entity_id ON funds(entity_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_funds_code_lower ON funds ((LOWER(fund_code)));
+CREATE INDEX IF NOT EXISTS idx_funds_entity_code ON funds(entity_code);
+CREATE INDEX IF NOT EXISTS idx_funds_restriction ON funds(restriction);
 CREATE INDEX IF NOT EXISTS idx_payment_items_payment_batch_id ON payment_items(payment_batch_id);
 
 -- =============================================================================
@@ -999,14 +998,19 @@ BEGIN
     END IF;
 END $$;
 
--- Sample Funds
-INSERT INTO funds (id, entity_id, code, name, type, restriction_type, balance, status)
+INSERT INTO funds (id, fund_number, fund_code, fund_name, entity_name, entity_code,
+                   restriction, budget, balance_sheet, status,
+                   starting_balance, starting_balance_date, last_used)
 VALUES
-    ('f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'GEN-FND', 'General Fund', 'Operating', 'unrestricted', 75000.00, 'Active'),
-    ('f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'EDU-FND', 'Education Fund', 'Program', 'temporarily_restricted', 25000.00, 'Active'),
-    ('f3e4d5c6-b7a8-6c7d-0e1f-3a4b5c6d7e8f', (SELECT id FROM entities WHERE code = 'TPF_PARENT'), 'END-FND', 'Endowment Fund', 'Endowment', 'permanently_restricted', 10000.00, 'Active'),
-    ('f4e5d6c7-b8a9-7d8e-1f2a-4b5c6d7e8f9a', (SELECT id FROM entities WHERE code = 'TPF-ES'),      'ES-GEN', 'ES General Fund', 'Operating', 'unrestricted', 15000.00, 'Active')
-ON CONFLICT (entity_id, code) DO NOTHING;
+    ('f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'GEN', 'GEN_OP', 'General Operations', 'The Principle Foundation', 'TPF_PARENT',
+        '00', 'Yes', 'Yes', 'Active', 75000.00, CURRENT_DATE, CURRENT_DATE),
+    ('f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'EDU', 'EDU_FND', 'Education Fund', 'The Principle Foundation', 'TPF_PARENT',
+        '01', 'Yes', 'Yes', 'Active', 25000.00, CURRENT_DATE, CURRENT_DATE),
+    ('f3e4d5c6-b7a8-6c7d-0e1f-3a4b5c6d7e8f', 'END', 'ENDOW', 'Endowment Fund', 'The Principle Foundation', 'TPF_PARENT',
+        '03', 'No', 'Yes', 'Active', 10000.00, CURRENT_DATE, CURRENT_DATE),
+    ('f4e5d6c7-b8a9-7d8e-1f2a-4b5c6d7e8f9a', 'ESGEN', 'ES_GEN', 'ES General Fund', 'TPF Education Services', 'TPF-ES',
+        '00', 'Yes', 'Yes', 'Active', 15000.00, CURRENT_DATE, CURRENT_DATE)
+ON CONFLICT (id) DO NOTHING;
 
 -- Sample Journal Entries
 INSERT INTO journal_entries (id, entity_id, entry_date, reference_number, description, total_amount, status)
@@ -1020,19 +1024,19 @@ INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, c
 VALUES
     ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d',
         (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
-        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE fund_code = 'GEN_OP'),
         10000.00, 0.00, 'Cash received'),
     ('61e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d',
         (SELECT id FROM accounts WHERE code = '4000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
-        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE fund_code = 'GEN_OP'),
         0.00, 10000.00, 'Donation revenue'),
     ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e',
         (SELECT id FROM accounts WHERE code = '5000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
-        (SELECT id FROM funds    WHERE code = 'EDU-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE fund_code = 'EDU_FND'),
         2500.00, 0.00, 'Educational materials expense'),
     ('62e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e',
         (SELECT id FROM accounts WHERE code = '1000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
-        (SELECT id FROM funds    WHERE code = 'EDU-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE fund_code = 'EDU_FND'),
         0.00, 2500.00, 'Cash payment')
 ON CONFLICT DO NOTHING;
 
@@ -1073,11 +1077,11 @@ ON CONFLICT DO NOTHING;
 INSERT INTO budgets (entity_id, fund_id, account_id, fiscal_year, period, amount)
 VALUES
     ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
-        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE fund_code = 'GEN_OP'),
         (SELECT id FROM accounts WHERE code = '4000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
         '2025', 'Q1', 25000.00),
     ((SELECT id FROM entities WHERE code = 'TPF_PARENT'),
-        (SELECT id FROM funds    WHERE code = 'GEN-FND' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
+        (SELECT id FROM funds    WHERE fund_code = 'GEN_OP'),
         (SELECT id FROM accounts WHERE code = '5000' AND entity_id = (SELECT id FROM entities WHERE code = 'TPF_PARENT')),
         '2025', 'Q1', 20000.00)
 ON CONFLICT DO NOTHING;
