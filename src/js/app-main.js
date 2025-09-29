@@ -942,6 +942,65 @@ function initializePageElements() {
             }
         });
     }
+
+    /* -----------------------------------------------------------
+     * GL Codes CSV Import button
+     * ---------------------------------------------------------*/
+    const importGLCodesBtn = document.getElementById('importGLCodesBtn');
+    const glCsvInput       = document.getElementById('glCodeCsvFile');
+
+    if (importGLCodesBtn && glCsvInput && !importGLCodesBtn.__bound) {
+        importGLCodesBtn.__bound = true;
+
+        importGLCodesBtn.addEventListener('click', async () => {
+            const file = glCsvInput.files && glCsvInput.files[0];
+            if (!file) {
+                showToast('Please choose a CSV file to import', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/gl-codes/import`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                if (!res.ok) {
+                    let serverMsg = '';
+                    try {
+                        const ctype = res.headers.get('content-type') || '';
+                        serverMsg = ctype.includes('application/json')
+                            ? (await res.json()).error ?? ''
+                            : await res.text();
+                    } catch (_) { /* ignore body read errors */ }
+                    throw new Error(
+                        `HTTP ${res.status}: ${res.statusText}${
+                            serverMsg ? ' – ' + serverMsg : ''
+                        }`
+                    );
+                }
+
+                const result = await res.json();
+                showToast(
+                    `Inserted ${result.inserted}, Updated ${result.updated}, Failed ${result.failed}`,
+                    'success'
+                );
+
+                // Refresh GL codes list
+                await loadGLCodesData();
+            } catch (err) {
+                console.error('[GL Codes CSV Import] Error:', err);
+                showToast('GL Codes import failed: ' + err.message, 'error');
+            } finally {
+                // clear selection so the same file can be chosen again
+                glCsvInput.value = '';
+            }
+        });
+    }
 }
 
 /**
@@ -993,6 +1052,15 @@ function initializeAddButtons() {
     if (addBankAccountBtn) {
         addBankAccountBtn.addEventListener('click', () => {
             openBankAccountModal();
+        });
+    }
+
+    // Add GL Code button
+    const addGLCodeBtn = document.getElementById('btnAddGLCode');
+    if (addGLCodeBtn) {
+        addGLCodeBtn.addEventListener('click', () => {
+            const evt = new CustomEvent('openGLCodeModal', {});
+            document.dispatchEvent(evt);
         });
     }
 }

@@ -177,6 +177,14 @@
         <div id="gl-codes-page" class="page">
             <div class="content-header">
                 <h2>GL Codes</h2>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="file"
+                           id="glCodeCsvFile"
+                           accept=".csv"
+                           style="width:auto;">
+                    <button class="btn-secondary" id="importGLCodesBtn">Import CSV</button>
+                    <button class="action-button" id="btnAddGLCode">Add GL Code</button>
+                </div>
             </div>
             <table class="data-table" id="gl-codes-table">
                 <thead>
@@ -434,6 +442,53 @@
     <div id="log-output-container"><div id="log-output"></div></div>
 
     <!-- Modals -->
+    <!-- ================= GL Code Modal (Add / Edit) ================= -->
+    <div id="gl-code-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title" id="gl-code-modal-title">GL Code</h3>
+                <button class="modal-close-btn" id="gl-code-modal-close" data-modal-id="gl-code-modal">&times;</button>
+            </div>
+            <form id="gl-code-modal-form">
+                <div class="modal-body">
+                    <input type="hidden" id="edit-gl-code-id">
+
+                    <div class="form-group">
+                        <label class="form-label" for="gl-code-input">GL Code *</label>
+                        <input type="text" id="gl-code-input" class="form-input" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="gl-description-input">Description</label>
+                        <input type="text" id="gl-description-input" class="form-input">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="gl-classification-select">Classification</label>
+                        <select id="gl-classification-select" class="form-input">
+                            <option value="">—</option>
+                            <option value="Asset">Asset</option>
+                            <option value="Liability">Liability</option>
+                            <option value="Equity">Equity</option>
+                            <option value="Revenue">Revenue</option>
+                            <option value="Expense">Expense</option>
+                            <option value="Bank Accounts">Bank Accounts</option>
+                            <option value="Investments">Investments</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn-secondary modal-close-btn"
+                            id="gl-code-modal-cancel"
+                            data-modal-id="gl-code-modal">Cancel</button>
+                    <button type="submit"
+                            class="action-button"
+                            id="save-gl-code-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div id="account-modal" class="modal-overlay">
         <div class="modal-dialog">
             <div class="modal-header">
