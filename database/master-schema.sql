@@ -203,10 +203,11 @@ CREATE TABLE IF NOT EXISTS custom_report_definitions (
 );
 COMMENT ON TABLE custom_report_definitions IS 'Custom report definitions created by users';
 
--- Bank Accounts table
 CREATE TABLE IF NOT EXISTS bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_id UUID REFERENCES entities(id) ON DELETE SET NULL,
+    gl_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
+    cash_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
     bank_name VARCHAR(255) NOT NULL,
     account_name VARCHAR(255) NOT NULL,
     account_number VARCHAR(100),
@@ -214,9 +215,13 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
     type VARCHAR(50) DEFAULT 'Checking',
     status VARCHAR(20) DEFAULT 'Active',
     balance DECIMAL(15,2) DEFAULT 0.00,
+    beginning_balance DECIMAL(15,2) DEFAULT 0.00,
+    beginning_balance_date DATE,
     connection_method VARCHAR(50) DEFAULT 'Manual',
     description TEXT,
     last_reconciliation_date DATE,
+    last_reconciliation_id UUID,
+    reconciled_balance DECIMAL(15,2) DEFAULT 0.00,
     last_sync TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),

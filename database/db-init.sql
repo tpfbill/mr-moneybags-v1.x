@@ -496,14 +496,22 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     entity_id UUID NOT NULL REFERENCES entities(id),
     gl_account_id UUID REFERENCES accounts(id),
+    cash_account_id UUID REFERENCES accounts(id),
     bank_name VARCHAR(100) NOT NULL,
     account_name VARCHAR(100) NOT NULL,
     account_number VARCHAR(50) NOT NULL,
     routing_number VARCHAR(20) NOT NULL,
     type VARCHAR(20) NOT NULL,
-    balance DECIMAL(15,2) DEFAULT 0.00,
-    last_reconciliation_date DATE,
     status VARCHAR(20) DEFAULT 'Active',
+    balance DECIMAL(15,2) DEFAULT 0.00,
+    beginning_balance DECIMAL(15,2) DEFAULT 0.00,
+    beginning_balance_date DATE,
+    connection_method VARCHAR(50) DEFAULT 'Manual',
+    description TEXT,
+    last_reconciliation_date DATE,
+    last_reconciliation_id UUID,
+    reconciled_balance DECIMAL(15,2) DEFAULT 0.00,
+    last_sync TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -532,6 +540,82 @@ BEGIN
         ALTER TABLE bank_accounts
             ADD COLUMN reconciled_balance DECIMAL(15,2) DEFAULT 0.00;
     END IF;
+END $$;
+
+-- Ensure additional columns exist (idempotent) and backfill beginning balance
+DO $$
+BEGIN
+    -- connection_method --------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'connection_method'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN connection_method VARCHAR(50) DEFAULT 'Manual';
+    END IF;
+
+    -- description --------------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'description'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN description TEXT;
+    END IF;
+
+    -- last_sync ----------------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'last_sync'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN last_sync TIMESTAMP;
+    END IF;
+
+    -- cash_account_id ----------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'cash_account_id'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN cash_account_id UUID REFERENCES accounts(id);
+    END IF;
+
+    -- beginning_balance --------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'beginning_balance'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN beginning_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00;
+    END IF;
+
+    -- beginning_balance_date ---------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bank_accounts'
+          AND column_name = 'beginning_balance_date'
+    ) THEN
+        ALTER TABLE bank_accounts
+            ADD COLUMN beginning_balance_date DATE;
+    END IF;
+
+    -- Backfill beginning balance/date from legacy balance where appropriate ----
+    UPDATE bank_accounts
+       SET beginning_balance      = COALESCE(NULLIF(beginning_balance, 0.00), balance),
+           beginning_balance_date = COALESCE(beginning_balance_date, CURRENT_DATE)
+     WHERE (beginning_balance IS NULL OR beginning_balance = 0.00)
+       AND balance IS NOT NULL;
+
+    -- Sync cash/gl mapping when only gl_account_id exists ----------------------
+    UPDATE bank_accounts
+       SET cash_account_id = gl_account_id
+     WHERE cash_account_id IS NULL AND gl_account_id IS NOT NULL;
 END $$;
 
 -- =============================================================================
