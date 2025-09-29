@@ -160,6 +160,40 @@ router.post('/process', asyncHandler(async (req, res) => {
             await client.query('BEGIN');
 
             const { transactionId, entryDate, debit, credit, accountCode, fundCode, description } = mapping;
+
+            // Helpers: resilient lookups for account and fund across schema shapes
+            async function lookupAccountId(db, acCode) {
+                if (!acCode) return null;
+                // Try canonical account_code (with tolerant canonical comparison)
+                try {
+                    const q = `SELECT id
+                               FROM accounts
+                               WHERE LOWER(regexp_replace(account_code,'[^a-z0-9]','','g')) = LOWER(regexp_replace($1,'[^a-z0-9]','','g'))
+                               LIMIT 1`;
+                    const r = await db.query(q, [acCode]);
+                    if (r.rows[0]?.id) return r.rows[0].id;
+                } catch (err) {
+                    // fall through on undefined column (legacy schema)
+                }
+                // Fallback: legacy accounts.code
+                const r2 = await db.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [acCode]);
+                return r2.rows[0]?.id || null;
+            }
+
+            async function lookupFundId(db, fCode) {
+                if (!fCode) return null;
+                // Try canonical funds.fund_code (case-insensitive)
+                try {
+                    const q = `SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) LIMIT 1`;
+                    const r = await db.query(q, [fCode]);
+                    if (r.rows[0]?.id) return r.rows[0].id;
+                } catch (err) {
+                    // fall through on undefined column (legacy schema)
+                }
+                // Fallback: legacy funds.code
+                const r2 = await db.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [fCode]);
+                return r2.rows[0]?.id || null;
+            }
             
             // Group data by transaction ID
             const transactions = data.reduce((acc, row) => {
@@ -195,15 +229,15 @@ router.post('/process', asyncHandler(async (req, res) => {
 
                 // Create Journal Entry Lines
                 for (const line of lines) {
-                    // Find account and fund IDs
-                    const accountRes = await client.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [line[accountCode]]);
-                    const fundRes = await client.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [line[fundCode]]);
-                    
-                    const account_id = accountRes.rows[0]?.id;
-                    const fund_id = fundRes.rows[0]?.id;
+                    // Find account and fund IDs (canonical-aware)
+                    const account_id = await lookupAccountId(client, line[accountCode]);
+                    const fund_id    = await lookupFundId(client, line[fundCode]);
 
                     if (!account_id) {
                         throw new Error(`Account code "${line[accountCode]}" not found for transaction ${txId}.`);
+                    }
+                    if (line[fundCode] && !fund_id) {
+                        throw new Error(`Fund code "${line[fundCode]}" not found for transaction ${txId}.`);
                     }
 
                     await client.query(
