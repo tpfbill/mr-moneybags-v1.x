@@ -19,6 +19,7 @@ let loadJournalEntryData;
 let loadUserData;
 let loadDashboardData;
 let loadBankAccountData; // <-- NEW
+let loadGLCodesData;     // <-- NEW
 
 /**
  * Set data loading functions - called from app-main.js to connect modals with data refresh
@@ -32,6 +33,7 @@ export function setDataLoaders(dataLoaders) {
     loadUserData = dataLoaders.loadUserData;
     loadDashboardData = dataLoaders.loadDashboardData;
     loadBankAccountData = dataLoaders.loadBankAccountData;
+    loadGLCodesData = dataLoaders.loadGLCodesData;
 }
 
 /**
@@ -1622,4 +1624,98 @@ export function initializeModalEventListeners() {
 
     // --- Funds (admin) custom events ---
     document.addEventListener('deleteFund', (e) => deleteFund(e.detail?.id, e.detail?.rowEl));
+
+    // --- GL Code modal events ---
+    document.getElementById('gl-code-modal-form')?.addEventListener('submit', saveGLCode);
+    document.getElementById('gl-code-modal-close')?.addEventListener('click', () => hideModal('gl-code-modal'));
+    document.getElementById('gl-code-modal-cancel')?.addEventListener('click', () => hideModal('gl-code-modal'));
+
+    document.addEventListener('openGLCodeModal', (e) => openGLCodeModal(e.detail?.id));
+    document.addEventListener('deleteGLCode',    (e) => deleteGLCode(e.detail?.id, e.detail?.rowEl));
+}
+
+/* --------------------------------------------------------------
+ * GL Code Modal Functions
+ * -------------------------------------------------------------- */
+
+export async function openGLCodeModal(id) {
+    const modal = document.getElementById('gl-code-modal');
+    const form  = modal.querySelector('form');
+    const title = modal.querySelector('.modal-title');
+
+    form.reset();
+    form.dataset.id = id || '';
+    title.textContent = id ? 'Edit GL Code' : 'Add GL Code';
+
+    if (id) {
+        try {
+            const rec = await fetchData(`gl-codes`);
+            const row = Array.isArray(rec) ? rec.find(r => String(r.id) === String(id)) : null;
+            if (row) {
+                document.getElementById('edit-gl-code-id').value = row.id;
+                document.getElementById('gl-code-input').value = row.code || '';
+                document.getElementById('gl-description-input').value = row.description || '';
+                document.getElementById('gl-classification-select').value = row.classification || '';
+            }
+        } catch (err) {
+            console.error('Error loading GL code:', err);
+            showToast('Error loading GL code', 'error');
+        }
+    }
+
+    showModal('gl-code-modal');
+}
+
+export async function saveGLCode(event) {
+    event.preventDefault();
+    const form = event.target;
+    const id   = form.dataset.id;
+
+    const code = document.getElementById('gl-code-input').value.trim();
+    const description = document.getElementById('gl-description-input').value.trim();
+    const classification = document.getElementById('gl-classification-select').value;
+
+    if (!code) {
+        showToast('GL Code is required', 'warning');
+        return;
+    }
+
+    try {
+        if (id) {
+            await saveData(`gl-codes/${id}`, { code, description, classification }, 'PUT');
+            showToast('GL Code updated', 'success');
+        } else {
+            await saveData('gl-codes', { code, description, classification });
+            showToast('GL Code created', 'success');
+        }
+
+        await loadGLCodesData?.();
+        hideModal('gl-code-modal');
+    } catch (err) {
+        console.error('Save GL Code error:', err);
+        showToast('Error saving GL Code', 'error');
+    }
+}
+
+export async function deleteGLCode(id, rowEl) {
+    if (!id) return;
+    if (!confirm('Delete this GL Code? This cannot be undone.')) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/gl-codes/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        if (!res.ok) {
+            const msg = await res.text();
+            throw new Error(msg || `HTTP ${res.status}`);
+        }
+
+        if (rowEl && rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
+        await loadGLCodesData?.();
+        showToast('GL Code deleted', 'success');
+    } catch (err) {
+        console.error('Delete GL Code error:', err);
+        showToast('Error deleting GL Code', 'error');
+    }
 }
