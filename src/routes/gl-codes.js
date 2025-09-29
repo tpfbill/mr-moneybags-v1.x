@@ -31,11 +31,11 @@ function resolveLineType(classification) {
 
 /**
  * GET /api/gl-codes
- * Returns all GL codes.
+ * Returns all GL codes with all available columns.
  */
 router.get('/', asyncHandler(async (req, res) => {
     const { rows } = await pool.query(`
-        SELECT id, code, description, classification, created_at, updated_at
+        SELECT *
           FROM gl_codes
          ORDER BY LOWER(code)
     `);
