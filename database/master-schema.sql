@@ -101,25 +101,26 @@ CREATE INDEX IF NOT EXISTS idx_entities_parent ON entities(parent_entity_id);
 CREATE INDEX IF NOT EXISTS idx_entities_code ON entities(code);
 COMMENT ON TABLE entities IS 'Organizational entities representing the nonprofit structure';
 
--- Funds table (accounting funds)
+-- Canonical Funds table (fund_number, fund_code, fund_name, entity_{name,code}, restriction, etc.)
 CREATE TABLE IF NOT EXISTS funds (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-    code VARCHAR(50) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) DEFAULT 'Unrestricted',
-    description TEXT,
-    balance DECIMAL(15,2) DEFAULT 0.00,
-    status VARCHAR(20) DEFAULT 'active',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT unique_fund_code_entity UNIQUE(code, entity_id),
-    CONSTRAINT chk_fund_status CHECK (status IN ('active', 'inactive', 'closed'))
+    fund_number VARCHAR(10) NOT NULL,
+    fund_code   VARCHAR(50) NOT NULL,
+    fund_name   VARCHAR(255) NOT NULL,
+    entity_name VARCHAR(255) NOT NULL,
+    entity_code VARCHAR(10) NOT NULL REFERENCES entities(code) ON DELETE RESTRICT,
+    restriction VARCHAR(10) NOT NULL, -- 00/01/02/03
+    budget VARCHAR(10) NOT NULL CHECK (budget IN ('Yes','No')),
+    balance_sheet VARCHAR(10) NOT NULL CHECK (balance_sheet IN ('Yes','No')),
+    status VARCHAR(10) NOT NULL CHECK (status IN ('Active','Inactive')),
+    starting_balance DECIMAL(15,2) DEFAULT 0.00,
+    starting_balance_date DATE DEFAULT CURRENT_DATE,
+    last_used DATE DEFAULT CURRENT_DATE
 );
-CREATE INDEX IF NOT EXISTS idx_funds_entity ON funds(entity_id);
-CREATE INDEX IF NOT EXISTS idx_funds_code ON funds(code);
-CREATE INDEX IF NOT EXISTS idx_funds_type ON funds(type);
-COMMENT ON TABLE funds IS 'Accounting funds for tracking restricted and unrestricted resources';
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_funds_code_lower ON funds ((LOWER(fund_code)));
+CREATE INDEX IF NOT EXISTS idx_funds_entity_code ON funds(entity_code);
+CREATE INDEX IF NOT EXISTS idx_funds_restriction ON funds(restriction);
+COMMENT ON TABLE funds IS 'Funds with canonical fields used by API (fund_number, fund_code, entity_code, restriction, budgets flags)';
 
 -- Accounts table (chart of accounts)
 CREATE TABLE IF NOT EXISTS accounts (
@@ -676,13 +677,33 @@ BEGIN
     BEGIN
         SELECT id INTO main_entity_id FROM entities WHERE code = 'TPF_MAIN';
         
-        -- Insert funds for main entity
-        INSERT INTO funds (entity_id, code, name, type, description, balance, status)
-        VALUES 
-            (main_entity_id, 'GEN_OP', 'General Operations', 'Unrestricted', 'General operating fund', 250000.00, 'active'),
-            (main_entity_id, 'ENDOW', 'Endowment', 'Permanently Restricted', 'Permanent endowment fund', 1000000.00, 'active'),
-            (main_entity_id, 'SCHOL', 'Scholarship Fund', 'Temporarily Restricted', 'Scholarship assistance program', 75000.00, 'active')
-        ON CONFLICT (code, entity_id) DO NOTHING;
+        -- Insert funds for main entity (canonical shape)
+        INSERT INTO funds (fund_number, fund_code, fund_name, entity_name, entity_code,
+                           restriction, budget, balance_sheet, status,
+                           starting_balance, starting_balance_date, last_used)
+        SELECT 'GEN', 'GEN_OP', 'General Operations', 'TPF Main Operations', 'TPF_MAIN',
+               '00', 'Yes', 'Yes', 'Active', 250000.00, CURRENT_DATE, CURRENT_DATE
+        WHERE NOT EXISTS (
+            SELECT 1 FROM funds WHERE fund_code='GEN_OP'
+        );
+
+        INSERT INTO funds (fund_number, fund_code, fund_name, entity_name, entity_code,
+                           restriction, budget, balance_sheet, status,
+                           starting_balance, starting_balance_date, last_used)
+        SELECT 'END', 'ENDOW', 'Endowment', 'TPF Main Operations', 'TPF_MAIN',
+               '03', 'No', 'Yes', 'Active', 1000000.00, CURRENT_DATE, CURRENT_DATE
+        WHERE NOT EXISTS (
+            SELECT 1 FROM funds WHERE fund_code='ENDOW'
+        );
+
+        INSERT INTO funds (fund_number, fund_code, fund_name, entity_name, entity_code,
+                           restriction, budget, balance_sheet, status,
+                           starting_balance, starting_balance_date, last_used)
+        SELECT 'SCH', 'SCHOL', 'Scholarship Fund', 'TPF Main Operations', 'TPF_MAIN',
+               '01', 'Yes', 'Yes', 'Active', 75000.00, CURRENT_DATE, CURRENT_DATE
+        WHERE NOT EXISTS (
+            SELECT 1 FROM funds WHERE fund_code='SCHOL'
+        );
     END;
 END $$;
 
@@ -822,7 +843,7 @@ DECLARE
     v_supp001  UUID;
 BEGIN
     SELECT id      INTO ent_main   FROM entities              WHERE code = 'TPF_MAIN';
-    SELECT id      INTO fund_gen   FROM funds                 WHERE code = 'GEN_OP';
+    SELECT id      INTO fund_gen   FROM funds                 WHERE fund_code = 'GEN_OP';
     SELECT id      INTO default_ns FROM company_nacha_settings WHERE entity_id = ent_main AND is_default;
     SELECT id      INTO v_util001  FROM vendors WHERE vendor_code = 'UTIL001';
     SELECT id      INTO v_rent001  FROM vendors WHERE vendor_code = 'RENT001';
@@ -892,7 +913,7 @@ DECLARE
     je1      UUID;
 BEGIN
     SELECT id INTO ent_main FROM entities WHERE code = 'TPF_MAIN';
-    SELECT id INTO fund_gen FROM funds WHERE code  = 'GEN_OP';
+    SELECT id INTO fund_gen FROM funds WHERE fund_code  = 'GEN_OP';
     SELECT id INTO acc_cash FROM accounts WHERE code = '1000';   -- Cash
     SELECT id INTO acc_rev  FROM accounts WHERE code = '4000';   -- Contribution Revenue
     SELECT id INTO acc_exp  FROM accounts WHERE code = '5000';   -- Salaries Expense
@@ -1009,7 +1030,7 @@ DECLARE
     dep1 UUID;
 BEGIN
     SELECT id INTO op_acct FROM bank_accounts WHERE account_name = 'Operating Account';
-    SELECT id INTO fund_gen FROM funds WHERE code = 'GEN_OP';
+    SELECT id INTO fund_gen FROM funds WHERE fund_code = 'GEN_OP';
     SELECT id INTO user_admin FROM users WHERE username = 'admin';
 
     /* First deposit */
