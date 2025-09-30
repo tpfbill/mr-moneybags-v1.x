@@ -159,7 +159,7 @@ router.post('/process', asyncHandler(async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      // Group pending EFT rows by (nacha_settings_id, reference, effective_date)
+      // Group pending EFT rows by (nacha_settings_id, fund_id, reference, effective_date)
       const pendingGroups = new Map();
       const completedRows = [];
 
@@ -189,6 +189,11 @@ router.post('/process', asyncHandler(async (req, res) => {
           job.logs.push({ i: i + 1, level: 'error', msg: `Unknown entity from Account No.: ${accountNo}` });
           continue;
         }
+        const fundId = await resolveFundId(client, entityCode, fundToken);
+        if (!fundId) {
+          job.logs.push({ i: i + 1, level: 'error', msg: `Unknown fund from Account No.: ${accountNo}` });
+          continue;
+        }
 
         const vendorId = await resolveVendor(client, { zid: vendorZid, name: vendorName });
         if (!vendorId) {
@@ -216,8 +221,8 @@ router.post('/process', asyncHandler(async (req, res) => {
         }
 
         const effDate = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
-        const key = `${nachaId}||${reference}||${effDate.toISOString().slice(0, 10)}`;
-        if (!pendingGroups.has(key)) pendingGroups.set(key, { nachaId, reference, effDate, entityId, rows: [] });
+        const key = `${nachaId}||${fundId}||${reference}||${effDate.toISOString().slice(0, 10)}`;
+        if (!pendingGroups.has(key)) pendingGroups.set(key, { nachaId, reference, effDate, entityId, fundId, rows: [] });
         pendingGroups.get(key).rows.push({ i, vendorId, amount, memo, invoiceNumber });
       }
 
@@ -231,7 +236,7 @@ router.post('/process', asyncHandler(async (req, res) => {
            RETURNING id`,
           [
             group.entityId,
-            null, // fund_id optional / schema-dependent; use NULL
+            group.fundId,
             group.nachaId,
             batchNumber,
             new Date(),
