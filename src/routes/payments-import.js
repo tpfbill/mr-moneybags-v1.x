@@ -297,24 +297,29 @@ router.post('/process', asyncHandler(async (req, res) => {
 
         // Normalize amount (remove $ , and spaces)
         const amount = parseFloat(String(amountStr ?? '').replace(/[$,\s]/g, ''));
+        if (i === 0) { try { console.log('[VPI DBG] row0 amount parsed:', amount); } catch(_){} }
         if (!amount || isNaN(amount)) {
           job.logs.push({ i: i + 1, level: 'error', msg: 'Invalid amount' });
           continue;
         }
 
         const { entityCode, glCode, fundToken } = parseAccountNo(accountNo);
+        if (i === 0) { try { console.log('[VPI DBG] row0 acct parsed:', { entityCode, glCode, fundToken }); } catch(_){} }
         const entityId = await resolveEntityId(client, entityCode);
+        if (i === 0) { try { console.log('[VPI DBG] row0 entityId:', entityId); } catch(_){} }
         if (!entityId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Unknown entity from Account No.: ${accountNo}` });
           continue;
         }
         const fundId = await resolveFundId(client, entityCode, fundToken);
+        if (i === 0) { try { console.log('[VPI DBG] row0 fundId:', fundId); } catch(_){} }
         if (!fundId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Unknown fund from Account No.: ${accountNo}` });
           continue;
         }
 
         const vendorId = await resolveVendor(client, { zid: vendorZid, name: vendorName });
+        if (i === 0) { try { console.log('[VPI DBG] row0 vendorId:', vendorId); } catch(_){} }
         if (!vendorId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Vendor not found (zid/name): ${vendorZid || vendorName}` });
           continue;
@@ -334,6 +339,7 @@ router.post('/process', asyncHandler(async (req, res) => {
         }
 
         const nachaId = await resolveNachaSettingsId(client, entityId, bank);
+        if (i === 0) { try { console.log('[VPI DBG] row0 nachaId:', nachaId); } catch(_){} }
         if (!nachaId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Unable to resolve NACHA settings for bank: ${bank}` });
           continue;
