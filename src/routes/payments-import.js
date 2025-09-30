@@ -92,8 +92,15 @@ async function resolveAccountId(db, entityId, glCode) {
       entityCode = e.rows[0]?.code || null;
     }
     if (entityCode) {
-      const r2 = await db.query('SELECT id FROM accounts WHERE entity_code = $1 AND code = $2 LIMIT 1', [entityCode, glCode]);
-      if (r2.rows[0]?.id) return r2.rows[0].id;
+      const codeCols = [];
+      for (const col of ['code','gl_code','account_code','number','account_number']) {
+        if (await hasColumn(db, 'accounts', col)) codeCols.push(col);
+      }
+      if (codeCols.length) {
+        const or = codeCols.map(c => `${c} = $2`).join(' OR ');
+        const r2 = await db.query(`SELECT id FROM accounts WHERE entity_code = $1 AND (${or}) LIMIT 1`, [entityCode, glCode]);
+        if (r2.rows[0]?.id) return r2.rows[0].id;
+      }
     }
   }
   // Last resort: any account by code
