@@ -68,13 +68,14 @@ export function updateEntitySelector() {
     // Clear existing options
     entitySelector.innerHTML = '';
     
-    // Find TPF_PARENT entity (root)
-    const rootEntity = appState.entities.find(entity => 
-        entity.parent_entity_id === null && 
-        (entity.name === 'The Principle Foundation' || entity.code === 'TPF_PARENT')
-    );
-    
-    // Add root entity option
+    // Determine a sensible root entity (top-level with most children or marked consolidated)
+    const topLevel = appState.entities.filter(e => e.parent_entity_id === null);
+    let rootEntity = topLevel.find(e => e.code === 'TPF_PARENT' || (e.name || '').toLowerCase().includes('principle foundation'))
+        || topLevel.find(e => e.is_consolidated)
+        || topLevel.sort((a, b) => (b.child_count || 0) - (a.child_count || 0))[0]
+        || null;
+
+    // Add consolidated/root option first (if any top-level exists)
     if (rootEntity) {
         const option = document.createElement('option');
         option.value = rootEntity.id;
@@ -82,12 +83,12 @@ export function updateEntitySelector() {
         entitySelector.appendChild(option);
     }
     
-    // Add child entities
-    const childEntities = rootEntity 
-        ? appState.entities.filter(entity => entity.parent_entity_id === rootEntity.id)
-        : appState.entities.filter(entity => entity.parent_entity_id === null);
+    // Build a flat list of all entities (excluding the root already added)
+    const allEntities = appState.entities
+        .filter(e => !rootEntity || e.id !== rootEntity.id)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     
-    childEntities.forEach(entity => {
+    allEntities.forEach(entity => {
         const option = document.createElement('option');
         option.value = entity.id;
         option.textContent = entity.name;
