@@ -136,8 +136,16 @@ async function resolveVendor(db, { zid, name }) {
     if (rz.rows[0]?.id) return rz.rows[0].id;
   }
   if (name) {
-    const rn = await db.query('SELECT id FROM vendors WHERE LOWER(name) = LOWER($1)', [name]);
-    if (rn.rows.length === 1) return rn.rows[0].id;
+    if (await hasColumn(db, 'vendors', 'name')) {
+      const rn = await db.query('SELECT id FROM vendors WHERE LOWER(name) = LOWER($1)', [name]);
+      if (rn.rows.length === 1) return rn.rows[0].id;
+    } else if (await hasColumn(db, 'vendors', 'vendor_name')) {
+      const rn2 = await db.query('SELECT id FROM vendors WHERE LOWER(vendor_name) = LOWER($1)', [name]);
+      if (rn2.rows.length === 1) return rn2.rows[0].id;
+    } else if (await hasColumn(db, 'vendors', 'display_name')) {
+      const rn3 = await db.query('SELECT id FROM vendors WHERE LOWER(display_name) = LOWER($1)', [name]);
+      if (rn3.rows.length === 1) return rn3.rows[0].id;
+    }
   }
   return null;
 }
