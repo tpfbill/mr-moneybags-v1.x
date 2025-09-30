@@ -401,12 +401,14 @@ router.post('/process', asyncHandler(async (req, res) => {
         const batchNumber = group.reference || `BATCH-${Date.now()}`;
         const hasPbDesc = await hasColumn(client, 'payment_batches', 'description');
         const hasPbStatus = await hasColumn(client, 'payment_batches', 'status');
+        const hasPbEffDate = await hasColumn(client, 'payment_batches', 'effective_date');
         const hasPbNacha = await hasColumn(client, 'payment_batches', 'nacha_settings_id');
         const cols = ['entity_id','fund_id'];
         const vals = [group.entityId, group.fundId];
         if (hasPbNacha) { cols.push('nacha_settings_id'); vals.push(group.nachaId); }
         cols.push('batch_number'); vals.push(batchNumber);
         cols.push('batch_date'); vals.push(new Date());
+        if (hasPbEffDate) { cols.push('effective_date'); vals.push(group.effDate || new Date()); }
         if (hasPbDesc) { cols.push('description'); vals.push(group.reference || null); }
         cols.push('total_amount'); vals.push(0);
         if (hasPbStatus) { cols.push('status'); vals.push('Draft'); }
