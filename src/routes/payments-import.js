@@ -223,7 +223,7 @@ router.post('/process', asyncHandler(async (req, res) => {
         const effDate = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
         const key = `${nachaId}||${fundId}||${reference}||${effDate.toISOString().slice(0, 10)}`;
         if (!pendingGroups.has(key)) pendingGroups.set(key, { nachaId, reference, effDate, entityId, fundId, rows: [] });
-        pendingGroups.get(key).rows.push({ i, vendorId, amount, memo, invoiceNumber });
+        pendingGroups.get(key).rows.push({ i, vendorId, amount, memo });
       }
 
       // Create batches/items for pending groups
@@ -248,11 +248,11 @@ router.post('/process', asyncHandler(async (req, res) => {
         const batchId = insBatch.rows[0].id;
         job.createdBatches.push(batchId);
 
-        // Insert items, skip duplicates within this batch on (vendor_id, amount, invoice_number)
+        // Insert items, skip duplicates within this batch on (vendor_id, amount, description)
         for (const it of group.rows) {
           const dupCheck = await client.query(
-            `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(invoice_number,'') = COALESCE($4,'') LIMIT 1`,
-            [batchId, it.vendorId, it.amount, it.invoiceNumber || null]
+            `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(description,'') = COALESCE($4,'') LIMIT 1`,
+            [batchId, it.vendorId, it.amount, it.memo || '']
           );
           if (dupCheck.rows.length) {
             job.logs.push({ i: it.i + 1, level: 'warn', msg: 'Duplicate in batch skipped' });
@@ -262,9 +262,9 @@ router.post('/process', asyncHandler(async (req, res) => {
           // Insert item (status pending)
           try {
             await client.query(
-              `INSERT INTO payment_items (payment_batch_id, vendor_id, amount, description, status, invoice_number)
-               VALUES ($1,$2,$3,$4,$5,$6)`,
-              [batchId, it.vendorId, it.amount, it.memo || '', 'pending', it.invoiceNumber || null]
+              `INSERT INTO payment_items (payment_batch_id, vendor_id, amount, description, status)
+               VALUES ($1,$2,$3,$4,$5)`,
+              [batchId, it.vendorId, it.amount, it.memo || '', 'Pending']
             );
             job.createdItems += 1;
           } catch (e) {
