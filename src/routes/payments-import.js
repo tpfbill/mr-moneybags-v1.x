@@ -211,14 +211,19 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
 
   // 4) Fallback to any settings for the entity. Prefer default when column exists; gracefully degrade if not.
   if (hasEntityCol) {
-    try {
-      try { console.log('[VPI DBG] NACHA: try entity default order by is_default'); } catch(_){}
-      const d = await db.query(
-        'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY is_default DESC NULLS LAST, created_at ASC LIMIT 1',
-        [entityId]
-      );
-      if (d.rows[0]?.id) return d.rows[0].id;
-    } catch (_) {
+    const hasIsDefault = await hasColumn(db, 'company_nacha_settings', 'is_default');
+    const hasCreatedAt = await hasColumn(db, 'company_nacha_settings', 'created_at');
+    if (hasIsDefault) {
+      try {
+        try { console.log('[VPI DBG] NACHA: try entity default order by is_default'); } catch(_){}
+        const d = await db.query(
+          'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY is_default DESC NULLS LAST, created_at ASC LIMIT 1',
+          [entityId]
+        );
+        if (d.rows[0]?.id) return d.rows[0].id;
+      } catch (e) { try { console.error('[VPI DBG] NACHA entity is_default query failed:', e.message||e); } catch(_){} }
+    }
+    if (hasCreatedAt) {
       try {
         try { console.log('[VPI DBG] NACHA: try entity order by created_at'); } catch(_){}
         const d2 = await db.query(
@@ -226,19 +231,21 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
           [entityId]
         );
         if (d2.rows[0]?.id) return d2.rows[0].id;
-      } catch (_) {}
+      } catch (e) { try { console.error('[VPI DBG] NACHA entity created_at query failed:', e.message||e); } catch(_){} }
     }
   }
   // Last-resort: any record in table
-  try {
-    try { console.log('[VPI DBG] NACHA: try any order by created_at'); } catch(_){}
-    const any = await db.query('SELECT id FROM company_nacha_settings ORDER BY created_at ASC LIMIT 1');
-    if (any.rows[0]?.id) return any.rows[0].id;
-  } catch (_) {
-    try { console.log('[VPI DBG] NACHA: try any plain'); } catch(_){}
-    const any2 = await db.query('SELECT id FROM company_nacha_settings LIMIT 1');
-    if (any2.rows[0]?.id) return any2.rows[0].id;
+  const hasCreatedAtAny = await hasColumn(db, 'company_nacha_settings', 'created_at');
+  if (hasCreatedAtAny) {
+    try {
+      try { console.log('[VPI DBG] NACHA: try any order by created_at'); } catch(_){}
+      const any = await db.query('SELECT id FROM company_nacha_settings ORDER BY created_at ASC LIMIT 1');
+      if (any.rows[0]?.id) return any.rows[0].id;
+    } catch (e) { try { console.error('[VPI DBG] NACHA any created_at query failed:', e.message||e); } catch(_){} }
   }
+  try { console.log('[VPI DBG] NACHA: try any plain'); } catch(_){}
+  const any2 = await db.query('SELECT id FROM company_nacha_settings LIMIT 1');
+  if (any2.rows[0]?.id) return any2.rows[0].id;
   return null;
 }
 
