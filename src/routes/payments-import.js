@@ -137,18 +137,23 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
   const bank = (bankVal || '').toString().trim();
   if (bank) {
     // 1) Match company_nacha_settings.company_name
-    let r = await db.query(
-      'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND LOWER(company_name) = LOWER($2) LIMIT 1',
-      [entityId, bank]
-    );
-    if (r.rows[0]?.id) return r.rows[0].id;
+    let r;
+    try {
+      r = await db.query(
+        'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND LOWER(company_name) = LOWER($2) LIMIT 1',
+        [entityId, bank]
+      );
+      if (r.rows[0]?.id) return r.rows[0].id;
+    } catch (_) { /* company_name may not exist */ }
 
     // 2) Match company_id
-    r = await db.query(
-      'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND company_id = $2 LIMIT 1',
-      [entityId, bank]
-    );
-    if (r.rows[0]?.id) return r.rows[0].id;
+    try {
+      r = await db.query(
+        'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND company_id = $2 LIMIT 1',
+        [entityId, bank]
+      );
+      if (r.rows[0]?.id) return r.rows[0].id;
+    } catch (_) { /* company_id may not exist or be non-text */ }
 
     // 3) Match via settlement bank account name
     try {
