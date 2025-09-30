@@ -97,8 +97,16 @@ async function resolveAccountId(db, entityId, glCode) {
     }
   }
   // Last resort: any account by code
-  const r3 = await db.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [glCode]);
-  return r3.rows[0]?.id || null;
+  const possibleCols = [];
+  for (const col of ['code','gl_code','account_code','number','account_number']) {
+    if (await hasColumn(db, 'accounts', col)) possibleCols.push(col);
+  }
+  if (possibleCols.length) {
+    const where = possibleCols.map(c => `${c} = $1`).join(' OR ');
+    const r3 = await db.query(`SELECT id FROM accounts WHERE ${where} LIMIT 1`, [glCode]);
+    if (r3.rows[0]?.id) return r3.rows[0].id;
+  }
+  return null;
 }
 
 async function resolveFundId(db, entityCode, fundToken) {
