@@ -722,6 +722,8 @@ export function updateJournalEntriesTable() {
      * ------------------------------------------------------------------ */
     const jeFilterSelect = document.getElementById('journal-entries-filter-select');
     const jeFilterMode   = jeFilterSelect ? jeFilterSelect.value : 'current';
+    const jeModeSelect   = document.getElementById('journal-entries-mode-select');
+    const entryMode      = jeModeSelect ? jeModeSelect.value : 'all';
 
     // Build list of entries respecting the chosen filter
     let displayEntries = Array.isArray(appState.journalEntries) ? [...appState.journalEntries] : [];
@@ -738,6 +740,11 @@ export function updateJournalEntriesTable() {
                 displayEntries = displayEntries.filter(entry => relevantEntityIds.includes(entry.entity_id));
             }
         }
+    }
+
+    // Apply entry mode filter (Auto/Manual) if selected
+    if (entryMode && entryMode.toLowerCase() !== 'all') {
+        displayEntries = displayEntries.filter(entry => (entry.entry_mode || '').toLowerCase() === entryMode.toLowerCase());
     }
     
     // Sort entries by date (most recent first)

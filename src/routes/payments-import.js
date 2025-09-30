@@ -295,6 +295,102 @@ async function resolveVendorBankAccountId(db, vendorId) {
   return q2.rows[0]?.id || null;
 }
 
+// Resolve Accounts Payable account by fund number and classification
+async function resolveAPAccountId(db, { entityId, entityCode, fundToken }) {
+  if (!fundToken) return null;
+
+  // Determine available columns
+  const hasEntityIdCol  = await hasColumn(db, 'accounts', 'entity_id');
+  const hasEntityCodeCol= await hasColumn(db, 'accounts', 'entity_code');
+  const hasFundNumCol   = await hasColumn(db, 'accounts', 'fund_number');
+  const hasFundIdCol    = await hasColumn(db, 'accounts', 'fund_id');
+  const hasClassCol     = await hasColumn(db, 'accounts', 'classification');
+  const hasClassCols    = await hasColumn(db, 'accounts', 'classifications');
+
+  // Build classification predicate
+  const classPred = hasClassCol
+    ? 'LOWER(classification) LIKE LOWER($X || "%")'
+    : (hasClassCols ? 'LOWER(classifications) LIKE LOWER($X || "%")' : null);
+
+  const apLabel = 'Accounts Payable';
+
+  // Helper to substitute parameter index for classification predicate
+  function classClause(pi) {
+    if (!classPred) return null;
+    return classPred.replace('$X', `$${pi}`);
+  }
+
+  // Try accounts.fund_number first
+  if (hasFundNumCol && classPred) {
+    const params = [];
+    let idx = 1;
+    let where = 'fund_number = $' + idx++; params.push(fundToken);
+    const clsClause = classClause(idx); params.push(apLabel);
+    where += ` AND ${clsClause}`; idx++;
+
+    if (hasEntityIdCol && entityId) {
+      where += ` AND entity_id = $${idx++}`; params.push(entityId);
+    } else if (hasEntityCodeCol && entityCode) {
+      where += ` AND entity_code = $${idx++}`; params.push(entityCode);
+    }
+
+    const q = await db.query(`SELECT id FROM accounts WHERE ${where} LIMIT 1`, params);
+    if (q.rows[0]?.id) return q.rows[0].id;
+  }
+
+  // Next try accounts.fund_id joined via funds table
+  if (hasFundIdCol && classPred) {
+    const fId = await resolveFundId(db, entityCode, fundToken);
+    if (fId) {
+      const params = [fId, apLabel];
+      let where = 'fund_id = $1 AND ' + (hasClassCol ? 'LOWER(classification) LIKE LOWER($2 || "%")' : 'LOWER(classifications) LIKE LOWER($2 || "%")');
+      if (hasEntityIdCol && entityId) {
+        params.push(entityId);
+        where += ` AND entity_id = $${params.length}`;
+      } else if (hasEntityCodeCol && entityCode) {
+        params.push(entityCode);
+        where += ` AND entity_code = $${params.length}`;
+      }
+      const q2 = await db.query(`SELECT id FROM accounts WHERE ${where} LIMIT 1`, params);
+      if (q2.rows[0]?.id) return q2.rows[0].id;
+    }
+  }
+
+  // Fallback: classification-only within entity
+  if (classPred) {
+    const params = [apLabel];
+    let where = classClause(1);
+    let next = 2;
+    if (hasEntityIdCol && entityId) {
+      where += ` AND entity_id = $${next++}`; params.push(entityId);
+    } else if (hasEntityCodeCol && entityCode) {
+      where += ` AND entity_code = $${next++}`; params.push(entityCode);
+    }
+    const q3 = await db.query(`SELECT id FROM accounts WHERE ${where} LIMIT 1`, params);
+    if (q3.rows[0]?.id) return q3.rows[0].id;
+  }
+
+  // Final fallback: code/gl_code/number == '2000' within entity
+  const possibleCodeCols = [];
+  for (const col of ['code','gl_code','account_code','number','account_number']) {
+    if (await hasColumn(db, 'accounts', col)) possibleCodeCols.push(col);
+  }
+  if (possibleCodeCols.length) {
+    const ors = possibleCodeCols.map(c => `${c} = $1`).join(' OR ');
+    const params = ['2000'];
+    let where = `(${ors})`;
+    if (hasEntityIdCol && entityId) {
+      params.push(entityId); where += ` AND entity_id = $${params.length}`;
+    } else if (hasEntityCodeCol && entityCode) {
+      params.push(entityCode); where += ` AND entity_code = $${params.length}`;
+    }
+    const q4 = await db.query(`SELECT id FROM accounts WHERE ${where} LIMIT 1`, params);
+    if (q4.rows[0]?.id) return q4.rows[0].id;
+  }
+
+  return null;
+}
+
 // Analyze endpoint – suggest mapping keys
 router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
@@ -358,6 +454,7 @@ router.post('/process', asyncHandler(async (req, res) => {
       // Group pending EFT rows by (nacha_settings_id, fund_id, reference, effective_date)
       const pendingGroups = new Map();
       const completedRows = [];
+      const postRows = [];
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
@@ -400,6 +497,9 @@ router.post('/process', asyncHandler(async (req, res) => {
         }
 
         const isCompleted = !!paymentId; // per user: Payment ID populated => completed
+
+        // Prepare posting row for ALL rows (completed or pending)
+        postRows.push({ i, row, entityId, amount, memo, entityCode, glCode, fundToken });
 
         if (isCompleted) {
           completedRows.push({ i, row, entityId, amount, memo, vendorId, entityCode, glCode, fundToken });
@@ -491,83 +591,110 @@ router.post('/process', asyncHandler(async (req, res) => {
         await client.query(`UPDATE payment_batches SET ${setClauses.join(', ')} WHERE id = $1`, [batchId]);
       }
 
-      // Completed flow → post JEs
-      for (const c of completedRows) {
-        // Resolve bank GL account by matching bank name first, then fallback to any entity bank account
-        let bankGlAccountId = null;
-        const bankVal = (data[c.i][mapping.bank] || '').toString().trim();
-        if (bankVal) {
-          const r1 = await client.query(
-            `SELECT gl_account_id FROM bank_accounts 
-              WHERE (LOWER(account_name) = LOWER($1) OR LOWER(bank_name) = LOWER($1))
-              LIMIT 1`,
-            [bankVal]
-          );
-          bankGlAccountId = r1.rows[0]?.gl_account_id || null;
-        }
-        if (!bankGlAccountId) {
-          const r2 = await client.query(
-            `SELECT gl_account_id FROM bank_accounts 
-              WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1`,
-            [c.entityId]
-          );
-          bankGlAccountId = r2.rows[0]?.gl_account_id || null;
-        }
-        if (!bankGlAccountId) {
-          job.logs.push({ i: c.i + 1, level: 'error', msg: 'Bank GL account not resolvable for completed row' });
-          continue;
-        }
-
+      // Posting flow → create two posted JEs per row (Expense/AP then AP/Bank) for ALL rows
+      for (const pr of postRows) {
         // Parse account/fund from Account No.
-        const acctId = await resolveAccountId(client, c.entityId, c.glCode);
-        const fundId = await resolveFundId(client, c.entityCode, c.fundToken);
+        const acctId = await resolveAccountId(client, pr.entityId, pr.glCode);
+        const fundId = await resolveFundId(client, pr.entityCode, pr.fundToken);
         if (!acctId || !fundId) {
-          job.logs.push({ i: c.i + 1, level: 'error', msg: 'Account or Fund not resolvable for completed row' });
+          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Account or Fund not resolvable for row' });
           continue;
         }
 
-        // Idempotency: separate reference column (required)
-        const ref = (data[c.i][mapping.reference] || '').toString().trim();
+        // Resolve AP account by fund number classification
+        const apAccountId = await resolveAPAccountId(client, { entityId: pr.entityId, entityCode: pr.entityCode, fundToken: pr.fundToken });
+        if (!apAccountId) {
+          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'AP account (by fund/classification) not found' });
+          continue;
+        }
+
+        // Resolve bank GL account: by bank name or fallback to first bank account for entity
+        let bankGlAccountId = null;
+        const bankVal = (data[pr.i][mapping.bank] || '').toString().trim();
+        if (bankVal) {
+          try {
+            const r1 = await client.query(
+              `SELECT gl_account_id FROM bank_accounts 
+                WHERE (LOWER(account_name) = LOWER($1) OR LOWER(bank_name) = LOWER($1))
+                LIMIT 1`,
+              [bankVal]
+            );
+            bankGlAccountId = r1.rows[0]?.gl_account_id || null;
+          } catch (_) { /* ignore */ }
+        }
+        if (!bankGlAccountId) {
+          try {
+            const r2 = await client.query(
+              `SELECT gl_account_id FROM bank_accounts 
+                WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1`,
+              [pr.entityId]
+            );
+            bankGlAccountId = r2.rows[0]?.gl_account_id || null;
+          } catch (_) { /* ignore */ }
+        }
+        if (!bankGlAccountId) {
+          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Bank GL account not resolvable for row' });
+          continue;
+        }
+
+        // Idempotency: separate reference column (required). Use same reference for both JEs.
+        const ref = (data[pr.i][mapping.reference] || '').toString().trim();
         if (!ref) {
-          job.logs.push({ i: c.i + 1, level: 'error', msg: 'Missing separate reference for completed row' });
+          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Missing reference' });
           continue;
         }
         const dupJe = await client.query('SELECT id FROM journal_entries WHERE reference_number = $1 LIMIT 1', [ref]);
         if (dupJe.rows.length) {
-          job.logs.push({ i: c.i + 1, level: 'warn', msg: `Duplicate JE skipped (ref ${ref})` });
+          job.logs.push({ i: pr.i + 1, level: 'warn', msg: `Duplicate JEs skipped (ref ${ref})` });
           continue;
         }
 
-        // Create posted JE: credit bank, debit expense/AP (acctId)
-        const je = await client.query(
-          `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, total_amount, status, created_by, import_id)
-           VALUES ($1,$2,$3,$4,$5,'Posted','Payments Import',$6)
-           RETURNING id`,
-          [
-            c.entityId,
-            new Date(),
-            ref,
-            c.memo || 'Completed payment import',
-            c.amount,
-            jobId
-          ]
-        );
-        const jeId = je.rows[0].id;
+        // Insert two posted journal entries with entry_mode = 'Auto' when column exists
+        const hasEntryMode = await hasColumn(client, 'journal_entries', 'entry_mode');
 
-        // Debit expense/AP (acctId)
+        // JE1: Expense/AP (Debit Expense acctId, Credit AP apAccountId)
+        const je1Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
+        const je1Vals = [pr.entityId, new Date(), ref, pr.memo || 'Payments import (Expense/AP)', pr.amount, 'Posted', 'Payments Import', jobId];
+        if (hasEntryMode) { je1Cols.push('entry_mode'); je1Vals.push('Auto'); }
+        const je1Ph = je1Vals.map((_,i)=>`$${i+1}`).join(',');
+        const je1 = await client.query(
+          `INSERT INTO journal_entries (${je1Cols.join(',')}) VALUES (${je1Ph}) RETURNING id`,
+          je1Vals
+        );
+        const je1Id = je1.rows[0].id;
         await client.query(
           `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
            VALUES ($1,$2,$3,$4,0,$5)`,
-          [jeId, acctId, fundId, c.amount, c.memo || '']
+          [je1Id, acctId, fundId, pr.amount, pr.memo || '']
         );
-        // Credit bank GL
         await client.query(
           `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
            VALUES ($1,$2,$3,0,$4,$5)`,
-          [jeId, bankGlAccountId, fundId, c.amount, c.memo || '']
+          [je1Id, apAccountId, fundId, pr.amount, pr.memo || '']
         );
+        job.createdJEs.push(je1Id);
 
-        job.createdJEs.push(jeId);
+        // JE2: AP/Bank (Debit AP, Credit Bank)
+        const je2Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
+        const je2Vals = [pr.entityId, new Date(), ref, pr.memo || 'Payments import (AP/Bank)', pr.amount, 'Posted', 'Payments Import', jobId];
+        if (hasEntryMode) { je2Cols.push('entry_mode'); je2Vals.push('Auto'); }
+        const je2Ph = je2Vals.map((_,i)=>`$${i+1}`).join(',');
+        const je2 = await client.query(
+          `INSERT INTO journal_entries (${je2Cols.join(',')}) VALUES (${je2Ph}) RETURNING id`,
+          je2Vals
+        );
+        const je2Id = je2.rows[0].id;
+        await client.query(
+          `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+           VALUES ($1,$2,$3,$4,0,$5)`,
+          [je2Id, apAccountId, fundId, pr.amount, pr.memo || '']
+        );
+        await client.query(
+          `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+           VALUES ($1,$2,$3,0,$4,$5)`,
+          [je2Id, bankGlAccountId, fundId, pr.amount, pr.memo || '']
+        );
+        job.createdJEs.push(je2Id);
       }
 
       await client.query('COMMIT');

@@ -1088,6 +1088,13 @@ function initializeFilterSelects() {
             updateJournalEntriesTable();
         });
     }
+    // Journal entries entry_mode filter
+    const jeModeSelect = document.getElementById('journal-entries-mode-select');
+    if (jeModeSelect) {
+        jeModeSelect.addEventListener('change', () => {
+            updateJournalEntriesTable();
+        });
+    }
     
     // Funds filter
     const fundsFilterSelect = document.getElementById('funds-filter-select');
