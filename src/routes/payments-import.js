@@ -580,6 +580,10 @@ router.post('/process', asyncHandler(async (req, res) => {
       await client.query('ROLLBACK');
       importJobs[jobId].status = 'failed';
       importJobs[jobId].errors.push(e && (e.detail || e.message || String(e)));
+      // Ensure we don't report objects that were rolled back
+      importJobs[jobId].createdBatches = [];
+      importJobs[jobId].createdItems = 0;
+      importJobs[jobId].createdJEs = [];
       importJobs[jobId].endTime = new Date();
     } finally {
       client.release();
