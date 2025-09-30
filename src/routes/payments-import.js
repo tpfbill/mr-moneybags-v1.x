@@ -17,6 +17,18 @@ const importJobs = {};
 // Utility: safe lower
 const lower = (s) => (s ?? '').toString().trim().toLowerCase();
 
+// Schema guard: check if a table has a column (any schema)
+async function hasColumn(db, table, column) {
+  const q = await db.query(
+    `SELECT 1
+       FROM information_schema.columns
+      WHERE table_name = $1 AND column_name = $2
+      LIMIT 1`,
+    [table, column]
+  );
+  return q.rows.length > 0;
+}
+
 // Parse "Account No." shape: "Entity GLCode FundNumber Restriction"
 function parseAccountNo(val) {
   if (!val) return {};
@@ -31,20 +43,20 @@ function parseAccountNo(val) {
 async function resolveEntityId(db, entityCode) {
   if (!entityCode) return null;
   // Try by code (common), tolerate absence of column
-  try {
+  if (await hasColumn(db, 'entities', 'code')) {
     const r = await db.query('SELECT id FROM entities WHERE code = $1 LIMIT 1', [entityCode]);
     if (r.rows[0]?.id) return r.rows[0].id;
-  } catch (_) { /* code column may not exist */ }
+  }
 
   // Alternate common column names
-  try {
+  if (await hasColumn(db, 'entities', 'short_code')) {
     const r2 = await db.query('SELECT id FROM entities WHERE short_code = $1 LIMIT 1', [entityCode]);
     if (r2.rows[0]?.id) return r2.rows[0].id;
-  } catch (_) { /* ignore */ }
-  try {
+  }
+  if (await hasColumn(db, 'entities', 'entity_code')) {
     const r3 = await db.query('SELECT id FROM entities WHERE entity_code = $1 LIMIT 1', [entityCode]);
     if (r3.rows[0]?.id) return r3.rows[0].id;
-  } catch (_) { /* ignore */ }
+  }
 
   // If token is numeric, try matching id directly
   const maybeId = parseInt(entityCode, 10);
@@ -67,23 +79,23 @@ async function resolveAccountId(db, entityId, glCode) {
 async function resolveFundId(db, entityCode, fundToken) {
   if (!entityCode || !fundToken) return null;
   // Try multiple shapes to accommodate live DB variations
-  try {
+  if (await hasColumn(db, 'funds', 'entity_code') && await hasColumn(db, 'funds', 'fund_number')) {
     const r1 = await db.query(
       'SELECT id FROM funds WHERE entity_code = $1 AND fund_number = $2 LIMIT 1',
       [entityCode, fundToken]
     );
     if (r1.rows[0]?.id) return r1.rows[0].id;
-  } catch (_) { /* column may not exist */ }
+  }
 
-  try {
+  if (await hasColumn(db, 'funds', 'entity_code') && await hasColumn(db, 'funds', 'fund_code')) {
     const r2 = await db.query(
       'SELECT id FROM funds WHERE entity_code = $1 AND LOWER(fund_code) = LOWER($2) LIMIT 1',
       [entityCode, fundToken]
     );
     if (r2.rows[0]?.id) return r2.rows[0].id;
-  } catch (_) { /* column may not exist */ }
+  }
 
-  try {
+  if (await hasColumn(db, 'funds', 'entity_id') && await hasColumn(db, 'funds', 'fund_number') && await hasColumn(db, 'entities', 'code')) {
     const r3 = await db.query(
       `SELECT f.id FROM funds f
          JOIN entities e ON f.entity_id = e.id
@@ -92,9 +104,9 @@ async function resolveFundId(db, entityCode, fundToken) {
       [entityCode, fundToken]
     );
     if (r3.rows[0]?.id) return r3.rows[0].id;
-  } catch (_) { /* entity_id shape */ }
+  }
 
-  try {
+  if (await hasColumn(db, 'funds', 'entity_id') && await hasColumn(db, 'funds', 'fund_code') && await hasColumn(db, 'entities', 'code')) {
     const r4 = await db.query(
       `SELECT f.id FROM funds f
          JOIN entities e ON f.entity_id = e.id
@@ -103,27 +115,25 @@ async function resolveFundId(db, entityCode, fundToken) {
       [entityCode, fundToken]
     );
     if (r4.rows[0]?.id) return r4.rows[0].id;
-  } catch (_) { /* entity_id shape */ }
+  }
 
-  try {
+  if (await hasColumn(db, 'funds', 'fund_number')) {
     const r5 = await db.query('SELECT id FROM funds WHERE fund_number = $1 LIMIT 1', [fundToken]);
     if (r5.rows[0]?.id) return r5.rows[0].id;
-  } catch (_) { /* ignore */ }
+  }
 
-  try {
+  if (await hasColumn(db, 'funds', 'fund_code')) {
     const r6 = await db.query('SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) LIMIT 1', [fundToken]);
     if (r6.rows[0]?.id) return r6.rows[0].id;
-  } catch (_) { /* ignore */ }
+  }
 
   return null;
 }
 
 async function resolveVendor(db, { zid, name }) {
-  if (zid) {
-    try {
-      const rz = await db.query('SELECT id FROM vendors WHERE LOWER(zid) = LOWER($1) LIMIT 1', [zid]);
-      if (rz.rows[0]?.id) return rz.rows[0].id;
-    } catch (_) { /* live DB may not have zid column */ }
+  if (zid && await hasColumn(db, 'vendors', 'zid')) {
+    const rz = await db.query('SELECT id FROM vendors WHERE LOWER(zid) = LOWER($1) LIMIT 1', [zid]);
+    if (rz.rows[0]?.id) return rz.rows[0].id;
   }
   if (name) {
     const rn = await db.query('SELECT id FROM vendors WHERE LOWER(name) = LOWER($1)', [name]);
@@ -138,25 +148,28 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
   if (bank) {
     // 1) Match company_nacha_settings.company_name
     let r;
-    try {
+    if (await hasColumn(db, 'company_nacha_settings', 'company_name')) {
       r = await db.query(
         'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND LOWER(company_name) = LOWER($2) LIMIT 1',
         [entityId, bank]
       );
       if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (e) { try { console.error('[VPI] resolveNachaSettingsId company_name lookup failed:', e.message || e); } catch (_) {} }
+    }
 
     // 2) Match company_id
-    try {
+    if (await hasColumn(db, 'company_nacha_settings', 'company_id')) {
       r = await db.query(
         'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND company_id = $2 LIMIT 1',
         [entityId, bank]
       );
       if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (e) { try { console.error('[VPI] resolveNachaSettingsId company_id lookup failed:', e.message || e); } catch (_) {} }
+    }
 
     // 3) Match via settlement bank account name
-    try {
+    if (
+      await hasColumn(db, 'company_nacha_settings', 'settlement_account_id') &&
+      await hasColumn(db, 'bank_accounts', 'account_name')
+    ) {
       r = await db.query(
         `SELECT cns.id
          FROM company_nacha_settings cns
@@ -165,7 +178,7 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
         LIMIT 1`, [entityId, bank]
       );
       if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (e) { try { console.error('[VPI] resolveNachaSettingsId settlement join lookup failed:', e.message || e); } catch (_) {} }
+    }
   }
 
   // 4) Fallback to any settings for the entity. Prefer default when column exists; gracefully degrade if not.
