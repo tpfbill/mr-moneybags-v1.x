@@ -251,14 +251,23 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
 
 async function resolveVendorBankAccountId(db, vendorId) {
   if (!vendorId) return null;
+  if (!(await hasTable(db, 'vendor_bank_accounts'))) return null;
   // Prefer primary active account
-  const q = await db.query(
-    `SELECT id FROM vendor_bank_accounts 
-      WHERE vendor_id = $1 AND LOWER(status) = 'active'
-      ORDER BY is_primary DESC, created_at ASC LIMIT 1`,
-    [vendorId]
-  );
-  return q.rows[0]?.id || null;
+  const hasStatus = await hasColumn(db, 'vendor_bank_accounts', 'status');
+  const hasIsPrimary = await hasColumn(db, 'vendor_bank_accounts', 'is_primary');
+  const hasCreatedAt = await hasColumn(db, 'vendor_bank_accounts', 'created_at');
+  if (hasStatus && hasIsPrimary && hasCreatedAt) {
+    const q = await db.query(
+      `SELECT id FROM vendor_bank_accounts 
+        WHERE vendor_id = $1 AND LOWER(status) = 'active'
+        ORDER BY is_primary DESC, created_at ASC LIMIT 1`,
+      [vendorId]
+    );
+    return q.rows[0]?.id || null;
+  }
+  // Fallback: any account for vendor
+  const q2 = await db.query(`SELECT id FROM vendor_bank_accounts WHERE vendor_id = $1 LIMIT 1`, [vendorId]);
+  return q2.rows[0]?.id || null;
 }
 
 // Analyze endpoint – suggest mapping keys
