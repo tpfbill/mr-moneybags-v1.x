@@ -80,7 +80,7 @@ async function resolveEntityId(db, entityCode) {
 async function resolveAccountId(db, entityId, glCode) {
   if (!entityId || !glCode) return null;
   // Prefer entity_id + code
-  if (await hasColumn(db, 'accounts', 'entity_id')) {
+  if (await hasColumn(db, 'accounts', 'entity_id') && await hasColumn(db, 'accounts', 'code')) {
     const r = await db.query('SELECT id FROM accounts WHERE entity_id = $1 AND code = $2 LIMIT 1', [entityId, glCode]);
     if (r.rows[0]?.id) return r.rows[0].id;
   }
