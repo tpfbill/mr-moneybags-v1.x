@@ -144,7 +144,7 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
         [entityId, bank]
       );
       if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (_) { /* company_name may not exist */ }
+    } catch (e) { try { console.error('[VPI] resolveNachaSettingsId company_name lookup failed:', e.message || e); } catch (_) {} }
 
     // 2) Match company_id
     try {
@@ -153,7 +153,7 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
         [entityId, bank]
       );
       if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (_) { /* company_id may not exist or be non-text */ }
+    } catch (e) { try { console.error('[VPI] resolveNachaSettingsId company_id lookup failed:', e.message || e); } catch (_) {} }
 
     // 3) Match via settlement bank account name
     try {
@@ -165,7 +165,7 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
         LIMIT 1`, [entityId, bank]
       );
       if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (_) { /* settlement link not available */ }
+    } catch (e) { try { console.error('[VPI] resolveNachaSettingsId settlement join lookup failed:', e.message || e); } catch (_) {} }
   }
 
   // 4) Fallback to any settings for the entity. Prefer default when column exists; gracefully degrade if not.
