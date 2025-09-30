@@ -97,8 +97,10 @@ async function resolveFundId(db, entityCode, fundToken) {
 
 async function resolveVendor(db, { zid, name }) {
   if (zid) {
-    const rz = await db.query('SELECT id FROM vendors WHERE LOWER(zid) = LOWER($1) LIMIT 1', [zid]);
-    if (rz.rows[0]?.id) return rz.rows[0].id;
+    try {
+      const rz = await db.query('SELECT id FROM vendors WHERE LOWER(zid) = LOWER($1) LIMIT 1', [zid]);
+      if (rz.rows[0]?.id) return rz.rows[0].id;
+    } catch (_) { /* live DB may not have zid column */ }
   }
   if (name) {
     const rn = await db.query('SELECT id FROM vendors WHERE LOWER(name) = LOWER($1)', [name]);
