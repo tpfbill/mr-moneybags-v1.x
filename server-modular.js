@@ -208,6 +208,7 @@ app.use('/api/reports', requireAuth, reportsRoutes);
 app.use('/api/import',  requireAuth, importRoutes);
 // Unified Vendor Payments import (analyze/process/status)
 app.use('/api/vendor-payments/import', requireAuth, paymentsImportRoutes);
+console.log('Route registered: /api/vendor-payments/import');
 
 // Bank reconciliation routes
 app.use(
