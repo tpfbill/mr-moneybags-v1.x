@@ -209,6 +209,11 @@ app.use('/api/import',  requireAuth, importRoutes);
 // Unified Vendor Payments import (analyze/process/status)
 app.use('/api/vendor-payments/import', requireAuth, paymentsImportRoutes);
 console.log('Route registered: /api/vendor-payments/import');
+// Temporary ping to verify base path mounts correctly
+app.get('/api/vendor-payments/import/ping', requireAuth, (req, res) => res.json({ ok: true }));
+// Temporary alternate mount to bypass any path edge cases
+app.use('/api/payments-import', requireAuth, paymentsImportRoutes);
+console.log('Route registered: /api/payments-import');
 
 // Bank reconciliation routes
 app.use(
