@@ -43,12 +43,56 @@ async function resolveAccountId(db, entityId, glCode) {
 
 async function resolveFundId(db, entityCode, fundToken) {
   if (!entityCode || !fundToken) return null;
-  // Prefer canonical funds by fund_number + entity_code
-  const r1 = await db.query('SELECT id FROM funds WHERE entity_code = $1 AND fund_number = $2 LIMIT 1', [entityCode, fundToken]);
-  if (r1.rows[0]?.id) return r1.rows[0].id;
-  // Fallback: fund_code
-  const r2 = await db.query('SELECT id FROM funds WHERE entity_code = $1 AND LOWER(fund_code) = LOWER($2) LIMIT 1', [entityCode, fundToken]);
-  return r2.rows[0]?.id || null;
+  // Try multiple shapes to accommodate live DB variations
+  try {
+    const r1 = await db.query(
+      'SELECT id FROM funds WHERE entity_code = $1 AND fund_number = $2 LIMIT 1',
+      [entityCode, fundToken]
+    );
+    if (r1.rows[0]?.id) return r1.rows[0].id;
+  } catch (_) { /* column may not exist */ }
+
+  try {
+    const r2 = await db.query(
+      'SELECT id FROM funds WHERE entity_code = $1 AND LOWER(fund_code) = LOWER($2) LIMIT 1',
+      [entityCode, fundToken]
+    );
+    if (r2.rows[0]?.id) return r2.rows[0].id;
+  } catch (_) { /* column may not exist */ }
+
+  try {
+    const r3 = await db.query(
+      `SELECT f.id FROM funds f
+         JOIN entities e ON f.entity_id = e.id
+        WHERE e.code = $1 AND f.fund_number = $2
+        LIMIT 1`,
+      [entityCode, fundToken]
+    );
+    if (r3.rows[0]?.id) return r3.rows[0].id;
+  } catch (_) { /* entity_id shape */ }
+
+  try {
+    const r4 = await db.query(
+      `SELECT f.id FROM funds f
+         JOIN entities e ON f.entity_id = e.id
+        WHERE e.code = $1 AND LOWER(f.fund_code) = LOWER($2)
+        LIMIT 1`,
+      [entityCode, fundToken]
+    );
+    if (r4.rows[0]?.id) return r4.rows[0].id;
+  } catch (_) { /* entity_id shape */ }
+
+  try {
+    const r5 = await db.query('SELECT id FROM funds WHERE fund_number = $1 LIMIT 1', [fundToken]);
+    if (r5.rows[0]?.id) return r5.rows[0].id;
+  } catch (_) { /* ignore */ }
+
+  try {
+    const r6 = await db.query('SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) LIMIT 1', [fundToken]);
+    if (r6.rows[0]?.id) return r6.rows[0].id;
+  } catch (_) { /* ignore */ }
+
+  return null;
 }
 
 async function resolveVendor(db, { zid, name }) {
@@ -280,7 +324,7 @@ router.post('/process', asyncHandler(async (req, res) => {
             continue;
           }
           const dupCheck = await client.query(
-            `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(description,'') = COALESCE($4,'') LIMIT 1`,
+            `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(memo,'') = COALESCE($4,'') LIMIT 1`,
             [batchId, it.vendorId, it.amount, it.memo || '']
           );
           if (dupCheck.rows.length) {
