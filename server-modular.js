@@ -186,8 +186,6 @@ app.use('/api/gl-codes', requireAuth, glCodesRoutes);
 // Configuration & processing
 app.use('/api/nacha-settings', requireAuth, nachaSettingsRoutes);
 app.use('/api/nacha-files',    requireAuth, nachaFilesRoutes);
-app.use('/api/payment-batches',requireAuth, paymentBatchesRoutes);
-
 console.log('Route registered: /api/nacha-files');
 
 app.use('/api/vendors', requireAuth, vendorsRoutes);
@@ -208,12 +206,9 @@ app.use('/api/reports', requireAuth, reportsRoutes);
 app.use('/api/import',  requireAuth, importRoutes);
 // Unified Vendor Payments import (analyze/process/status)
 app.use('/api/vendor-payments/import', requireAuth, paymentsImportRoutes);
-console.log('Route registered: /api/vendor-payments/import');
 // Temporary ping to verify base path mounts correctly
 app.get('/api/vendor-payments/import/ping', requireAuth, (req, res) => res.json({ ok: true }));
-// Temporary alternate mount to bypass any path edge cases
-app.use('/api/payments-import', requireAuth, paymentsImportRoutes);
-console.log('Route registered: /api/payments-import');
+// (Temporary alternate mount removed)
 
 // Bank reconciliation routes
 app.use(

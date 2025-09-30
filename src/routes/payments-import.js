@@ -195,30 +195,28 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
   if (!(await hasTable(db, 'company_nacha_settings'))) return null;
   const bank = (bankVal || '').toString().trim();
   const hasEntityCol = await hasColumn(db, 'company_nacha_settings', 'entity_id');
-  try { console.log('[VPI DBG] NACHA resolve: hasEntityCol=', hasEntityCol, ' bank="'+bank+'"'); } catch(_){}
+  
   if (bank) {
     // 1) Match company_nacha_settings.company_name
     let r;
     if (hasEntityCol && await hasColumn(db, 'company_nacha_settings', 'company_name')) {
-      try { console.log('[VPI DBG] NACHA: try company_name match'); } catch(_){}
       try {
         r = await db.query(
           'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND LOWER(company_name) = LOWER($2) LIMIT 1',
           [entityId, bank]
         );
-      } catch(e) { try { console.error('[VPI DBG] NACHA company_name query failed:', e.message||e); } catch(_){} }
+      } catch(e) { /* silent */ }
       if (r.rows[0]?.id) return r.rows[0].id;
     }
 
     // 2) Match company_id
     if (hasEntityCol && await hasColumn(db, 'company_nacha_settings', 'company_id')) {
-      try { console.log('[VPI DBG] NACHA: try company_id match'); } catch(_){}
       try {
         r = await db.query(
           'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND company_id = $2 LIMIT 1',
           [entityId, bank]
         );
-      } catch(e) { try { console.error('[VPI DBG] NACHA company_id query failed:', e.message||e); } catch(_){} }
+      } catch(e) { /* silent */ }
       if (r.rows[0]?.id) return r.rows[0].id;
     }
 
@@ -227,7 +225,6 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
       await hasColumn(db, 'company_nacha_settings', 'settlement_account_id') &&
       await hasColumn(db, 'bank_accounts', 'account_name')
     ) {
-      try { console.log('[VPI DBG] NACHA: try settlement join match'); } catch(_){}
       try {
         r = await db.query(
           `SELECT cns.id
@@ -236,7 +233,7 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
           WHERE cns.entity_id = $1 AND LOWER(ba.account_name) = LOWER($2)
           LIMIT 1`, [entityId, bank]
         );
-      } catch(e) { try { console.error('[VPI DBG] NACHA settlement join failed:', e.message||e); } catch(_){} }
+      } catch(e) { /* silent */ }
       if (r.rows[0]?.id) return r.rows[0].id;
     }
   }
@@ -247,35 +244,31 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
     const hasCreatedAt = await hasColumn(db, 'company_nacha_settings', 'created_at');
     if (hasIsDefault) {
       try {
-        try { console.log('[VPI DBG] NACHA: try entity default order by is_default'); } catch(_){}
         const d = await db.query(
           'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY is_default DESC NULLS LAST, created_at ASC LIMIT 1',
           [entityId]
         );
         if (d.rows[0]?.id) return d.rows[0].id;
-      } catch (e) { try { console.error('[VPI DBG] NACHA entity is_default query failed:', e.message||e); } catch(_){} }
+      } catch (e) { /* silent */ }
     }
     if (hasCreatedAt) {
       try {
-        try { console.log('[VPI DBG] NACHA: try entity order by created_at'); } catch(_){}
         const d2 = await db.query(
           'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1',
           [entityId]
         );
         if (d2.rows[0]?.id) return d2.rows[0].id;
-      } catch (e) { try { console.error('[VPI DBG] NACHA entity created_at query failed:', e.message||e); } catch(_){} }
+      } catch (e) { /* silent */ }
     }
   }
   // Last-resort: any record in table
   const hasCreatedAtAny = await hasColumn(db, 'company_nacha_settings', 'created_at');
   if (hasCreatedAtAny) {
     try {
-      try { console.log('[VPI DBG] NACHA: try any order by created_at'); } catch(_){}
       const any = await db.query('SELECT id FROM company_nacha_settings ORDER BY created_at ASC LIMIT 1');
       if (any.rows[0]?.id) return any.rows[0].id;
-    } catch (e) { try { console.error('[VPI DBG] NACHA any created_at query failed:', e.message||e); } catch(_){} }
+    } catch (e) { /* silent */ }
   }
-  try { console.log('[VPI DBG] NACHA: try any plain'); } catch(_){}
   const any2 = await db.query('SELECT id FROM company_nacha_settings LIMIT 1');
   if (any2.rows[0]?.id) return any2.rows[0].id;
   return null;
@@ -382,29 +375,25 @@ router.post('/process', asyncHandler(async (req, res) => {
 
         // Normalize amount (remove $ , and spaces)
         const amount = parseFloat(String(amountStr ?? '').replace(/[$,\s]/g, ''));
-        if (i === 0) { try { console.log('[VPI DBG] row0 amount parsed:', amount); } catch(_){} }
+        
         if (!amount || isNaN(amount)) {
           job.logs.push({ i: i + 1, level: 'error', msg: 'Invalid amount' });
           continue;
         }
 
         const { entityCode, glCode, fundToken } = parseAccountNo(accountNo);
-        if (i === 0) { try { console.log('[VPI DBG] row0 acct parsed:', { entityCode, glCode, fundToken }); } catch(_){} }
         const entityId = await resolveEntityId(client, entityCode);
-        if (i === 0) { try { console.log('[VPI DBG] row0 entityId:', entityId); } catch(_){} }
         if (!entityId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Unknown entity from Account No.: ${accountNo}` });
           continue;
         }
         const fundId = await resolveFundId(client, entityCode, fundToken);
-        if (i === 0) { try { console.log('[VPI DBG] row0 fundId:', fundId); } catch(_){} }
         if (!fundId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Unknown fund from Account No.: ${accountNo}` });
           continue;
         }
 
         const vendorId = await resolveVendor(client, { zid: vendorZid, name: vendorName });
-        if (i === 0) { try { console.log('[VPI DBG] row0 vendorId:', vendorId); } catch(_){} }
         if (!vendorId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Vendor not found (zid/name): ${vendorZid || vendorName}` });
           continue;
@@ -424,7 +413,6 @@ router.post('/process', asyncHandler(async (req, res) => {
         }
 
         const nachaId = await resolveNachaSettingsId(client, entityId, bank);
-        if (i === 0) { try { console.log('[VPI DBG] row0 nachaId:', nachaId); } catch(_){} }
         if (!nachaId) {
           job.logs.push({ i: i + 1, level: 'error', msg: `Unable to resolve NACHA settings for bank: ${bank}` });
           continue;
@@ -466,7 +454,7 @@ router.post('/process', asyncHandler(async (req, res) => {
           const vbaId = await resolveVendorBankAccountId(client, it.vendorId);
           if (!vbaId) {
             job.logs.push({ i: it.i + 1, level: 'error', msg: 'No active vendor bank account on file' });
-            continue;
+            throw new Error(`EFT row ${it.i + 1} missing vendor bank account`);
           }
           const dupCheck = await client.query(
             `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(memo,'') = COALESCE($4,'') LIMIT 1`,
