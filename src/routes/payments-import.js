@@ -399,20 +399,21 @@ router.post('/process', asyncHandler(async (req, res) => {
       for (const [key, group] of pendingGroups.entries()) {
         // Build batch_number from reference; status draft
         const batchNumber = group.reference || `BATCH-${Date.now()}`;
+        const hasPbDesc = await hasColumn(client, 'payment_batches', 'description');
+        const hasPbStatus = await hasColumn(client, 'payment_batches', 'status');
+        const hasPbNacha = await hasColumn(client, 'payment_batches', 'nacha_settings_id');
+        const cols = ['entity_id','fund_id'];
+        const vals = [group.entityId, group.fundId];
+        if (hasPbNacha) { cols.push('nacha_settings_id'); vals.push(group.nachaId); }
+        cols.push('batch_number'); vals.push(batchNumber);
+        cols.push('batch_date'); vals.push(new Date());
+        if (hasPbDesc) { cols.push('description'); vals.push(group.reference || null); }
+        cols.push('total_amount'); vals.push(0);
+        if (hasPbStatus) { cols.push('status'); vals.push('Draft'); }
+        const placeholders = vals.map((_,i)=>`$${i+1}`).join(',');
         const insBatch = await client.query(
-          `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, description, total_amount, status)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-           RETURNING id`,
-          [
-            group.entityId,
-            group.fundId,
-            group.nachaId,
-            batchNumber,
-            new Date(),
-            group.reference || null,
-            0,
-            'Draft'
-          ]
+          `INSERT INTO payment_batches (${cols.join(',')}) VALUES (${placeholders}) RETURNING id`,
+          vals
         );
         const batchId = insBatch.rows[0].id;
         job.createdBatches.push(batchId);
@@ -435,10 +436,14 @@ router.post('/process', asyncHandler(async (req, res) => {
 
           // Insert item (status pending)
           try {
+            const hasPiStatus = await hasColumn(client, 'payment_items', 'status');
+            const itemCols = ['payment_batch_id','vendor_id','vendor_bank_account_id','amount','memo'];
+            const itemVals = [batchId, it.vendorId, vbaId, it.amount, it.memo || ''];
+            if (hasPiStatus) { itemCols.push('status'); itemVals.push('pending'); }
+            const ph = itemVals.map((_,i)=>`$${i+1}`).join(',');
             await client.query(
-              `INSERT INTO payment_items (payment_batch_id, vendor_id, vendor_bank_account_id, amount, memo, status)
-               VALUES ($1,$2,$3,$4,$5,$6)`,
-              [batchId, it.vendorId, vbaId, it.amount, it.memo || '', 'pending']
+              `INSERT INTO payment_items (${itemCols.join(',')}) VALUES (${ph})`,
+              itemVals
             );
             job.createdItems += 1;
           } catch (e) {
@@ -447,13 +452,12 @@ router.post('/process', asyncHandler(async (req, res) => {
         }
 
         // Update batch total
-        await client.query(
-          `UPDATE payment_batches
-             SET total_amount = COALESCE((SELECT SUM(amount) FROM payment_items WHERE payment_batch_id = $1),0),
-                 updated_at = NOW()
-           WHERE id = $1`,
-          [batchId]
-        );
+        const hasUpdatedAt = await hasColumn(client, 'payment_batches', 'updated_at');
+        const setClauses = [
+          `total_amount = COALESCE((SELECT SUM(amount) FROM payment_items WHERE payment_batch_id = $1),0)`
+        ];
+        if (hasUpdatedAt) setClauses.push('updated_at = NOW()');
+        await client.query(`UPDATE payment_batches SET ${setClauses.join(', ')} WHERE id = $1`, [batchId]);
       }
 
       // Completed flow → post JEs
