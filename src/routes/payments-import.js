@@ -94,9 +94,32 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
     } catch (_) { /* settlement link not available */ }
   }
 
-  // 4) Fallback to single default per entity (allowed by user)
-  const d = await db.query('SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND is_default = TRUE', [entityId]);
-  return d.rows.length === 1 ? d.rows[0].id : null;
+  // 4) Fallback to any settings for the entity. Prefer default when column exists; gracefully degrade if not.
+  try {
+    const d = await db.query(
+      'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY is_default DESC NULLS LAST, created_at ASC LIMIT 1',
+      [entityId]
+    );
+    return d.rows[0]?.id || null;
+  } catch (_) {
+    const d2 = await db.query(
+      'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1',
+      [entityId]
+    );
+    return d2.rows[0]?.id || null;
+  }
+}
+
+async function resolveVendorBankAccountId(db, vendorId) {
+  if (!vendorId) return null;
+  // Prefer primary active account
+  const q = await db.query(
+    `SELECT id FROM vendor_bank_accounts 
+      WHERE vendor_id = $1 AND LOWER(status) = 'active'
+      ORDER BY is_primary DESC, created_at ASC LIMIT 1`,
+    [vendorId]
+  );
+  return q.rows[0]?.id || null;
 }
 
 // Analyze endpoint – suggest mapping keys
@@ -177,7 +200,8 @@ router.post('/process', asyncHandler(async (req, res) => {
         const effectiveDateStr = mapping.effectiveDate ? row[mapping.effectiveDate] : '';
         const invoiceNumber = mapping.invoiceNumber ? row[mapping.invoiceNumber] : '';
 
-        const amount = parseFloat(amountStr);
+        // Normalize amount (remove $ , and spaces)
+        const amount = parseFloat(String(amountStr ?? '').replace(/[$,\s]/g, ''));
         if (!amount || isNaN(amount)) {
           job.logs.push({ i: i + 1, level: 'error', msg: 'Invalid amount' });
           continue;
@@ -231,7 +255,7 @@ router.post('/process', asyncHandler(async (req, res) => {
         // Build batch_number from reference; status draft
         const batchNumber = group.reference || `BATCH-${Date.now()}`;
         const insBatch = await client.query(
-          `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status)
+          `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, description, total_amount, status)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
            RETURNING id`,
           [
@@ -240,7 +264,7 @@ router.post('/process', asyncHandler(async (req, res) => {
             group.nachaId,
             batchNumber,
             new Date(),
-            group.effDate,
+            group.reference || null,
             0,
             'Draft'
           ]
@@ -250,6 +274,11 @@ router.post('/process', asyncHandler(async (req, res) => {
 
         // Insert items, skip duplicates within this batch on (vendor_id, amount, description)
         for (const it of group.rows) {
+          const vbaId = await resolveVendorBankAccountId(client, it.vendorId);
+          if (!vbaId) {
+            job.logs.push({ i: it.i + 1, level: 'error', msg: 'No active vendor bank account on file' });
+            continue;
+          }
           const dupCheck = await client.query(
             `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(description,'') = COALESCE($4,'') LIMIT 1`,
             [batchId, it.vendorId, it.amount, it.memo || '']
@@ -262,9 +291,9 @@ router.post('/process', asyncHandler(async (req, res) => {
           // Insert item (status pending)
           try {
             await client.query(
-              `INSERT INTO payment_items (payment_batch_id, vendor_id, amount, description, status)
-               VALUES ($1,$2,$3,$4,$5)`,
-              [batchId, it.vendorId, it.amount, it.memo || '', 'Pending']
+              `INSERT INTO payment_items (payment_batch_id, vendor_id, vendor_bank_account_id, amount, memo, status)
+               VALUES ($1,$2,$3,$4,$5,$6)`,
+              [batchId, it.vendorId, vbaId, it.amount, it.memo || '', 'pending']
             );
             job.createdItems += 1;
           } catch (e) {
@@ -284,18 +313,25 @@ router.post('/process', asyncHandler(async (req, res) => {
 
       // Completed flow → post JEs
       for (const c of completedRows) {
-        // Resolve bank account / GL credit via NACHA settings or default
-        const nachaId = await resolveNachaSettingsId(client, c.entityId, data[c.i][mapping.bank]);
+        // Resolve bank GL account by matching bank name first, then fallback to any entity bank account
         let bankGlAccountId = null;
-        if (nachaId) {
-          const r = await client.query(
-            `SELECT ba.gl_account_id
-               FROM company_nacha_settings cns
-               JOIN bank_accounts ba ON ba.id = cns.settlement_account_id
-              WHERE cns.id = $1`,
-            [nachaId]
+        const bankVal = (data[c.i][mapping.bank] || '').toString().trim();
+        if (bankVal) {
+          const r1 = await client.query(
+            `SELECT gl_account_id FROM bank_accounts 
+              WHERE (LOWER(account_name) = LOWER($1) OR LOWER(bank_name) = LOWER($1))
+              LIMIT 1`,
+            [bankVal]
           );
-          bankGlAccountId = r.rows[0]?.gl_account_id || null;
+          bankGlAccountId = r1.rows[0]?.gl_account_id || null;
+        }
+        if (!bankGlAccountId) {
+          const r2 = await client.query(
+            `SELECT gl_account_id FROM bank_accounts 
+              WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1`,
+            [c.entityId]
+          );
+          bankGlAccountId = r2.rows[0]?.gl_account_id || null;
         }
         if (!bankGlAccountId) {
           job.logs.push({ i: c.i + 1, level: 'error', msg: 'Bank GL account not resolvable for completed row' });
