@@ -79,9 +79,26 @@ async function resolveEntityId(db, entityCode) {
 
 async function resolveAccountId(db, entityId, glCode) {
   if (!entityId || !glCode) return null;
-  // Try exact accounts.code within entity
-  const r = await db.query('SELECT id FROM accounts WHERE entity_id = $1 AND code = $2 LIMIT 1', [entityId, glCode]);
-  return r.rows[0]?.id || null;
+  // Prefer entity_id + code
+  if (await hasColumn(db, 'accounts', 'entity_id')) {
+    const r = await db.query('SELECT id FROM accounts WHERE entity_id = $1 AND code = $2 LIMIT 1', [entityId, glCode]);
+    if (r.rows[0]?.id) return r.rows[0].id;
+  }
+  // Fallback: accounts.entity_code + code
+  if (await hasColumn(db, 'accounts', 'entity_code')) {
+    let entityCode = null;
+    if (await hasColumn(db, 'entities', 'code')) {
+      const e = await db.query('SELECT code FROM entities WHERE id = $1 LIMIT 1', [entityId]);
+      entityCode = e.rows[0]?.code || null;
+    }
+    if (entityCode) {
+      const r2 = await db.query('SELECT id FROM accounts WHERE entity_code = $1 AND code = $2 LIMIT 1', [entityCode, glCode]);
+      if (r2.rows[0]?.id) return r2.rows[0].id;
+    }
+  }
+  // Last resort: any account by code
+  const r3 = await db.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [glCode]);
+  return r3.rows[0]?.id || null;
 }
 
 async function resolveFundId(db, entityCode, fundToken) {
