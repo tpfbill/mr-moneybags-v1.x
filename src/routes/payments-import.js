@@ -30,8 +30,31 @@ function parseAccountNo(val) {
 
 async function resolveEntityId(db, entityCode) {
   if (!entityCode) return null;
-  const { rows } = await db.query('SELECT id FROM entities WHERE code = $1 LIMIT 1', [entityCode]);
-  return rows[0]?.id || null;
+  // Try by code (common), tolerate absence of column
+  try {
+    const r = await db.query('SELECT id FROM entities WHERE code = $1 LIMIT 1', [entityCode]);
+    if (r.rows[0]?.id) return r.rows[0].id;
+  } catch (_) { /* code column may not exist */ }
+
+  // Alternate common column names
+  try {
+    const r2 = await db.query('SELECT id FROM entities WHERE short_code = $1 LIMIT 1', [entityCode]);
+    if (r2.rows[0]?.id) return r2.rows[0].id;
+  } catch (_) { /* ignore */ }
+  try {
+    const r3 = await db.query('SELECT id FROM entities WHERE entity_code = $1 LIMIT 1', [entityCode]);
+    if (r3.rows[0]?.id) return r3.rows[0].id;
+  } catch (_) { /* ignore */ }
+
+  // If token is numeric, try matching id directly
+  const maybeId = parseInt(entityCode, 10);
+  if (!Number.isNaN(maybeId)) {
+    try {
+      const r4 = await db.query('SELECT id FROM entities WHERE id = $1 LIMIT 1', [maybeId]);
+      if (r4.rows[0]?.id) return r4.rows[0].id;
+    } catch (_) { /* ignore */ }
+  }
+  return null;
 }
 
 async function resolveAccountId(db, entityId, glCode) {
