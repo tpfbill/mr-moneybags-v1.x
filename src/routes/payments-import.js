@@ -162,10 +162,11 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
   if (!entityId) return null;
   if (!(await hasTable(db, 'company_nacha_settings'))) return null;
   const bank = (bankVal || '').toString().trim();
+  const hasEntityCol = await hasColumn(db, 'company_nacha_settings', 'entity_id');
   if (bank) {
     // 1) Match company_nacha_settings.company_name
     let r;
-    if (await hasColumn(db, 'company_nacha_settings', 'company_name')) {
+    if (hasEntityCol && await hasColumn(db, 'company_nacha_settings', 'company_name')) {
       r = await db.query(
         'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND LOWER(company_name) = LOWER($2) LIMIT 1',
         [entityId, bank]
@@ -174,7 +175,7 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
     }
 
     // 2) Match company_id
-    if (await hasColumn(db, 'company_nacha_settings', 'company_id')) {
+    if (hasEntityCol && await hasColumn(db, 'company_nacha_settings', 'company_id')) {
       r = await db.query(
         'SELECT id FROM company_nacha_settings WHERE entity_id = $1 AND company_id = $2 LIMIT 1',
         [entityId, bank]
@@ -183,7 +184,7 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
     }
 
     // 3) Match via settlement bank account name
-    if (
+    if (hasEntityCol && 
       await hasColumn(db, 'company_nacha_settings', 'settlement_account_id') &&
       await hasColumn(db, 'bank_accounts', 'account_name')
     ) {
@@ -199,19 +200,32 @@ async function resolveNachaSettingsId(db, entityId, bankVal) {
   }
 
   // 4) Fallback to any settings for the entity. Prefer default when column exists; gracefully degrade if not.
-  try {
-    const d = await db.query(
-      'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY is_default DESC NULLS LAST, created_at ASC LIMIT 1',
-      [entityId]
-    );
-    return d.rows[0]?.id || null;
-  } catch (_) {
-    const d2 = await db.query(
-      'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1',
-      [entityId]
-    );
-    return d2.rows[0]?.id || null;
+  if (hasEntityCol) {
+    try {
+      const d = await db.query(
+        'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY is_default DESC NULLS LAST, created_at ASC LIMIT 1',
+        [entityId]
+      );
+      if (d.rows[0]?.id) return d.rows[0].id;
+    } catch (_) {
+      try {
+        const d2 = await db.query(
+          'SELECT id FROM company_nacha_settings WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1',
+          [entityId]
+        );
+        if (d2.rows[0]?.id) return d2.rows[0].id;
+      } catch (_) {}
+    }
   }
+  // Last-resort: any record in table
+  try {
+    const any = await db.query('SELECT id FROM company_nacha_settings ORDER BY created_at ASC LIMIT 1');
+    if (any.rows[0]?.id) return any.rows[0].id;
+  } catch (_) {
+    const any2 = await db.query('SELECT id FROM company_nacha_settings LIMIT 1');
+    if (any2.rows[0]?.id) return any2.rows[0].id;
+  }
+  return null;
 }
 
 async function resolveVendorBankAccountId(db, vendorId) {
