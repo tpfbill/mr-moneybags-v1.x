@@ -470,9 +470,10 @@ router.post('/process', asyncHandler(async (req, res) => {
       job.processedRecords = data.length;
       job.progress = 100;
     } catch (e) {
+      try { console.error('[VPI] Process error:', e && e.stack ? e.stack : e); } catch (_) {}
       await client.query('ROLLBACK');
       importJobs[jobId].status = 'failed';
-      importJobs[jobId].errors.push(e.message);
+      importJobs[jobId].errors.push(e && (e.detail || e.message || String(e)));
       importJobs[jobId].endTime = new Date();
     } finally {
       client.release();
