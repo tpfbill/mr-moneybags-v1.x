@@ -34,20 +34,25 @@ async function getUserById(userId) {
  * Returns 401 for API requests
  */
 function requireAuth(req, res, next) {
+    // Determine if this is an API request. When middleware is mounted under
+    // a path (e.g., app.use('/api/...', requireAuth)), req.path is relative
+    // to the mount point and will NOT start with '/api'. Use originalUrl.
+    const isApi = (req.originalUrl || req.url || '').startsWith('/api/');
+
     // Check if user is authenticated via session
     if (!req.session || !req.session.userId) {
-        // Handle API requests
-        if (req.path.startsWith('/api/')) {
+        // For API requests, return JSON 401 instead of redirecting HTML
+        if (isApi) {
             return res.status(401).json({ 
                 error: 'Authentication required',
                 redirectTo: '/login.html'
             });
         }
-        
+
         // Handle HTML requests - redirect to login
         return res.redirect('/login.html');
     }
-    
+
     // Continue to the next middleware or route handler
     next();
 }
@@ -64,8 +69,11 @@ function requireRole(roles) {
     return async (req, res, next) => {
         // First check if user is authenticated
         if (!req.session || !req.session.userId) {
+            // Determine if this is an API request (see note in requireAuth)
+            const isApi = (req.originalUrl || req.url || '').startsWith('/api/');
+
             // Handle API requests
-            if (req.path.startsWith('/api/')) {
+            if (isApi) {
                 return res.status(401).json({ 
                     error: 'Authentication required',
                     redirectTo: '/login.html'
