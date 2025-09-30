@@ -29,6 +29,14 @@ async function hasColumn(db, table, column) {
   return q.rows.length > 0;
 }
 
+async function hasTable(db, table) {
+  const q = await db.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1`,
+    [table]
+  );
+  return q.rows.length > 0;
+}
+
 // Parse "Account No." shape: "Entity GLCode FundNumber Restriction"
 function parseAccountNo(val) {
   if (!val) return {};
@@ -152,6 +160,7 @@ async function resolveVendor(db, { zid, name }) {
 
 async function resolveNachaSettingsId(db, entityId, bankVal) {
   if (!entityId) return null;
+  if (!(await hasTable(db, 'company_nacha_settings'))) return null;
   const bank = (bankVal || '').toString().trim();
   if (bank) {
     // 1) Match company_nacha_settings.company_name
