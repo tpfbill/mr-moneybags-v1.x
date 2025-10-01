@@ -972,7 +972,9 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     let accountsOptions = '<option value="">Select Account</option>';
     appState.accounts.forEach(account => {
         const labelCode = account.account_code || account.code || `${account.entity_code || ''}-${account.gl_code || ''}-${account.fund_number || ''}`;
-        accountsOptions += `<option value="${account.id}">${labelCode}</option>`;
+        const labelDesc = account.description || account.account_name || account.name || '';
+        const label = labelDesc ? `${labelCode} - ${labelDesc}` : labelCode;
+        accountsOptions += `<option value="${account.id}">${label}</option>`;
     });
     
     // Build row: Account | Debit | Credit | Remove (single line)
