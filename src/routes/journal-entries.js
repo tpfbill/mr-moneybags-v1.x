@@ -8,7 +8,12 @@ const { asyncHandler } = require('../utils/helpers');
 async function hasColumn(db, table, column) {
     try {
         const q = await db.query(
-            `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`,
+            `SELECT 1
+               FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = $1
+                AND column_name = $2
+              LIMIT 1`,
             [table, column]
         );
         return q.rows.length > 0;
