@@ -1209,18 +1209,21 @@ export async function saveJournalEntry(event) {
             journalEntryId = newEntry.id;
         }
         
-        // Reload journal entry data
+        // Reload data impacted by JE save
         if (typeof loadJournalEntryData === 'function') {
             await loadJournalEntryData();
         }
-        
-        // Reload dashboard data
-        if (typeof loadDashboardData === 'function') {
-            await loadDashboardData();
-        }
-        // Reload accounts so current_balance reflects Posted entry
+        // Accounts: updates current_balance from posted lines
         if (typeof loadAccountData === 'function') {
             await loadAccountData();
+        }
+        // Funds: refresh balances computed from posted lines
+        if (typeof loadFundData === 'function') {
+            await loadFundData();
+        }
+        // Dashboard last – uses refreshed funds/accounts
+        if (typeof loadDashboardData === 'function') {
+            await loadDashboardData();
         }
         
         showToast('Journal entry saved successfully', 'success');
