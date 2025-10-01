@@ -1187,25 +1187,24 @@ export async function saveJournalEntry(event) {
     
     try {
         let journalEntryId;
-        
+
         if (id) {
-            // Update existing journal entry
+            // Update existing journal entry (header)
             await saveData(`journal-entries/${id}`, journalEntryData, 'PUT');
             journalEntryId = id;
-            
-            // Delete existing line items
+
+            // Replace existing items (DELETE then POST)
             await fetch(`${API_BASE}/api/journal-entries/${id}/items`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
+            await saveData(`journal-entries/${journalEntryId}/items`, { items: lineItems });
         } else {
-            // Create new journal entry
-            const newEntry = await saveData('journal-entries', journalEntryData);
+            // Create new journal entry with lines in a single request
+            const payload = { ...journalEntryData, lines: lineItems };
+            const newEntry = await saveData('journal-entries', payload);
             journalEntryId = newEntry.id;
         }
-        
-        // Add line items
-        await saveData(`journal-entries/${journalEntryId}/items`, { items: lineItems });
         
         // Reload journal entry data
         if (typeof loadJournalEntryData === 'function') {
