@@ -884,9 +884,12 @@ export async function openJournalEntryModal(id, readOnly = false) {
     // Set modal title
     title.textContent = id ? (readOnly ? 'View Journal Entry' : 'Edit Journal Entry') : 'Create Journal Entry';
     
-    // Set button visibility
+    // Set button visibility (Post button removed in UI; force-hide if present)
     saveButton.style.display = readOnly ? 'none' : 'inline-block';
-    postButton.style.display = (id && !readOnly) ? 'inline-block' : 'none';
+    if (postButton) {
+        // Remove legacy Post button to avoid confusion
+        postButton.remove();
+    }
     
     // Populate entity dropdown
     const entitySelect = form.querySelector('#journal-entry-entity-id');
@@ -1130,7 +1133,7 @@ export async function saveJournalEntry(event) {
         description: form.elements['journal-entry-description'].value,
         entity_id: form.elements['journal-entry-entity-id'].value,
         type: form.elements['journal-entry-type'].value,
-        status: 'Draft'
+        status: 'Posted'
     };
     
     // Get line items
@@ -1206,12 +1209,19 @@ export async function saveJournalEntry(event) {
             journalEntryId = newEntry.id;
         }
         
-        // Reload journal entry data
+        // Reload data impacted by JE save
         if (typeof loadJournalEntryData === 'function') {
             await loadJournalEntryData();
         }
-        
-        // Reload dashboard data
+        // Accounts: updates current_balance from posted lines
+        if (typeof loadAccountData === 'function') {
+            await loadAccountData();
+        }
+        // Funds: refresh balances computed from posted lines
+        if (typeof loadFundData === 'function') {
+            await loadFundData();
+        }
+        // Dashboard last – uses refreshed funds/accounts
         if (typeof loadDashboardData === 'function') {
             await loadDashboardData();
         }

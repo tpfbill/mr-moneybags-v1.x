@@ -730,6 +730,45 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * POST /api/journal-entries/:id/post
+ * Marks a journal entry as Posted (schema-aware: uses status or posted boolean)
+ */
+router.post('/:id/post', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Ensure entry exists
+    const exists = await pool.query('SELECT id FROM journal_entries WHERE id = $1', [id]);
+    if (exists.rows.length === 0) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+    }
+
+    // Introspect columns
+    const hasStatus = await hasColumn(pool, 'journal_entries', 'status');
+    const hasPosted = await hasColumn(pool, 'journal_entries', 'posted');
+
+    if (!hasStatus && !hasPosted) {
+        return res.status(400).json({ error: 'Posting not supported: missing status/posted columns' });
+    }
+
+    // Update accordingly
+    if (hasStatus) {
+        await pool.query('UPDATE journal_entries SET status = $1 WHERE id = $2', ['Posted', id]);
+    }
+    if (hasPosted) {
+        await pool.query('UPDATE journal_entries SET posted = TRUE WHERE id = $1', [id]);
+    }
+    try {
+        if (await hasColumn(pool, 'journal_entries', 'updated_at')) {
+            await pool.query('UPDATE journal_entries SET updated_at = NOW() WHERE id = $1', [id]);
+        }
+    } catch (_) { /* ignore */ }
+
+    // Return updated entry header
+    const { rows } = await pool.query('SELECT * FROM journal_entries WHERE id = $1', [id]);
+    res.json(rows[0]);
+}));
+
+/**
  * DELETE /api/journal-entries/:id
  * Deletes a journal entry and its lines
  */

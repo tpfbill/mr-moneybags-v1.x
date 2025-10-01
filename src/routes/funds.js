@@ -12,6 +12,49 @@ const { parse } = require('csv-parse/sync');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ---------------------------------------------------------------------------
+// Schema helpers (introspect columns to support multiple schema variants)
+// ---------------------------------------------------------------------------
+async function hasColumn(db, table, column) {
+    try {
+        const q = await db.query(
+            `SELECT 1
+               FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = $1
+                AND column_name = $2
+              LIMIT 1`,
+            [table, column]
+        );
+        return q.rows.length > 0;
+    } catch (_) {
+        return false;
+    }
+}
+
+async function getJeiCoreCols(db) {
+    const candidates = {
+        journal_entry_id: ['journal_entry_id', 'entry_id', 'je_id'],
+        fund_id: ['fund_id', 'fund', 'fundid'],
+        debit: ['debit', 'debits', 'dr_amount', 'debit_amount', 'dr'],
+        credit: ['credit', 'credits', 'cr_amount', 'credit_amount', 'cr']
+    };
+
+    const pick = async (logical) => {
+        for (const c of candidates[logical]) {
+            if (await hasColumn(db, 'journal_entry_items', c)) return c;
+        }
+        return null;
+    };
+
+    return {
+        jeRef: await pick('journal_entry_id') || 'journal_entry_id',
+        fundRef: await pick('fund_id') || 'fund_id',
+        debitCol: await pick('debit') || 'debit',
+        creditCol: await pick('credit') || 'credit'
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Normalisers & helper utils (mirrors vendors import style)
 // ---------------------------------------------------------------------------
 function normalizeStatus(v) {
@@ -101,33 +144,49 @@ function normalizeCsvRecord(rec) {
  */
 router.get('/', asyncHandler(async (req, res) => {
     const { entity_code, restriction, status } = req.query;
-    
+
+    // Build schema-aware balance expression: starting_balance + SUM(Posted debits-credits)
+    const jeiCols = await getJeiCoreCols(pool);
+    const hasStatus = await hasColumn(pool, 'journal_entries', 'status');
+    const hasPosted = await hasColumn(pool, 'journal_entries', 'posted');
+    const hasStartingBalance = await hasColumn(pool, 'funds', 'starting_balance');
+
+    const sbExpr = hasStartingBalance ? 'COALESCE(f.starting_balance, 0::numeric)' : '0::numeric';
+    const postFilter = hasStatus
+        ? "AND je.status = 'Posted'"
+        : (hasPosted ? 'AND je.posted = TRUE' : '');
+
+    const balExpr = `${sbExpr} + COALESCE((
+        SELECT SUM(COALESCE(jel.${jeiCols.debitCol},0) - COALESCE(jel.${jeiCols.creditCol},0))
+          FROM journal_entry_items jel
+          JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
+         WHERE jel.${jeiCols.fundRef} = f.id ${postFilter}
+    ), 0::numeric)`;
+
     let query = `
-        SELECT *
-        FROM funds
-        WHERE 1=1
+        SELECT f.*, ${balExpr} AS balance
+          FROM funds f
+         WHERE 1=1
     `;
-    
+
     const params = [];
     let paramIndex = 1;
-    
+
     if (entity_code) {
-        query += ` AND entity_code = $${paramIndex++}`;
+        query += ` AND f.entity_code = $${paramIndex++}`;
         params.push(entity_code);
     }
-    
     if (restriction) {
-        query += ` AND restriction = $${paramIndex++}`;
+        query += ` AND f.restriction = $${paramIndex++}`;
         params.push(restriction);
     }
-    
     if (status) {
-        query += ` AND status = $${paramIndex++}`;
+        query += ` AND f.status = $${paramIndex++}`;
         params.push(status);
     }
-    
-    query += ` ORDER BY fund_code, fund_name`;
-    
+
+    query += ` ORDER BY f.fund_code, f.fund_name`;
+
     const { rows } = await pool.query(query, params);
     res.json(rows);
 }));
@@ -138,16 +197,31 @@ router.get('/', asyncHandler(async (req, res) => {
  */
 router.get('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
-    
+
+    const jeiCols = await getJeiCoreCols(pool);
+    const hasStatus = await hasColumn(pool, 'journal_entries', 'status');
+    const hasPosted = await hasColumn(pool, 'journal_entries', 'posted');
+    const hasStartingBalance = await hasColumn(pool, 'funds', 'starting_balance');
+    const sbExpr = hasStartingBalance ? 'COALESCE(f.starting_balance, 0::numeric)' : '0::numeric';
+    const postFilter = hasStatus
+        ? "AND je.status = 'Posted'"
+        : (hasPosted ? 'AND je.posted = TRUE' : '');
+    const balExpr = `${sbExpr} + COALESCE((
+        SELECT SUM(COALESCE(jel.${jeiCols.debitCol},0) - COALESCE(jel.${jeiCols.creditCol},0))
+          FROM journal_entry_items jel
+          JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
+         WHERE jel.${jeiCols.fundRef} = f.id ${postFilter}
+    ), 0::numeric)`;
+
     const { rows } = await pool.query(
-        'SELECT * FROM funds WHERE id = $1',
+        `SELECT f.*, ${balExpr} AS balance FROM funds f WHERE f.id = $1`,
         [id]
     );
-    
+
     if (rows.length === 0) {
         return res.status(404).json({ error: 'Fund not found' });
     }
-    
+
     res.json(rows[0]);
 }));
 
