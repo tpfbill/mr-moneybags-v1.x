@@ -886,7 +886,7 @@ export async function openJournalEntryModal(id, readOnly = false) {
     
     // Set button visibility
     saveButton.style.display = readOnly ? 'none' : 'inline-block';
-    postButton.style.display = (id && !readOnly) ? 'inline-block' : 'none';
+    postButton?.style.display = (id && !readOnly) ? 'inline-block' : 'none';
     
     // Populate entity dropdown
     const entitySelect = form.querySelector('#journal-entry-entity-id');
@@ -1130,7 +1130,7 @@ export async function saveJournalEntry(event) {
         description: form.elements['journal-entry-description'].value,
         entity_id: form.elements['journal-entry-entity-id'].value,
         type: form.elements['journal-entry-type'].value,
-        status: 'Draft'
+        status: 'Posted'
     };
     
     // Get line items
@@ -1214,6 +1214,10 @@ export async function saveJournalEntry(event) {
         // Reload dashboard data
         if (typeof loadDashboardData === 'function') {
             await loadDashboardData();
+        }
+        // Reload accounts so current_balance reflects Posted entry
+        if (typeof loadAccountData === 'function') {
+            await loadAccountData();
         }
         
         showToast('Journal entry saved successfully', 'success');
