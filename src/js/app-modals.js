@@ -971,25 +971,16 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     // Populate accounts dropdown
     let accountsOptions = '<option value="">Select Account</option>';
     appState.accounts.forEach(account => {
-        accountsOptions += `<option value="${account.id}">${account.code} - ${account.description}</option>`;
+        const labelCode = account.account_code || account.code || `${account.entity_code || ''}-${account.gl_code || ''}-${account.fund_number || ''}`;
+        accountsOptions += `<option value="${account.id}">${labelCode}</option>`;
     });
     
-    // Populate funds dropdown
-    let fundsOptions = '<option value="">Select Fund</option>';
-    appState.funds.forEach(fund => {
-        fundsOptions += `<option value="${fund.id}">${fund.fund_code} - ${fund.fund_name}</option>`;
-    });
-    
+    // Build row: Account | Debit | Credit | Remove (single line)
     lineItem.innerHTML = `
         <div class="form-row">
-            <div class="form-group col-md-4">
+            <div class="form-group col-md-7">
                 <select class="form-control account-select" name="line-item-account-${lineItemIndex}" ${readOnly ? 'disabled' : ''} required>
                     ${accountsOptions}
-                </select>
-            </div>
-            <div class="form-group col-md-3">
-                <select class="form-control fund-select" name="line-item-fund-${lineItemIndex}" ${readOnly ? 'disabled' : ''} required>
-                    ${fundsOptions}
                 </select>
             </div>
             <div class="form-group col-md-2">
@@ -1009,12 +1000,10 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     // Set values if editing
     if (item.id) {
         const accountSelect = lineItem.querySelector('.account-select');
-        const fundSelect = lineItem.querySelector('.fund-select');
         const debitInput = lineItem.querySelector('.debit-input');
         const creditInput = lineItem.querySelector('.credit-input');
         
         accountSelect.value = item.account_id || '';
-        fundSelect.value = item.fund_id || '';
         debitInput.value = item.debit || '';
         creditInput.value = item.credit || '';
     }
@@ -1064,11 +1053,10 @@ function checkAddNewLineItem() {
     if (!lastLineItem) return;
     
     const accountSelect = lastLineItem.querySelector('.account-select');
-    const fundSelect = lastLineItem.querySelector('.fund-select');
     const debitInput = lastLineItem.querySelector('.debit-input');
     const creditInput = lastLineItem.querySelector('.credit-input');
     
-    if (accountSelect.value && fundSelect.value && (debitInput.value || creditInput.value)) {
+    if (accountSelect.value && (debitInput.value || creditInput.value)) {
         addJournalEntryLineItem();
     }
 }
@@ -1150,14 +1138,39 @@ export async function saveJournalEntry(event) {
     lineItemElements.forEach(lineItem => {
         const index = lineItem.dataset.index;
         const accountSelect = lineItem.querySelector('.account-select');
-        const fundSelect = lineItem.querySelector('.fund-select');
         const debitInput = lineItem.querySelector('.debit-input');
         const creditInput = lineItem.querySelector('.credit-input');
         
-        if (accountSelect.value && fundSelect.value && (debitInput.value || creditInput.value)) {
+        if (accountSelect.value && (debitInput.value || creditInput.value)) {
+            // Auto-derive fund_id from selected account (entity_code + fund_number)
+            let fundId = null;
+            try {
+                const acc = (appState.accounts || []).find(a => String(a.id) === String(accountSelect.value));
+                if (acc) {
+                    const fnum = acc.fund_number;
+                    const ecode = acc.entity_code;
+                    const fund = (appState.funds || []).find(f => String(f.fund_number) === String(fnum) && String(f.entity_code) === String(ecode));
+                    fundId = fund ? fund.id : null;
+                }
+            } catch (_) { /* ignore mapping errors */ }
+
+            if (!fundId) {
+                // Try fallback by fund_number only
+                try {
+                    const acc = (appState.accounts || []).find(a => String(a.id) === String(accountSelect.value));
+                    const fund = acc ? (appState.funds || []).find(f => String(f.fund_number) === String(acc.fund_number)) : null;
+                    fundId = fund ? fund.id : null;
+                } catch (_) { /* ignore */ }
+            }
+
+            if (!fundId) {
+                showToast('No matching Fund found for selected account; please verify account setup.', 'error');
+                return;
+            }
+
             lineItems.push({
                 account_id: accountSelect.value,
-                fund_id: fundSelect.value,
+                fund_id: fundId,
                 debit: debitInput.value || 0,
                 credit: creditInput.value || 0
             });
