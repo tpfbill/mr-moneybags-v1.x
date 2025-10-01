@@ -105,8 +105,13 @@ router.get('/', asyncHandler(async (req, res) => {
     }
     
     if (status) {
-        query += ` AND je.status = $${paramIndex++}`;
-        params.push(status);
+        try {
+            const hasStatus = await hasColumn(pool, 'journal_entries', 'status');
+            if (hasStatus) {
+                query += ` AND je.status = $${paramIndex++}`;
+                params.push(status);
+            }
+        } catch (_) { /* ignore */ }
     }
     
     // Optional entry_mode filter (Manual/Auto) when column exists
