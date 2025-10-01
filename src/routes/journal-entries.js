@@ -164,46 +164,44 @@ router.post('/', asyncHandler(async (req, res) => {
         is_inter_entity,
         lines
     } = req.body;
-    
+
     // Validate required fields
     if (!entity_id) {
         return res.status(400).json({ error: 'Entity ID is required' });
     }
-    
+
     if (!entry_date) {
         return res.status(400).json({ error: 'Entry date is required' });
     }
-    
-    if (!lines || !Array.isArray(lines) || lines.length === 0) {
-        return res.status(400).json({ error: 'At least one journal entry line is required' });
-    }
-    
-    // Validate double-entry accounting (debits = credits)
+
+    const hasLines = Array.isArray(lines) && lines.length > 0;
+
+    // When lines are provided, validate debits == credits
     let totalDebits = 0;
     let totalCredits = 0;
-    
-    lines.forEach(line => {
-        totalDebits += parseFloat(line.debit || 0);
-        totalCredits += parseFloat(line.credit || 0);
-    });
-    
-    // Round to 2 decimal places to avoid floating point issues
-    totalDebits = Math.round(totalDebits * 100) / 100;
-    totalCredits = Math.round(totalCredits * 100) / 100;
-    
-    if (totalDebits !== totalCredits) {
-        return res.status(400).json({ 
-            error: 'Invalid journal entry: Debits must equal credits',
-            details: `Total debits (${totalDebits}) do not equal total credits (${totalCredits})`
+    if (hasLines) {
+        lines.forEach(line => {
+            totalDebits += parseFloat(line.debit || 0);
+            totalCredits += parseFloat(line.credit || 0);
         });
+        // Round to 2 decimal places to avoid floating point issues
+        totalDebits = Math.round(totalDebits * 100) / 100;
+        totalCredits = Math.round(totalCredits * 100) / 100;
+
+        if (totalDebits !== totalCredits) {
+            return res.status(400).json({
+                error: 'Invalid journal entry: Debits must equal credits',
+                details: `Total debits (${totalDebits}) do not equal total credits (${totalCredits})`
+            });
+        }
     }
-    
+
     // Start a transaction to create the journal entry and its lines
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const hasEntryMode = await hasColumn(client, 'journal_entries', 'entry_mode');
-        
+
         // Create the journal entry (ensure entry_mode='Manual' when column exists)
         const cols = [
             'entity_id',
@@ -223,7 +221,7 @@ router.post('/', asyncHandler(async (req, res) => {
             description,
             status || 'Posted',
             is_inter_entity || false,
-            totalDebits
+            hasLines ? totalDebits : 0
         ];
         if (hasEntryMode) {
             cols.push('entry_mode');
@@ -234,86 +232,88 @@ router.post('/', asyncHandler(async (req, res) => {
             `INSERT INTO journal_entries (${cols.join(',')}) VALUES (${ph}) RETURNING *`,
             vals
         );
-        
+
         const journalEntryId = entryResult.rows[0].id;
-        
-        // Create the journal entry lines
-        for (const line of lines) {
-            if (!line.account_id) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'Account ID is required for all journal entry lines' });
-            }
-            
-            if (!line.fund_id) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'Fund ID is required for all journal entry lines' });
-            }
-            
-            // Each line must contain a non-zero debit or credit amount
-            if ((line.debit || 0) === 0 && (line.credit || 0) === 0) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'Each line must have either a debit or credit amount' });
-            }
-            
-            await client.query(`
-                INSERT INTO journal_entry_items (
-                    journal_entry_id,
-                    account_id,
-                    fund_id,
-                    debit,
-                    credit,
-                    description
-                ) VALUES ($1, $2, $3, $4, $5, $6)
-            `, [
-                journalEntryId,
-                line.account_id,
-                line.fund_id,
-                line.debit || 0,
-                line.credit || 0,
-                line.description || ''
-            ]);
-            
-            // Update account balances
-            if (line.debit && line.debit > 0) {
+
+        // Create the journal entry lines (if provided)
+        if (hasLines) {
+            for (const line of lines) {
+                if (!line.account_id) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ error: 'Account ID is required for all journal entry lines' });
+                }
+
+                if (!line.fund_id) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ error: 'Fund ID is required for all journal entry lines' });
+                }
+
+                // Each line must contain a non-zero debit or credit amount
+                if ((line.debit || 0) === 0 && (line.credit || 0) === 0) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ error: 'Each line must have either a debit or credit amount' });
+                }
+
                 await client.query(`
-                    UPDATE accounts
-                    SET balance = balance + $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.debit, line.account_id]);
-            }
-            
-            if (line.credit && line.credit > 0) {
-                await client.query(`
-                    UPDATE accounts
-                    SET balance = balance - $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.credit, line.account_id]);
-            }
-            
-            // Update fund balances
-            if (line.debit && line.debit > 0) {
-                await client.query(`
-                    UPDATE funds
-                    SET balance = balance + $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.debit, line.fund_id]);
-            }
-            
-            if (line.credit && line.credit > 0) {
-                await client.query(`
-                    UPDATE funds
-                    SET balance = balance - $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.credit, line.fund_id]);
+                    INSERT INTO journal_entry_items (
+                        journal_entry_id,
+                        account_id,
+                        fund_id,
+                        debit,
+                        credit,
+                        description
+                    ) VALUES ($1, $2, $3, $4, $5, $6)
+                `, [
+                    journalEntryId,
+                    line.account_id,
+                    line.fund_id,
+                    line.debit || 0,
+                    line.credit || 0,
+                    line.description || ''
+                ]);
+
+                // Update account balances
+                if (line.debit && line.debit > 0) {
+                    await client.query(`
+                        UPDATE accounts
+                        SET balance = balance + $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                    `, [line.debit, line.account_id]);
+                }
+
+                if (line.credit && line.credit > 0) {
+                    await client.query(`
+                        UPDATE accounts
+                        SET balance = balance - $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                    `, [line.credit, line.account_id]);
+                }
+
+                // Update fund balances
+                if (line.debit && line.debit > 0) {
+                    await client.query(`
+                        UPDATE funds
+                        SET balance = balance + $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                    `, [line.debit, line.fund_id]);
+                }
+
+                if (line.credit && line.credit > 0) {
+                    await client.query(`
+                        UPDATE funds
+                        SET balance = balance - $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                    `, [line.credit, line.fund_id]);
+                }
             }
         }
-        
+
         await client.query('COMMIT');
-        
+
         // Get the complete journal entry with lines
         const { rows } = await pool.query(`
             SELECT je.*, 
@@ -324,7 +324,7 @@ router.post('/', asyncHandler(async (req, res) => {
             LEFT JOIN entities te ON je.target_entity_id = te.id
             WHERE je.id = $1
         `, [journalEntryId]);
-        
+
         // Get the lines
         const linesResult = await pool.query(`
             SELECT jel.*, 
@@ -338,10 +338,10 @@ router.post('/', asyncHandler(async (req, res) => {
             WHERE jel.journal_entry_id = $1
             ORDER BY jel.id
         `, [journalEntryId]);
-        
+
         const result = rows[0];
         result.lines = linesResult.rows;
-        
+
         res.status(201).json(result);
     } catch (error) {
         await client.query('ROLLBACK');
@@ -408,6 +408,163 @@ router.put('/:id', asyncHandler(async (req, res) => {
     ]);
     
     res.json(rows[0]);
+}));
+
+/**
+ * DELETE /api/journal-entries/:id/items
+ * Deletes all line items for a journal entry and reverses their balance effects.
+ */
+router.delete('/:id/items', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Fetch existing lines
+        const { rows: existing } = await client.query(
+            'SELECT * FROM journal_entry_items WHERE journal_entry_id = $1',
+            [id]
+        );
+
+        // If no entry, 404
+        const check = await client.query('SELECT id FROM journal_entries WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Journal entry not found' });
+        }
+
+        // Reverse balances for existing lines
+        for (const line of existing) {
+            if (line.debit && line.debit > 0) {
+                await client.query(
+                    'UPDATE accounts SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
+                    [line.debit, line.account_id]
+                );
+                await client.query(
+                    'UPDATE funds SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
+                    [line.debit, line.fund_id]
+                );
+            }
+            if (line.credit && line.credit > 0) {
+                await client.query(
+                    'UPDATE accounts SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
+                    [line.credit, line.account_id]
+                );
+                await client.query(
+                    'UPDATE funds SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
+                    [line.credit, line.fund_id]
+                );
+            }
+        }
+
+        // Delete lines and reset total_amount
+        await client.query('DELETE FROM journal_entry_items WHERE journal_entry_id = $1', [id]);
+        await client.query('UPDATE journal_entries SET total_amount = 0, updated_at = NOW() WHERE id = $1', [id]);
+
+        await client.query('COMMIT');
+        res.status(204).send();
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}));
+
+/**
+ * POST /api/journal-entries/:id/items
+ * Replaces the line items for a journal entry (inserts provided items) and updates balances and total_amount.
+ */
+router.post('/:id/items', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { items } = req.body || {};
+
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Items array is required' });
+    }
+
+    // Validate balanced
+    let totalDebits = 0;
+    let totalCredits = 0;
+    for (const line of items) {
+        totalDebits += parseFloat(line.debit || 0);
+        totalCredits += parseFloat(line.credit || 0);
+    }
+    totalDebits = Math.round(totalDebits * 100) / 100;
+    totalCredits = Math.round(totalCredits * 100) / 100;
+    if (totalDebits !== totalCredits) {
+        return res.status(400).json({
+            error: 'Invalid journal entry: Debits must equal credits',
+            details: `Total debits (${totalDebits}) do not equal total credits (${totalCredits})`
+        });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const check = await client.query('SELECT id FROM journal_entries WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Journal entry not found' });
+        }
+
+        // Insert new lines
+        for (const line of items) {
+            if (!line.account_id) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Account ID is required for all journal entry lines' });
+            }
+            if (!line.fund_id) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Fund ID is required for all journal entry lines' });
+            }
+            if ((line.debit || 0) === 0 && (line.credit || 0) === 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Each line must have either a debit or credit amount' });
+            }
+
+            await client.query(
+                `INSERT INTO journal_entry_items (
+                    journal_entry_id, account_id, fund_id, debit, credit, description
+                ) VALUES ($1, $2, $3, $4, $5, $6)`,
+                [id, line.account_id, line.fund_id, line.debit || 0, line.credit || 0, line.description || '']
+            );
+
+            if (line.debit && line.debit > 0) {
+                await client.query('UPDATE accounts SET balance = balance + $1, updated_at = NOW() WHERE id = $2', [line.debit, line.account_id]);
+                await client.query('UPDATE funds SET balance = balance + $1, updated_at = NOW() WHERE id = $2', [line.debit, line.fund_id]);
+            }
+            if (line.credit && line.credit > 0) {
+                await client.query('UPDATE accounts SET balance = balance - $1, updated_at = NOW() WHERE id = $2', [line.credit, line.account_id]);
+                await client.query('UPDATE funds SET balance = balance - $1, updated_at = NOW() WHERE id = $2', [line.credit, line.fund_id]);
+            }
+        }
+
+        // Update JE total_amount
+        await client.query('UPDATE journal_entries SET total_amount = $1, updated_at = NOW() WHERE id = $2', [totalDebits, id]);
+
+        await client.query('COMMIT');
+
+        // Return updated lines
+        const { rows } = await pool.query(
+            `SELECT jel.*, a.description as account_description, a.code as account_code, f.name as fund_name, f.code as fund_code
+             FROM journal_entry_items jel
+             LEFT JOIN accounts a ON jel.account_id = a.id
+             LEFT JOIN funds f ON jel.fund_id = f.id
+             WHERE jel.journal_entry_id = $1
+             ORDER BY jel.id`,
+            [id]
+        );
+
+        res.status(201).json({ items: rows });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 }));
 
 /**

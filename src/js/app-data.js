@@ -95,7 +95,22 @@ export async function saveData(endpoint, data, method = 'POST') {
             body: JSON.stringify(data)
         });
         if (!response.ok) {
-            const err = new Error(`API Error: ${response.status}`);
+            let msg = `API Error: ${response.status}`;
+            try {
+                const ctype = response.headers.get('content-type') || '';
+                if (ctype.includes('application/json')) {
+                    const j = await response.json();
+                    const base = j.error || '';
+                    const details = j.details || '';
+                    msg = details ? `${base} — ${details}` : base || msg;
+                } else {
+                    const text = await response.text();
+                    msg = text || msg;
+                }
+            } catch (_) {
+                /* ignore parse errors */
+            }
+            const err = new Error(msg);
             err.status = response.status;
             throw err;
         }
