@@ -1220,7 +1220,7 @@ export async function saveJournalEntry(event) {
         hideModal('journal-entry-modal');
     } catch (error) {
         console.error('Error saving journal entry:', error);
-        showToast('Error saving journal entry', 'error');
+        showToast(error?.message || 'Error saving journal entry', 'error');
     }
 }
 

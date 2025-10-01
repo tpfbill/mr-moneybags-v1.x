@@ -99,13 +99,28 @@ export async function saveData(endpoint, data, method = 'POST') {
             try {
                 const ctype = response.headers.get('content-type') || '';
                 if (ctype.includes('application/json')) {
-                    const j = await response.json();
-                    const base = j.error || '';
-                    const details = j.details || '';
-                    msg = details ? `${base} — ${details}` : base || msg;
+                    const body = await response.json();
+                    // Prefer nested error.message when present (our API shape)
+                    let base = '';
+                    if (typeof body === 'string') {
+                        base = body;
+                    } else if (body?.message) {
+                        base = body.message;
+                    } else if (body?.error) {
+                        const errObj = body.error;
+                        if (typeof errObj === 'string') base = errObj;
+                        else if (typeof errObj?.message === 'string') base = errObj.message;
+                        else base = JSON.stringify(errObj);
+                    }
+                    // Include details when available
+                    const details = body?.details || body?.error?.details || '';
+                    msg = [base || '', details || '']
+                        .filter(Boolean)
+                        .join(' — ')
+                        .trim() || msg;
                 } else {
                     const text = await response.text();
-                    msg = text || msg;
+                    msg = (text || '').trim() || msg;
                 }
             } catch (_) {
                 /* ignore parse errors */
