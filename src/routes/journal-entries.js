@@ -17,6 +17,57 @@ async function hasColumn(db, table, column) {
     }
 }
 
+// Helper: build safe SELECT fragments for account and fund label columns
+async function getAccountFundSelectFragments(db) {
+    // Accounts: prefer account_code; fallback to code; else derive from entity_code-gl_code-fund_number
+    const hasAccAccountCode = await hasColumn(db, 'accounts', 'account_code');
+    const hasAccCode = await hasColumn(db, 'accounts', 'code');
+    const hasAccEntity = await hasColumn(db, 'accounts', 'entity_code');
+    const hasAccGL = await hasColumn(db, 'accounts', 'gl_code');
+    const hasAccFundNum = await hasColumn(db, 'accounts', 'fund_number');
+    let accCodeExpr = 'NULL';
+    if (hasAccAccountCode) accCodeExpr = 'a.account_code';
+    else if (hasAccCode) accCodeExpr = 'a.code';
+    else if (hasAccEntity && hasAccGL && hasAccFundNum) accCodeExpr = "(a.entity_code || '-' || a.gl_code || '-' || a.fund_number)";
+
+    // Funds: prefer fund_name/fund_code; fallback to name/code when present; else NULL
+    const hasFundName = await hasColumn(db, 'funds', 'fund_name');
+    const hasFundCode = await hasColumn(db, 'funds', 'fund_code');
+    const hasName = await hasColumn(db, 'funds', 'name');
+    const hasCode = await hasColumn(db, 'funds', 'code');
+    const fundNameExpr = hasFundName ? 'f.fund_name' : (hasName ? 'f.name' : 'NULL');
+    const fundCodeExpr = hasFundCode ? 'f.fund_code' : (hasCode ? 'f.code' : 'NULL');
+
+    return { accCodeExpr, fundNameExpr, fundCodeExpr };
+}
+
+// Helpers: safely bump balances only if columns exist
+async function maybeUpdateAccountBalance(db, accountId, delta) {
+    if (!delta || !accountId) return;
+    const hasBal = await hasColumn(db, 'accounts', 'balance');
+    const hasCurr = await hasColumn(db, 'accounts', 'current_balance');
+    if (hasBal) {
+        await db.query('UPDATE accounts SET balance = balance + $1 WHERE id = $2', [delta, accountId]);
+    } else if (hasCurr) {
+        await db.query('UPDATE accounts SET current_balance = current_balance + $1 WHERE id = $2', [delta, accountId]);
+    } else {
+        // No balance column – skip
+    }
+}
+
+async function maybeUpdateFundBalance(db, fundId, delta) {
+    if (!delta || !fundId) return;
+    const hasBal = await hasColumn(db, 'funds', 'balance');
+    const hasCurr = await hasColumn(db, 'funds', 'current_balance');
+    if (hasBal) {
+        await db.query('UPDATE funds SET balance = balance + $1 WHERE id = $2', [delta, fundId]);
+    } else if (hasCurr) {
+        await db.query('UPDATE funds SET current_balance = current_balance + $1 WHERE id = $2', [delta, fundId]);
+    } else {
+        // No balance column – skip
+    }
+}
+
 /**
  * GET /api/journal-entries
  * Returns all journal entries, optionally filtered by entity_id, date range, or status
@@ -72,7 +123,8 @@ router.get('/', asyncHandler(async (req, res) => {
         } catch (_) { /* ignore if introspection fails */ }
     }
     
-    query += ` ORDER BY je.entry_date DESC, je.created_at DESC`;
+    // Order by entry_date then id to avoid relying on optional created_at column
+    query += ` ORDER BY je.entry_date DESC, je.id DESC`;
     
     if (limit && !isNaN(parseInt(limit))) {
         query += ` LIMIT $${paramIndex++}`;
@@ -106,18 +158,20 @@ router.get('/:id', asyncHandler(async (req, res) => {
     }
     
     // Get the journal entry lines
-    const linesResult = await pool.query(`
-        SELECT jel.*, 
-               a.description as account_description,
-               a.code as account_code,
-               f.name as fund_name,
-               f.code as fund_code
-        FROM journal_entry_items jel
-        LEFT JOIN accounts a ON jel.account_id = a.id
-        LEFT JOIN funds f ON jel.fund_id = f.id
-        WHERE jel.journal_entry_id = $1
-        ORDER BY jel.id
-    `, [id]);
+    const { accCodeExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const linesResult = await pool.query(
+        `SELECT jel.*,
+                a.description as account_description,
+                ${accCodeExpr} as account_code,
+                ${fundNameExpr} as fund_name,
+                ${fundCodeExpr} as fund_code
+         FROM journal_entry_items jel
+         LEFT JOIN accounts a ON jel.account_id = a.id
+         LEFT JOIN funds f ON jel.fund_id = f.id
+         WHERE jel.journal_entry_id = $1
+         ORDER BY jel.id`,
+        [id]
+    );
     
     // Combine entry with its lines
     const entry = entryResult.rows[0];
@@ -133,18 +187,20 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.get('/:id/lines', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    const { rows } = await pool.query(`
-        SELECT jel.*, 
-               a.description as account_description,
-               a.code as account_code,
-               f.name as fund_name,
-               f.code as fund_code
-        FROM journal_entry_items jel
-        LEFT JOIN accounts a ON jel.account_id = a.id
-        LEFT JOIN funds f ON jel.fund_id = f.id
-        WHERE jel.journal_entry_id = $1
-        ORDER BY jel.id
-    `, [id]);
+    const { accCodeExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const { rows } = await pool.query(
+        `SELECT jel.*,
+                a.description as account_description,
+                ${accCodeExpr} as account_code,
+                ${fundNameExpr} as fund_name,
+                ${fundCodeExpr} as fund_code
+         FROM journal_entry_items jel
+         LEFT JOIN accounts a ON jel.account_id = a.id
+         LEFT JOIN funds f ON jel.fund_id = f.id
+         WHERE jel.journal_entry_id = $1
+         ORDER BY jel.id`,
+        [id]
+    );
     
     res.json(rows);
 }));
@@ -272,42 +328,14 @@ router.post('/', asyncHandler(async (req, res) => {
                     line.description || ''
                 ]);
 
-                // Update account balances
+                // Update balances (schema-aware)
                 if (line.debit && line.debit > 0) {
-                    await client.query(`
-                        UPDATE accounts
-                        SET balance = balance + $1,
-                            updated_at = NOW()
-                        WHERE id = $2
-                    `, [line.debit, line.account_id]);
+                    await maybeUpdateAccountBalance(client, line.account_id, line.debit);
+                    await maybeUpdateFundBalance(client, line.fund_id, line.debit);
                 }
-
                 if (line.credit && line.credit > 0) {
-                    await client.query(`
-                        UPDATE accounts
-                        SET balance = balance - $1,
-                            updated_at = NOW()
-                        WHERE id = $2
-                    `, [line.credit, line.account_id]);
-                }
-
-                // Update fund balances
-                if (line.debit && line.debit > 0) {
-                    await client.query(`
-                        UPDATE funds
-                        SET balance = balance + $1,
-                            updated_at = NOW()
-                        WHERE id = $2
-                    `, [line.debit, line.fund_id]);
-                }
-
-                if (line.credit && line.credit > 0) {
-                    await client.query(`
-                        UPDATE funds
-                        SET balance = balance - $1,
-                            updated_at = NOW()
-                        WHERE id = $2
-                    `, [line.credit, line.fund_id]);
+                    await maybeUpdateAccountBalance(client, line.account_id, -line.credit);
+                    await maybeUpdateFundBalance(client, line.fund_id, -line.credit);
                 }
             }
         }
@@ -326,18 +354,20 @@ router.post('/', asyncHandler(async (req, res) => {
         `, [journalEntryId]);
 
         // Get the lines
-        const linesResult = await pool.query(`
-            SELECT jel.*, 
-                   a.description as account_description,
-                   a.code as account_code,
-                   f.name as fund_name,
-                   f.code as fund_code
-            FROM journal_entry_items jel
-            LEFT JOIN accounts a ON jel.account_id = a.id
-            LEFT JOIN funds f ON jel.fund_id = f.id
-            WHERE jel.journal_entry_id = $1
-            ORDER BY jel.id
-        `, [journalEntryId]);
+        const sel1 = await getAccountFundSelectFragments(pool);
+        const linesResult = await pool.query(
+            `SELECT jel.*,
+                    a.description as account_description,
+                    ${sel1.accCodeExpr} as account_code,
+                    ${sel1.fundNameExpr} as fund_name,
+                    ${sel1.fundCodeExpr} as fund_code
+             FROM journal_entry_items jel
+             LEFT JOIN accounts a ON jel.account_id = a.id
+             LEFT JOIN funds f ON jel.fund_id = f.id
+             WHERE jel.journal_entry_id = $1
+             ORDER BY jel.id`,
+            [journalEntryId]
+        );
 
         const result = rows[0];
         result.lines = linesResult.rows;
@@ -392,8 +422,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
             reference_number = $4,
             description = $5,
             status = $6,
-            is_inter_entity = $7,
-            updated_at = NOW()
+            is_inter_entity = $7
         WHERE id = $8
         RETURNING *
     `, [
@@ -406,7 +435,13 @@ router.put('/:id', asyncHandler(async (req, res) => {
         is_inter_entity,
         id
     ]);
-    
+
+    try {
+        if (await hasColumn(pool, 'journal_entries', 'updated_at')) {
+            await pool.query('UPDATE journal_entries SET updated_at = NOW() WHERE id = $1', [id]);
+        }
+    } catch (_) { /* ignore */ }
+
     res.json(rows[0]);
 }));
 
@@ -437,30 +472,23 @@ router.delete('/:id/items', asyncHandler(async (req, res) => {
         // Reverse balances for existing lines
         for (const line of existing) {
             if (line.debit && line.debit > 0) {
-                await client.query(
-                    'UPDATE accounts SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
-                    [line.debit, line.account_id]
-                );
-                await client.query(
-                    'UPDATE funds SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
-                    [line.debit, line.fund_id]
-                );
+                await maybeUpdateAccountBalance(client, line.account_id, -line.debit);
+                await maybeUpdateFundBalance(client, line.fund_id, -line.debit);
             }
             if (line.credit && line.credit > 0) {
-                await client.query(
-                    'UPDATE accounts SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
-                    [line.credit, line.account_id]
-                );
-                await client.query(
-                    'UPDATE funds SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
-                    [line.credit, line.fund_id]
-                );
+                await maybeUpdateAccountBalance(client, line.account_id, line.credit);
+                await maybeUpdateFundBalance(client, line.fund_id, line.credit);
             }
         }
 
         // Delete lines and reset total_amount
         await client.query('DELETE FROM journal_entry_items WHERE journal_entry_id = $1', [id]);
-        await client.query('UPDATE journal_entries SET total_amount = 0, updated_at = NOW() WHERE id = $1', [id]);
+        await client.query('UPDATE journal_entries SET total_amount = 0 WHERE id = $1', [id]);
+        try {
+            if (await hasColumn(client, 'journal_entries', 'updated_at')) {
+                await client.query('UPDATE journal_entries SET updated_at = NOW() WHERE id = $1', [id]);
+            }
+        } catch (_) { /* ignore */ }
 
         await client.query('COMMIT');
         res.status(204).send();
@@ -533,23 +561,33 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
             );
 
             if (line.debit && line.debit > 0) {
-                await client.query('UPDATE accounts SET balance = balance + $1, updated_at = NOW() WHERE id = $2', [line.debit, line.account_id]);
-                await client.query('UPDATE funds SET balance = balance + $1, updated_at = NOW() WHERE id = $2', [line.debit, line.fund_id]);
+                await maybeUpdateAccountBalance(client, line.account_id, line.debit);
+                await maybeUpdateFundBalance(client, line.fund_id, line.debit);
             }
             if (line.credit && line.credit > 0) {
-                await client.query('UPDATE accounts SET balance = balance - $1, updated_at = NOW() WHERE id = $2', [line.credit, line.account_id]);
-                await client.query('UPDATE funds SET balance = balance - $1, updated_at = NOW() WHERE id = $2', [line.credit, line.fund_id]);
+                await maybeUpdateAccountBalance(client, line.account_id, -line.credit);
+                await maybeUpdateFundBalance(client, line.fund_id, -line.credit);
             }
         }
 
         // Update JE total_amount
-        await client.query('UPDATE journal_entries SET total_amount = $1, updated_at = NOW() WHERE id = $2', [totalDebits, id]);
+        await client.query('UPDATE journal_entries SET total_amount = $1 WHERE id = $2', [totalDebits, id]);
+        try {
+            if (await hasColumn(client, 'journal_entries', 'updated_at')) {
+                await client.query('UPDATE journal_entries SET updated_at = NOW() WHERE id = $1', [id]);
+            }
+        } catch (_) { /* ignore */ }
 
         await client.query('COMMIT');
 
         // Return updated lines
+        const sel2 = await getAccountFundSelectFragments(pool);
         const { rows } = await pool.query(
-            `SELECT jel.*, a.description as account_description, a.code as account_code, f.name as fund_name, f.code as fund_code
+            `SELECT jel.*,
+                    a.description as account_description,
+                    ${sel2.accCodeExpr} as account_code,
+                    ${sel2.fundNameExpr} as fund_name,
+                    ${sel2.fundCodeExpr} as fund_code
              FROM journal_entry_items jel
              LEFT JOIN accounts a ON jel.account_id = a.id
              LEFT JOIN funds f ON jel.fund_id = f.id
@@ -580,9 +618,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
         await client.query('BEGIN');
         
         // Get the journal entry lines to reverse account and fund balances
-        const linesResult = await client.query(`
-            SELECT * FROM journal_entry_items WHERE journal_entry_id = $1
-        `, [id]);
+        const linesResult = await client.query('SELECT * FROM journal_entry_items WHERE journal_entry_id = $1', [id]);
         
         if (linesResult.rows.length === 0) {
             // No lines found, check if the journal entry exists
@@ -595,42 +631,13 @@ router.delete('/:id', asyncHandler(async (req, res) => {
         
         // Reverse account and fund balances
         for (const line of linesResult.rows) {
-            // Reverse account balances
             if (line.debit && line.debit > 0) {
-                await client.query(`
-                    UPDATE accounts
-                    SET balance = balance - $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.debit, line.account_id]);
+                await maybeUpdateAccountBalance(client, line.account_id, -line.debit);
+                await maybeUpdateFundBalance(client, line.fund_id, -line.debit);
             }
-            
             if (line.credit && line.credit > 0) {
-                await client.query(`
-                    UPDATE accounts
-                    SET balance = balance + $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.credit, line.account_id]);
-            }
-            
-            // Reverse fund balances
-            if (line.debit && line.debit > 0) {
-                await client.query(`
-                    UPDATE funds
-                    SET balance = balance - $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.debit, line.fund_id]);
-            }
-            
-            if (line.credit && line.credit > 0) {
-                await client.query(`
-                    UPDATE funds
-                    SET balance = balance + $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                `, [line.credit, line.fund_id]);
+                await maybeUpdateAccountBalance(client, line.account_id, line.credit);
+                await maybeUpdateFundBalance(client, line.fund_id, line.credit);
             }
         }
         
