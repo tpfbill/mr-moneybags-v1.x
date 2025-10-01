@@ -256,33 +256,44 @@ router.post('/', asyncHandler(async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const hasEntryMode = await hasColumn(client, 'journal_entries', 'entry_mode');
 
-        // Create the journal entry (ensure entry_mode='Manual' when column exists)
-        const cols = [
-            'entity_id',
-            'target_entity_id',
-            'entry_date',
-            'reference_number',
-            'description',
-            'status',
-            'is_inter_entity',
-            'total_amount'
-        ];
-        const vals = [
-            entity_id,
-            target_entity_id,
-            entry_date,
-            reference_number,
-            description,
-            status || 'Posted',
-            is_inter_entity || false,
-            hasLines ? totalDebits : 0
-        ];
-        if (hasEntryMode) {
-            cols.push('entry_mode');
-            vals.push('Manual');
+        // Introspect journal_entries columns
+        const jeHas = {
+            entity_id: await hasColumn(client, 'journal_entries', 'entity_id'),
+            target_entity_id: await hasColumn(client, 'journal_entries', 'target_entity_id'),
+            entry_date: await hasColumn(client, 'journal_entries', 'entry_date'),
+            reference_number: await hasColumn(client, 'journal_entries', 'reference_number'),
+            reference: await hasColumn(client, 'journal_entries', 'reference'),
+            description: await hasColumn(client, 'journal_entries', 'description'),
+            status: await hasColumn(client, 'journal_entries', 'status'),
+            posted: await hasColumn(client, 'journal_entries', 'posted'),
+            is_inter_entity: await hasColumn(client, 'journal_entries', 'is_inter_entity'),
+            total_amount: await hasColumn(client, 'journal_entries', 'total_amount'),
+            entry_mode: await hasColumn(client, 'journal_entries', 'entry_mode')
+        };
+
+        // Build INSERT dynamically based on existing columns
+        const cols = [];
+        const vals = [];
+        const add = (col, val) => { cols.push(col); vals.push(val); };
+
+        if (jeHas.entity_id) add('entity_id', entity_id);
+        if (jeHas.target_entity_id && typeof target_entity_id !== 'undefined') add('target_entity_id', target_entity_id);
+        if (jeHas.entry_date) add('entry_date', entry_date);
+        if (jeHas.reference_number) add('reference_number', reference_number);
+        else if (jeHas.reference) add('reference', reference_number);
+        if (jeHas.description && typeof description !== 'undefined') add('description', description);
+        if (jeHas.status) add('status', status || 'Posted');
+        if (jeHas.posted) add('posted', true);
+        if (jeHas.is_inter_entity && typeof is_inter_entity !== 'undefined') add('is_inter_entity', !!is_inter_entity);
+        if (jeHas.total_amount) add('total_amount', hasLines ? totalDebits : 0);
+        if (jeHas.entry_mode) add('entry_mode', 'Manual');
+
+        // Ensure we have at least minimal required columns
+        if (!jeHas.entity_id || !jeHas.entry_date) {
+            throw new Error('Journal entries schema missing required columns');
         }
+
         const ph = vals.map((_, i) => `$${i + 1}`).join(',');
         const entryResult = await client.query(
             `INSERT INTO journal_entries (${cols.join(',')}) VALUES (${ph}) RETURNING *`,
@@ -293,6 +304,10 @@ router.post('/', asyncHandler(async (req, res) => {
 
         // Create the journal entry lines (if provided)
         if (hasLines) {
+            const itemHas = {
+                description: await hasColumn(client, 'journal_entry_items', 'description'),
+                memo: await hasColumn(client, 'journal_entry_items', 'memo')
+            };
             for (const line of lines) {
                 if (!line.account_id) {
                     await client.query('ROLLBACK');
@@ -309,24 +324,21 @@ router.post('/', asyncHandler(async (req, res) => {
                     await client.query('ROLLBACK');
                     return res.status(400).json({ error: 'Each line must have either a debit or credit amount' });
                 }
-
-                await client.query(`
-                    INSERT INTO journal_entry_items (
-                        journal_entry_id,
-                        account_id,
-                        fund_id,
-                        debit,
-                        credit,
-                        description
-                    ) VALUES ($1, $2, $3, $4, $5, $6)
-                `, [
-                    journalEntryId,
-                    line.account_id,
-                    line.fund_id,
-                    line.debit || 0,
-                    line.credit || 0,
-                    line.description || ''
-                ]);
+                // Build item insert dynamically
+                const itemCols = ['journal_entry_id','account_id','fund_id','debit','credit'];
+                const itemVals = [journalEntryId, line.account_id, line.fund_id, line.debit || 0, line.credit || 0];
+                if (itemHas.description) {
+                    itemCols.push('description');
+                    itemVals.push(line.description || '');
+                } else if (itemHas.memo) {
+                    itemCols.push('memo');
+                    itemVals.push(line.description || '');
+                }
+                const itemPh = itemVals.map((_, i) => `$${i + 1}`).join(',');
+                await client.query(
+                    `INSERT INTO journal_entry_items (${itemCols.join(',')}) VALUES (${itemPh})`,
+                    itemVals
+                );
 
                 // Update balances (schema-aware)
                 if (line.debit && line.debit > 0) {
@@ -413,28 +425,49 @@ router.put('/:id', asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Journal entry not found' });
     }
     
-    // Update the journal entry (header only)
-    const { rows } = await pool.query(`
-        UPDATE journal_entries
-        SET entity_id = $1,
-            target_entity_id = $2,
-            entry_date = $3,
-            reference_number = $4,
-            description = $5,
-            status = $6,
-            is_inter_entity = $7
-        WHERE id = $8
-        RETURNING *
-    `, [
-        entity_id,
-        target_entity_id,
-        entry_date,
-        reference_number,
-        description,
-        status,
-        is_inter_entity,
-        id
-    ]);
+    // Introspect columns and build dynamic UPDATE
+    const jeHas = {
+        target_entity_id: await hasColumn(pool, 'journal_entries', 'target_entity_id'),
+        reference_number: await hasColumn(pool, 'journal_entries', 'reference_number'),
+        reference: await hasColumn(pool, 'journal_entries', 'reference'),
+        description: await hasColumn(pool, 'journal_entries', 'description'),
+        status: await hasColumn(pool, 'journal_entries', 'status'),
+        is_inter_entity: await hasColumn(pool, 'journal_entries', 'is_inter_entity')
+    };
+
+    const sets = ['entity_id = $1', 'entry_date = $2'];
+    const vals = [entity_id, entry_date];
+    let idx = 3;
+    if (jeHas.target_entity_id && typeof target_entity_id !== 'undefined') {
+        sets.push(`target_entity_id = $${idx++}`);
+        vals.push(target_entity_id);
+    }
+    if (jeHas.reference_number) {
+        sets.push(`reference_number = $${idx++}`);
+        vals.push(reference_number);
+    } else if (jeHas.reference) {
+        sets.push(`reference = $${idx++}`);
+        vals.push(reference_number);
+    }
+    if (jeHas.description && typeof description !== 'undefined') {
+        sets.push(`description = $${idx++}`);
+        vals.push(description);
+    }
+    if (jeHas.status && typeof status !== 'undefined') {
+        sets.push(`status = $${idx++}`);
+        vals.push(status);
+    }
+    if (jeHas.is_inter_entity && typeof is_inter_entity !== 'undefined') {
+        sets.push(`is_inter_entity = $${idx++}`);
+        vals.push(!!is_inter_entity);
+    }
+    sets.push(`id = id`); // no-op to simplify comma handling
+    vals.push(id);
+
+    const { rows } = await pool.query(
+        `UPDATE journal_entries SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+        vals
+    );
 
     try {
         if (await hasColumn(pool, 'journal_entries', 'updated_at')) {
@@ -553,12 +586,16 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
                 return res.status(400).json({ error: 'Each line must have either a debit or credit amount' });
             }
 
-            await client.query(
-                `INSERT INTO journal_entry_items (
-                    journal_entry_id, account_id, fund_id, debit, credit, description
-                ) VALUES ($1, $2, $3, $4, $5, $6)`,
-                [id, line.account_id, line.fund_id, line.debit || 0, line.credit || 0, line.description || '']
-            );
+            const itemHas = {
+                description: await hasColumn(client, 'journal_entry_items', 'description'),
+                memo: await hasColumn(client, 'journal_entry_items', 'memo')
+            };
+            const cols = ['journal_entry_id','account_id','fund_id','debit','credit'];
+            const vals = [id, line.account_id, line.fund_id, line.debit || 0, line.credit || 0];
+            if (itemHas.description) { cols.push('description'); vals.push(line.description || ''); }
+            else if (itemHas.memo) { cols.push('memo'); vals.push(line.description || ''); }
+            const ph = vals.map((_, i) => `$${i + 1}`).join(',');
+            await client.query(`INSERT INTO journal_entry_items (${cols.join(',')}) VALUES (${ph})`, vals);
 
             if (line.debit && line.debit > 0) {
                 await maybeUpdateAccountBalance(client, line.account_id, line.debit);
