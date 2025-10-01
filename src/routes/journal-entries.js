@@ -60,6 +60,12 @@ async function getAccountFundSelectFragments(db) {
     else if (hasAccCode) accCodeExpr = 'a.code';
     else if (hasAccEntity && hasAccGL && hasAccFundNum) accCodeExpr = "(a.entity_code || '-' || a.gl_code || '-' || a.fund_number)";
 
+    // Account description/name
+    const hasAccDesc = await hasColumn(db, 'accounts', 'description');
+    const hasAccName = await hasColumn(db, 'accounts', 'name');
+    const hasAccTitle = await hasColumn(db, 'accounts', 'title');
+    const accDescExpr = hasAccDesc ? 'a.description' : (hasAccName ? 'a.name' : (hasAccTitle ? 'a.title' : 'NULL'));
+
     // Funds: prefer fund_name/fund_code; fallback to name/code when present; else NULL
     const hasFundName = await hasColumn(db, 'funds', 'fund_name');
     const hasFundCode = await hasColumn(db, 'funds', 'fund_code');
@@ -68,7 +74,7 @@ async function getAccountFundSelectFragments(db) {
     const fundNameExpr = hasFundName ? 'f.fund_name' : (hasName ? 'f.name' : 'NULL');
     const fundCodeExpr = hasFundCode ? 'f.fund_code' : (hasCode ? 'f.code' : 'NULL');
 
-    return { accCodeExpr, fundNameExpr, fundCodeExpr };
+    return { accCodeExpr, accDescExpr, fundNameExpr, fundCodeExpr };
 }
 
 // Helpers: safely bump balances only if columns exist
@@ -226,13 +232,13 @@ router.get('/:id', asyncHandler(async (req, res) => {
     }
     
     // Get the journal entry lines
-    const { accCodeExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const { accCodeExpr, accDescExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
     const jeiCols = await getJeiCoreCols(pool);
     const linesResult = await pool.query(
         `SELECT jel.*,
                 COALESCE(jel.${jeiCols.debitCol}, 0)  AS debit,
                 COALESCE(jel.${jeiCols.creditCol}, 0) AS credit,
-                a.description as account_description,
+                ${accDescExpr} as account_description,
                 ${accCodeExpr} as account_code,
                 ${fundNameExpr} as fund_name,
                 ${fundCodeExpr} as fund_code
@@ -258,13 +264,13 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.get('/:id/lines', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    const { accCodeExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const { accCodeExpr, accDescExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
     const jeiCols = await getJeiCoreCols(pool);
     const { rows } = await pool.query(
         `SELECT jel.*,
                 COALESCE(jel.${jeiCols.debitCol}, 0)  AS debit,
                 COALESCE(jel.${jeiCols.creditCol}, 0) AS credit,
-                a.description as account_description,
+                ${accDescExpr} as account_description,
                 ${accCodeExpr} as account_code,
                 ${fundNameExpr} as fund_name,
                 ${fundCodeExpr} as fund_code
@@ -458,7 +464,7 @@ router.post('/', asyncHandler(async (req, res) => {
             `SELECT jel.*,
                     COALESCE(jel.${jeiCols2.debitCol}, 0)  AS debit,
                     COALESCE(jel.${jeiCols2.creditCol}, 0) AS credit,
-                    a.description as account_description,
+                    ${sel1.accDescExpr} as account_description,
                     ${sel1.accCodeExpr} as account_code,
                     ${sel1.fundNameExpr} as fund_name,
                     ${sel1.fundCodeExpr} as fund_code
@@ -715,7 +721,7 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
             `SELECT jel.*,
                     COALESCE(jel.${jeiCols2.debitCol}, 0)  AS debit,
                     COALESCE(jel.${jeiCols2.creditCol}, 0) AS credit,
-                    a.description as account_description,
+                    ${sel2.accDescExpr} as account_description,
                     ${sel2.accCodeExpr} as account_code,
                     ${sel2.fundNameExpr} as fund_name,
                     ${sel2.fundCodeExpr} as fund_code
