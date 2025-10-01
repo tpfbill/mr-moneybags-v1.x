@@ -84,29 +84,11 @@ async function getAccountFundSelectFragments(db) {
 
 // Helpers: safely bump balances only if columns exist
 async function maybeUpdateAccountBalance(db, accountId, delta) {
-    if (!delta || !accountId) return;
-    const hasBal = await hasColumn(db, 'accounts', 'balance');
-    const hasCurr = await hasColumn(db, 'accounts', 'current_balance');
-    if (hasBal) {
-        await db.query('UPDATE accounts SET balance = balance + $1 WHERE id = $2', [delta, accountId]);
-    } else if (hasCurr) {
-        await db.query('UPDATE accounts SET current_balance = current_balance + $1 WHERE id = $2', [delta, accountId]);
-    } else {
-        // No balance column – skip
-    }
+    return;
 }
 
 async function maybeUpdateFundBalance(db, fundId, delta) {
-    if (!delta || !fundId) return;
-    const hasBal = await hasColumn(db, 'funds', 'balance');
-    const hasCurr = await hasColumn(db, 'funds', 'current_balance');
-    if (hasBal) {
-        await db.query('UPDATE funds SET balance = balance + $1 WHERE id = $2', [delta, fundId]);
-    } else if (hasCurr) {
-        await db.query('UPDATE funds SET current_balance = current_balance + $1 WHERE id = $2', [delta, fundId]);
-    } else {
-        // No balance column – skip
-    }
+    return;
 }
 
 // Helper to choose best entity display label
