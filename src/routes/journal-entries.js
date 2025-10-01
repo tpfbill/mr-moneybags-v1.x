@@ -230,6 +230,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const jeiCols = await getJeiCoreCols(pool);
     const linesResult = await pool.query(
         `SELECT jel.*,
+                COALESCE(jel.${jeiCols.debitCol}, 0)  AS debit,
+                COALESCE(jel.${jeiCols.creditCol}, 0) AS credit,
                 a.description as account_description,
                 ${accCodeExpr} as account_code,
                 ${fundNameExpr} as fund_name,
@@ -260,6 +262,8 @@ router.get('/:id/lines', asyncHandler(async (req, res) => {
     const jeiCols = await getJeiCoreCols(pool);
     const { rows } = await pool.query(
         `SELECT jel.*,
+                COALESCE(jel.${jeiCols.debitCol}, 0)  AS debit,
+                COALESCE(jel.${jeiCols.creditCol}, 0) AS credit,
                 a.description as account_description,
                 ${accCodeExpr} as account_code,
                 ${fundNameExpr} as fund_name,
@@ -452,6 +456,8 @@ router.post('/', asyncHandler(async (req, res) => {
         const jeiCols2 = await getJeiCoreCols(pool);
         const linesResult = await pool.query(
             `SELECT jel.*,
+                    COALESCE(jel.${jeiCols2.debitCol}, 0)  AS debit,
+                    COALESCE(jel.${jeiCols2.creditCol}, 0) AS credit,
                     a.description as account_description,
                     ${sel1.accCodeExpr} as account_code,
                     ${sel1.fundNameExpr} as fund_name,
@@ -707,6 +713,8 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
         const jeiCols2 = await getJeiCoreCols(pool);
         const { rows } = await pool.query(
             `SELECT jel.*,
+                    COALESCE(jel.${jeiCols2.debitCol}, 0)  AS debit,
+                    COALESCE(jel.${jeiCols2.creditCol}, 0) AS credit,
                     a.description as account_description,
                     ${sel2.accCodeExpr} as account_code,
                     ${sel2.fundNameExpr} as fund_name,
