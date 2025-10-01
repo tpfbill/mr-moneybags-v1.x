@@ -884,9 +884,12 @@ export async function openJournalEntryModal(id, readOnly = false) {
     // Set modal title
     title.textContent = id ? (readOnly ? 'View Journal Entry' : 'Edit Journal Entry') : 'Create Journal Entry';
     
-    // Set button visibility
+    // Set button visibility (Post button removed in UI; force-hide if present)
     saveButton.style.display = readOnly ? 'none' : 'inline-block';
-    postButton?.style.display = (id && !readOnly) ? 'inline-block' : 'none';
+    if (postButton) {
+        // Remove legacy Post button to avoid confusion
+        postButton.remove();
+    }
     
     // Populate entity dropdown
     const entitySelect = form.querySelector('#journal-entry-entity-id');
