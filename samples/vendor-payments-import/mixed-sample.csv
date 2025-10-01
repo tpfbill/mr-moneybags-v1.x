@@ -1,0 +1,6 @@
+Bank,Payment ID,Account No.,Payment Type,Reference,Amount,Effective Date,Vendor zID,Vendor Name,Memo,Invoice Number
+First National,,ENT1 6000 1001 U,EFT,REF-PAYRUN-001,1250.00,2025-10-01,VEND-001,Acme Supplies,Office supplies,INV-1001
+First National,,ENT1 6000 1001 U,EFT,REF-PAYRUN-001,980.50,2025-10-01,VEND-002,Blue Cleaning,Monthly janitorial,INV-2003
+Community Bank,PMT-12345,ENT2 6100 2002 U,CHECK,COMP-001,450.75,2025-09-28,VEND-003,City Utilities,Electric bill,INV-UT-889
+First National,,ENT1 6000 1001 U,EFT,REF-PAYRUN-002,300.00,2025-10-02,VEND-001,Acme Supplies,Printer toner,INV-1010
+Metro Credit,,ENT3 7000 3003 R,EFT,REF-PAYRUN-003,1575.25,2025-10-03,VEND-004,Green Landscapes,Groundskeeping,INV-GL-050

@@ -1,0 +1,3 @@
+Bank,Payment ID,Account No.,Payment Type,Reference,Amount,Effective Date,Vendor zID,Vendor Name,Memo,Invoice Number
+The Principle Foundation,,TPF_PARENT 5000 GEN 00,EFT,REF-PAYRUN-TPF-001,250.00,2025-10-01,,Educational Supplies Inc,Classroom materials,INV-EDU-001
+The Principle Foundation,,TPF_PARENT 5000 EDU 01,EFT,REF-PAYRUN-TPF-001,375.50,2025-10-01,,Office Supplies Co,Office paper,INV-OFF-010

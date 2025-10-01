@@ -39,6 +39,7 @@ const usersRoutes          = require('./src/routes/users');
 const reportsRoutes        = require('./src/routes/reports');
 const importRoutes         = require('./src/routes/import');
 const glCodesRoutes        = require('./src/routes/gl-codes'); // NEW
+const paymentsImportRoutes = require('./src/routes/payments-import'); // NEW
 
 // Import inter-entity transfer helper
 const registerInterEntityTransferRoutes = require('./src/js/inter-entity-transfer-api');
@@ -185,14 +186,12 @@ app.use('/api/gl-codes', requireAuth, glCodesRoutes);
 // Configuration & processing
 app.use('/api/nacha-settings', requireAuth, nachaSettingsRoutes);
 app.use('/api/nacha-files',    requireAuth, nachaFilesRoutes);
-app.use('/api/payment-batches',requireAuth, paymentBatchesRoutes);
-
-console.log('Route registered: /api/nacha-files');
 
 app.use('/api/vendors', requireAuth, vendorsRoutes);
 
 // Financial transactions & balances
 app.use('/api/journal-entries', requireAuth, journalEntriesRoutes);
+app.use('/api/payment-batches', requireAuth, paymentBatchesRoutes);
 app.use('/api/bank-accounts',   requireAuth, bankAccountsRoutes);
 app.use('/api/bank-deposits',   requireAuth, bankDepositsRoutes); // NEW
 app.use('/api/checks',          requireAuth, checkPrintingRoutes); // NEW
@@ -205,6 +204,9 @@ app.use('/api/users', requireAuth, usersRoutes);
 // Reporting & data import
 app.use('/api/reports', requireAuth, reportsRoutes);
 app.use('/api/import',  requireAuth, importRoutes);
+// Unified Vendor Payments import (analyze/process/status)
+app.use('/api/vendor-payments/import', requireAuth, paymentsImportRoutes);
+// (Temporary ping removed)
 
 // Bank reconciliation routes
 app.use(

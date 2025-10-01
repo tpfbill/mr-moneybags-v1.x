@@ -9,7 +9,7 @@ const { asyncHandler } = require('../utils/helpers');
  * Returns all journal entries, optionally filtered by entity_id, date range, or status
  */
 router.get('/', asyncHandler(async (req, res) => {
-    const { entity_id, from_date, to_date, status, limit } = req.query;
+    const { entity_id, from_date, to_date, status, limit, entry_mode } = req.query;
     
     let query = `
         SELECT je.*, 
@@ -43,6 +43,20 @@ router.get('/', asyncHandler(async (req, res) => {
     if (status) {
         query += ` AND je.status = $${paramIndex++}`;
         params.push(status);
+    }
+    
+    // Optional entry_mode filter (Manual/Auto) when column exists
+    if (entry_mode && entry_mode.toLowerCase() !== 'all') {
+        try {
+            const colCheck = await pool.query(
+                `SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'journal_entries' AND column_name = 'entry_mode' LIMIT 1`
+            );
+            if (colCheck.rows.length > 0) {
+                query += ` AND je.entry_mode = $${paramIndex++}`;
+                params.push(entry_mode);
+            }
+        } catch (_) { /* ignore if introspection fails */ }
     }
     
     query += ` ORDER BY je.entry_date DESC, je.created_at DESC`;
