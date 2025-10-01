@@ -8,13 +8,48 @@ const { asyncHandler } = require('../utils/helpers');
 async function hasColumn(db, table, column) {
     try {
         const q = await db.query(
-            `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`,
+            `SELECT 1
+               FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = $1
+                AND column_name = $2
+              LIMIT 1`,
             [table, column]
         );
         return q.rows.length > 0;
     } catch (_) {
         return false;
     }
+}
+
+// Detect core column names for journal_entry_items across schema variants
+async function getJeiCoreCols(db) {
+    // candidate lists ordered by preference
+    const candidates = {
+        journal_entry_id: ['journal_entry_id', 'entry_id', 'je_id'],
+        account_id: ['account_id', 'gl_account_id', 'acct_id', 'account'],
+        fund_id: ['fund_id', 'fund', 'fundid'],
+        debit: ['debit', 'debits', 'dr_amount', 'debit_amount', 'dr'],
+        credit: ['credit', 'credits', 'cr_amount', 'credit_amount', 'cr'],
+        description: ['description', 'memo', 'note']
+    };
+
+    const pick = async (logical) => {
+        for (const c of candidates[logical]) {
+            if (await hasColumn(db, 'journal_entry_items', c)) return c;
+        }
+        return null;
+    };
+
+    const cols = {
+        jeRef: await pick('journal_entry_id') || 'journal_entry_id',
+        accRef: await pick('account_id') || 'account_id',
+        fundRef: await pick('fund_id') || 'fund_id',
+        debitCol: await pick('debit') || 'debit',
+        creditCol: await pick('credit') || 'credit',
+        descCol: await pick('description') || 'description'
+    };
+    return cols;
 }
 
 // Helper: build safe SELECT fragments for account and fund label columns
@@ -30,6 +65,12 @@ async function getAccountFundSelectFragments(db) {
     else if (hasAccCode) accCodeExpr = 'a.code';
     else if (hasAccEntity && hasAccGL && hasAccFundNum) accCodeExpr = "(a.entity_code || '-' || a.gl_code || '-' || a.fund_number)";
 
+    // Account description/name
+    const hasAccDesc = await hasColumn(db, 'accounts', 'description');
+    const hasAccName = await hasColumn(db, 'accounts', 'name');
+    const hasAccTitle = await hasColumn(db, 'accounts', 'title');
+    const accDescExpr = hasAccDesc ? 'a.description' : (hasAccName ? 'a.name' : (hasAccTitle ? 'a.title' : 'NULL'));
+
     // Funds: prefer fund_name/fund_code; fallback to name/code when present; else NULL
     const hasFundName = await hasColumn(db, 'funds', 'fund_name');
     const hasFundCode = await hasColumn(db, 'funds', 'fund_code');
@@ -38,34 +79,16 @@ async function getAccountFundSelectFragments(db) {
     const fundNameExpr = hasFundName ? 'f.fund_name' : (hasName ? 'f.name' : 'NULL');
     const fundCodeExpr = hasFundCode ? 'f.fund_code' : (hasCode ? 'f.code' : 'NULL');
 
-    return { accCodeExpr, fundNameExpr, fundCodeExpr };
+    return { accCodeExpr, accDescExpr, fundNameExpr, fundCodeExpr };
 }
 
 // Helpers: safely bump balances only if columns exist
 async function maybeUpdateAccountBalance(db, accountId, delta) {
-    if (!delta || !accountId) return;
-    const hasBal = await hasColumn(db, 'accounts', 'balance');
-    const hasCurr = await hasColumn(db, 'accounts', 'current_balance');
-    if (hasBal) {
-        await db.query('UPDATE accounts SET balance = balance + $1 WHERE id = $2', [delta, accountId]);
-    } else if (hasCurr) {
-        await db.query('UPDATE accounts SET current_balance = current_balance + $1 WHERE id = $2', [delta, accountId]);
-    } else {
-        // No balance column – skip
-    }
+    return;
 }
 
 async function maybeUpdateFundBalance(db, fundId, delta) {
-    if (!delta || !fundId) return;
-    const hasBal = await hasColumn(db, 'funds', 'balance');
-    const hasCurr = await hasColumn(db, 'funds', 'current_balance');
-    if (hasBal) {
-        await db.query('UPDATE funds SET balance = balance + $1 WHERE id = $2', [delta, fundId]);
-    } else if (hasCurr) {
-        await db.query('UPDATE funds SET current_balance = current_balance + $1 WHERE id = $2', [delta, fundId]);
-    } else {
-        // No balance column – skip
-    }
+    return;
 }
 
 // Helper to choose best entity display label
@@ -102,7 +125,9 @@ router.get('/', asyncHandler(async (req, res) => {
         selectFields += `, ${targetNameExpr} as target_entity_name`;
         joins += ' LEFT JOIN entities te ON je.target_entity_id = te.id';
     }
-    selectFields += `, (SELECT COUNT(*) FROM journal_entry_items WHERE journal_entry_id = je.id) as line_count`;
+    // Count lines using schema-aware reference column
+    const jeiCols = await getJeiCoreCols(pool);
+    selectFields += `, (SELECT COUNT(*) FROM journal_entry_items WHERE ${jeiCols.jeRef} = je.id) as line_count`;
 
     let query = `SELECT ${selectFields} FROM journal_entries je${joins} WHERE 1=1`;
     
@@ -194,17 +219,20 @@ router.get('/:id', asyncHandler(async (req, res) => {
     }
     
     // Get the journal entry lines
-    const { accCodeExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const { accCodeExpr, accDescExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const jeiCols = await getJeiCoreCols(pool);
     const linesResult = await pool.query(
         `SELECT jel.*,
-                a.description as account_description,
+                COALESCE(jel.${jeiCols.debitCol}, 0)  AS debit,
+                COALESCE(jel.${jeiCols.creditCol}, 0) AS credit,
+                ${accDescExpr} as account_description,
                 ${accCodeExpr} as account_code,
                 ${fundNameExpr} as fund_name,
                 ${fundCodeExpr} as fund_code
          FROM journal_entry_items jel
-         LEFT JOIN accounts a ON jel.account_id = a.id
-         LEFT JOIN funds f ON jel.fund_id = f.id
-         WHERE jel.journal_entry_id = $1
+         LEFT JOIN accounts a ON jel.${jeiCols.accRef} = a.id
+         LEFT JOIN funds f ON jel.${jeiCols.fundRef} = f.id
+         WHERE jel.${jeiCols.jeRef} = $1
          ORDER BY jel.id`,
         [id]
     );
@@ -223,17 +251,20 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.get('/:id/lines', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    const { accCodeExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const { accCodeExpr, accDescExpr, fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const jeiCols = await getJeiCoreCols(pool);
     const { rows } = await pool.query(
         `SELECT jel.*,
-                a.description as account_description,
+                COALESCE(jel.${jeiCols.debitCol}, 0)  AS debit,
+                COALESCE(jel.${jeiCols.creditCol}, 0) AS credit,
+                ${accDescExpr} as account_description,
                 ${accCodeExpr} as account_code,
                 ${fundNameExpr} as fund_name,
                 ${fundCodeExpr} as fund_code
          FROM journal_entry_items jel
-         LEFT JOIN accounts a ON jel.account_id = a.id
-         LEFT JOIN funds f ON jel.fund_id = f.id
-         WHERE jel.journal_entry_id = $1
+         LEFT JOIN accounts a ON jel.${jeiCols.accRef} = a.id
+         LEFT JOIN funds f ON jel.${jeiCols.fundRef} = f.id
+         WHERE jel.${jeiCols.jeRef} = $1
          ORDER BY jel.id`,
         [id]
     );
@@ -344,6 +375,7 @@ router.post('/', asyncHandler(async (req, res) => {
                 description: await hasColumn(client, 'journal_entry_items', 'description'),
                 memo: await hasColumn(client, 'journal_entry_items', 'memo')
             };
+            const jeiCols = await getJeiCoreCols(client);
             for (const line of lines) {
                 if (!line.account_id) {
                     await client.query('ROLLBACK');
@@ -360,14 +392,14 @@ router.post('/', asyncHandler(async (req, res) => {
                     await client.query('ROLLBACK');
                     return res.status(400).json({ error: 'Each line must have either a debit or credit amount' });
                 }
-                // Build item insert dynamically
-                const itemCols = ['journal_entry_id','account_id','fund_id','debit','credit'];
+                // Build item insert dynamically (schema-aware core columns)
+                const itemCols = [jeiCols.jeRef, jeiCols.accRef, jeiCols.fundRef, jeiCols.debitCol, jeiCols.creditCol];
                 const itemVals = [journalEntryId, line.account_id, line.fund_id, line.debit || 0, line.credit || 0];
-                if (itemHas.description) {
+                if (itemHas.description && jeiCols.descCol === 'description') {
                     itemCols.push('description');
                     itemVals.push(line.description || '');
-                } else if (itemHas.memo) {
-                    itemCols.push('memo');
+                } else if (itemHas.memo && jeiCols.descCol !== 'description') {
+                    itemCols.push(jeiCols.descCol);
                     itemVals.push(line.description || '');
                 }
                 const itemPh = itemVals.map((_, i) => `$${i + 1}`).join(',');
@@ -414,16 +446,19 @@ router.post('/', asyncHandler(async (req, res) => {
 
         // Get the lines
         const sel1 = await getAccountFundSelectFragments(pool);
+        const jeiCols2 = await getJeiCoreCols(pool);
         const linesResult = await pool.query(
             `SELECT jel.*,
-                    a.description as account_description,
+                    COALESCE(jel.${jeiCols2.debitCol}, 0)  AS debit,
+                    COALESCE(jel.${jeiCols2.creditCol}, 0) AS credit,
+                    ${sel1.accDescExpr} as account_description,
                     ${sel1.accCodeExpr} as account_code,
                     ${sel1.fundNameExpr} as fund_name,
                     ${sel1.fundCodeExpr} as fund_code
              FROM journal_entry_items jel
-             LEFT JOIN accounts a ON jel.account_id = a.id
-             LEFT JOIN funds f ON jel.fund_id = f.id
-             WHERE jel.journal_entry_id = $1
+             LEFT JOIN accounts a ON jel.${jeiCols2.accRef} = a.id
+             LEFT JOIN funds f ON jel.${jeiCols2.fundRef} = f.id
+             WHERE jel.${jeiCols2.jeRef} = $1
              ORDER BY jel.id`,
             [journalEntryId]
         );
@@ -537,8 +572,9 @@ router.delete('/:id/items', asyncHandler(async (req, res) => {
         await client.query('BEGIN');
 
         // Fetch existing lines
+        const jeiCols = await getJeiCoreCols(client);
         const { rows: existing } = await client.query(
-            'SELECT * FROM journal_entry_items WHERE journal_entry_id = $1',
+            `SELECT * FROM journal_entry_items WHERE ${jeiCols.jeRef} = $1`,
             [id]
         );
 
@@ -562,7 +598,7 @@ router.delete('/:id/items', asyncHandler(async (req, res) => {
         }
 
         // Delete lines and reset total_amount
-        await client.query('DELETE FROM journal_entry_items WHERE journal_entry_id = $1', [id]);
+        await client.query(`DELETE FROM journal_entry_items WHERE ${jeiCols.jeRef} = $1`, [id]);
         await client.query('UPDATE journal_entries SET total_amount = 0 WHERE id = $1', [id]);
         try {
             if (await hasColumn(client, 'journal_entries', 'updated_at')) {
@@ -619,6 +655,7 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
         }
 
         // Insert new lines
+        const jeiCols = await getJeiCoreCols(client);
         for (const line of items) {
             if (!line.account_id) {
                 await client.query('ROLLBACK');
@@ -637,10 +674,10 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
                 description: await hasColumn(client, 'journal_entry_items', 'description'),
                 memo: await hasColumn(client, 'journal_entry_items', 'memo')
             };
-            const cols = ['journal_entry_id','account_id','fund_id','debit','credit'];
+            const cols = [jeiCols.jeRef, jeiCols.accRef, jeiCols.fundRef, jeiCols.debitCol, jeiCols.creditCol];
             const vals = [id, line.account_id, line.fund_id, line.debit || 0, line.credit || 0];
-            if (itemHas.description) { cols.push('description'); vals.push(line.description || ''); }
-            else if (itemHas.memo) { cols.push('memo'); vals.push(line.description || ''); }
+            if (itemHas.description && jeiCols.descCol === 'description') { cols.push('description'); vals.push(line.description || ''); }
+            else if (itemHas.memo && jeiCols.descCol !== 'description') { cols.push(jeiCols.descCol); vals.push(line.description || ''); }
             const ph = vals.map((_, i) => `$${i + 1}`).join(',');
             await client.query(`INSERT INTO journal_entry_items (${cols.join(',')}) VALUES (${ph})`, vals);
 
@@ -666,16 +703,19 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
 
         // Return updated lines
         const sel2 = await getAccountFundSelectFragments(pool);
+        const jeiCols2 = await getJeiCoreCols(pool);
         const { rows } = await pool.query(
             `SELECT jel.*,
-                    a.description as account_description,
+                    COALESCE(jel.${jeiCols2.debitCol}, 0)  AS debit,
+                    COALESCE(jel.${jeiCols2.creditCol}, 0) AS credit,
+                    ${sel2.accDescExpr} as account_description,
                     ${sel2.accCodeExpr} as account_code,
                     ${sel2.fundNameExpr} as fund_name,
                     ${sel2.fundCodeExpr} as fund_code
              FROM journal_entry_items jel
-             LEFT JOIN accounts a ON jel.account_id = a.id
-             LEFT JOIN funds f ON jel.fund_id = f.id
-             WHERE jel.journal_entry_id = $1
+             LEFT JOIN accounts a ON jel.${jeiCols2.accRef} = a.id
+             LEFT JOIN funds f ON jel.${jeiCols2.fundRef} = f.id
+             WHERE jel.${jeiCols2.jeRef} = $1
              ORDER BY jel.id`,
             [id]
         );
@@ -701,8 +741,9 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        // Get the journal entry lines to reverse account and fund balances
-        const linesResult = await client.query('SELECT * FROM journal_entry_items WHERE journal_entry_id = $1', [id]);
+        // Get the journal entry lines to reverse account and fund balances (schema-aware)
+        const jeiCols = await getJeiCoreCols(client);
+        const linesResult = await client.query(`SELECT * FROM journal_entry_items WHERE ${jeiCols.jeRef} = $1`, [id]);
         
         if (linesResult.rows.length === 0) {
             // No lines found, check if the journal entry exists
@@ -726,7 +767,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
         }
         
         // Delete the journal entry lines
-        await client.query('DELETE FROM journal_entry_items WHERE journal_entry_id = $1', [id]);
+        await client.query(`DELETE FROM journal_entry_items WHERE ${jeiCols.jeRef} = $1`, [id]);
         
         // Delete the journal entry
         const result = await client.query('DELETE FROM journal_entries WHERE id = $1 RETURNING id', [id]);
