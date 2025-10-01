@@ -68,6 +68,17 @@ async function maybeUpdateFundBalance(db, fundId, delta) {
     }
 }
 
+// Helper to choose best entity display label
+async function getEntityNameExpr(db, alias) {
+    const hasName = await hasColumn(db, 'entities', 'name');
+    const hasCode = await hasColumn(db, 'entities', 'code');
+    const hasDesc = await hasColumn(db, 'entities', 'description');
+    if (hasName) return `${alias}.name`;
+    if (hasCode) return `${alias}.code`;
+    if (hasDesc) return `${alias}.description`;
+    return 'NULL';
+}
+
 /**
  * GET /api/journal-entries
  * Returns all journal entries, optionally filtered by entity_id, date range, or status
@@ -75,16 +86,25 @@ async function maybeUpdateFundBalance(db, fundId, delta) {
 router.get('/', asyncHandler(async (req, res) => {
     const { entity_id, from_date, to_date, status, limit, entry_mode } = req.query;
     
-    let query = `
-        SELECT je.*, 
-               e.name as entity_name,
-               te.name as target_entity_name,
-               (SELECT COUNT(*) FROM journal_entry_items WHERE journal_entry_id = je.id) as line_count
-        FROM journal_entries je
-        LEFT JOIN entities e ON je.entity_id = e.id
-        LEFT JOIN entities te ON je.target_entity_id = te.id
-        WHERE 1=1
-    `;
+    // Introspect optional columns/labels
+    const hasJEEntity = await hasColumn(pool, 'journal_entries', 'entity_id');
+    const hasJETarget = await hasColumn(pool, 'journal_entries', 'target_entity_id');
+    const entityNameExpr = await getEntityNameExpr(pool, 'e');
+    const targetNameExpr = await getEntityNameExpr(pool, 'te');
+
+    let selectFields = 'je.*';
+    let joins = '';
+    if (hasJEEntity) {
+        selectFields += `, ${entityNameExpr} as entity_name`;
+        joins += ' LEFT JOIN entities e ON je.entity_id = e.id';
+    }
+    if (hasJETarget) {
+        selectFields += `, ${targetNameExpr} as target_entity_name`;
+        joins += ' LEFT JOIN entities te ON je.target_entity_id = te.id';
+    }
+    selectFields += `, (SELECT COUNT(*) FROM journal_entry_items WHERE journal_entry_id = je.id) as line_count`;
+
+    let query = `SELECT ${selectFields} FROM journal_entries je${joins} WHERE 1=1`;
     
     const params = [];
     let paramIndex = 1;
@@ -147,16 +167,27 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    // Get the journal entry
-    const entryResult = await pool.query(`
-        SELECT je.*, 
-               e.name as entity_name,
-               te.name as target_entity_name
-        FROM journal_entries je
-        LEFT JOIN entities e ON je.entity_id = e.id
-        LEFT JOIN entities te ON je.target_entity_id = te.id
-        WHERE je.id = $1
-    `, [id]);
+    // Build dynamic header SELECT avoiding optional columns
+    const hasJEEntity = await hasColumn(pool, 'journal_entries', 'entity_id');
+    const hasJETarget = await hasColumn(pool, 'journal_entries', 'target_entity_id');
+    const entityNameExpr = await getEntityNameExpr(pool, 'e');
+    const targetNameExpr = await getEntityNameExpr(pool, 'te');
+
+    let selectFields = 'je.*';
+    let joins = '';
+    if (hasJEEntity) {
+        selectFields += `, ${entityNameExpr} as entity_name`;
+        joins += ' LEFT JOIN entities e ON je.entity_id = e.id';
+    }
+    if (hasJETarget) {
+        selectFields += `, ${targetNameExpr} as target_entity_name`;
+        joins += ' LEFT JOIN entities te ON je.target_entity_id = te.id';
+    }
+
+    const entryResult = await pool.query(
+        `SELECT ${selectFields} FROM journal_entries je${joins} WHERE je.id = $1`,
+        [id]
+    );
     
     if (entryResult.rows.length === 0) {
         return res.status(404).json({ error: 'Journal entry not found' });
@@ -360,15 +391,26 @@ router.post('/', asyncHandler(async (req, res) => {
         await client.query('COMMIT');
 
         // Get the complete journal entry with lines
-        const { rows } = await pool.query(`
-            SELECT je.*, 
-                   e.name as entity_name,
-                   te.name as target_entity_name
-            FROM journal_entries je
-            LEFT JOIN entities e ON je.entity_id = e.id
-            LEFT JOIN entities te ON je.target_entity_id = te.id
-            WHERE je.id = $1
-        `, [journalEntryId]);
+        const hasJEEntity2 = await hasColumn(pool, 'journal_entries', 'entity_id');
+        const hasJETarget2 = await hasColumn(pool, 'journal_entries', 'target_entity_id');
+        const entityNameExpr2 = await getEntityNameExpr(pool, 'e');
+        const targetNameExpr2 = await getEntityNameExpr(pool, 'te');
+
+        let selFields = 'je.*';
+        let selJoins = '';
+        if (hasJEEntity2) {
+            selFields += `, ${entityNameExpr2} as entity_name`;
+            selJoins += ' LEFT JOIN entities e ON je.entity_id = e.id';
+        }
+        if (hasJETarget2) {
+            selFields += `, ${targetNameExpr2} as target_entity_name`;
+            selJoins += ' LEFT JOIN entities te ON je.target_entity_id = te.id';
+        }
+
+        const { rows } = await pool.query(
+            `SELECT ${selFields} FROM journal_entries je${selJoins} WHERE je.id = $1`,
+            [journalEntryId]
+        );
 
         // Get the lines
         const sel1 = await getAccountFundSelectFragments(pool);
