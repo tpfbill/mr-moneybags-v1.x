@@ -150,17 +150,28 @@ router.get('/', asyncHandler(async (req, res) => {
     const hasStatus = await hasColumn(pool, 'journal_entries', 'status');
     const hasPosted = await hasColumn(pool, 'journal_entries', 'posted');
     const hasStartingBalance = await hasColumn(pool, 'funds', 'starting_balance');
+    const hasFundNumber = await hasColumn(pool, 'funds', 'fund_number');
+    const hasFundCode = await hasColumn(pool, 'funds', 'fund_code');
 
     const sbExpr = hasStartingBalance ? 'COALESCE(f.starting_balance, 0::numeric)' : '0::numeric';
     const postFilter = hasStatus
         ? "AND je.status = 'Posted'"
         : (hasPosted ? 'AND je.posted = TRUE' : '');
 
+    // Some installations store fund reference in JE lines as fund_number or fund_code
+    // rather than the funds.id. Support all common variants by comparing as text.
+    const fundMatchParts = [
+        `(jel.${jeiCols.fundRef}::text = f.id::text)`
+    ];
+    if (hasFundNumber) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_number::text)`);
+    if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
+    const fundMatchClause = fundMatchParts.join(' OR ');
+
     const balExpr = `${sbExpr} + COALESCE((
         SELECT SUM(COALESCE(jel.${jeiCols.debitCol},0) - COALESCE(jel.${jeiCols.creditCol},0))
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
-         WHERE jel.${jeiCols.fundRef} = f.id ${postFilter}
+         WHERE (${fundMatchClause}) ${postFilter}
     ), 0::numeric)`;
 
     let query = `
@@ -202,15 +213,25 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const hasStatus = await hasColumn(pool, 'journal_entries', 'status');
     const hasPosted = await hasColumn(pool, 'journal_entries', 'posted');
     const hasStartingBalance = await hasColumn(pool, 'funds', 'starting_balance');
+    const hasFundNumber = await hasColumn(pool, 'funds', 'fund_number');
+    const hasFundCode = await hasColumn(pool, 'funds', 'fund_code');
     const sbExpr = hasStartingBalance ? 'COALESCE(f.starting_balance, 0::numeric)' : '0::numeric';
     const postFilter = hasStatus
         ? "AND je.status = 'Posted'"
         : (hasPosted ? 'AND je.posted = TRUE' : '');
+
+    const fundMatchParts = [
+        `(jel.${jeiCols.fundRef}::text = f.id::text)`
+    ];
+    if (hasFundNumber) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_number::text)`);
+    if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
+    const fundMatchClause = fundMatchParts.join(' OR ');
+
     const balExpr = `${sbExpr} + COALESCE((
         SELECT SUM(COALESCE(jel.${jeiCols.debitCol},0) - COALESCE(jel.${jeiCols.creditCol},0))
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
-         WHERE jel.${jeiCols.fundRef} = f.id ${postFilter}
+         WHERE (${fundMatchClause}) ${postFilter}
     ), 0::numeric)`;
 
     const { rows } = await pool.query(
