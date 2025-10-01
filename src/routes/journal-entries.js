@@ -4,6 +4,19 @@ const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 
+// Schema guard: check if a table has a column
+async function hasColumn(db, table, column) {
+    try {
+        const q = await db.query(
+            `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`,
+            [table, column]
+        );
+        return q.rows.length > 0;
+    } catch (_) {
+        return false;
+    }
+}
+
 /**
  * GET /api/journal-entries
  * Returns all journal entries, optionally filtered by entity_id, date range, or status
@@ -189,21 +202,20 @@ router.post('/', asyncHandler(async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const hasEntryMode = await hasColumn(client, 'journal_entries', 'entry_mode');
         
-        // Create the journal entry
-        const entryResult = await client.query(`
-            INSERT INTO journal_entries (
-                entity_id,
-                target_entity_id,
-                entry_date,
-                reference_number,
-                description,
-                status,
-                is_inter_entity,
-                total_amount
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING *
-        `, [
+        // Create the journal entry (ensure entry_mode='Manual' when column exists)
+        const cols = [
+            'entity_id',
+            'target_entity_id',
+            'entry_date',
+            'reference_number',
+            'description',
+            'status',
+            'is_inter_entity',
+            'total_amount'
+        ];
+        const vals = [
             entity_id,
             target_entity_id,
             entry_date,
@@ -211,8 +223,17 @@ router.post('/', asyncHandler(async (req, res) => {
             description,
             status || 'Posted',
             is_inter_entity || false,
-            totalDebits // Total amount is the sum of debits (or credits, they're equal)
-        ]);
+            totalDebits
+        ];
+        if (hasEntryMode) {
+            cols.push('entry_mode');
+            vals.push('Manual');
+        }
+        const ph = vals.map((_, i) => `$${i + 1}`).join(',');
+        const entryResult = await client.query(
+            `INSERT INTO journal_entries (${cols.join(',')}) VALUES (${ph}) RETURNING *`,
+            vals
+        );
         
         const journalEntryId = entryResult.rows[0].id;
         
