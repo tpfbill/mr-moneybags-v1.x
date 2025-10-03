@@ -1344,18 +1344,27 @@ export async function openBankAccountModal(id) {
         if (sel) {
             sel.innerHTML = '<option value="">Select Cash Account…</option>';
 
-            // Filter: classification IN ('Bank Accounts','Investments') AND gl_code starts with '1'
+            // Filter:
+            //   - 'Bank Accounts' | 'Investments' | 'Cash Accounts'  -> GL starts with '1'
+            //   - 'Credit Cards'                                   -> GL starts with '2'
             const allAccounts = Array.isArray(appState.accounts) ? appState.accounts : [];
             const cashAccounts = allAccounts.filter(a => {
                 const cls = (a.classification || a.classifications || '').toString();
                 const glc = (a.gl_code || a.code || '').toString();
-                return (cls === 'Bank Accounts' || cls === 'Investments') && /^1/.test(glc);
+                if (cls === 'Credit Cards') {
+                    return /^2/.test(glc);
+                }
+                return (
+                    cls === 'Bank Accounts' ||
+                    cls === 'Investments' ||
+                    cls === 'Cash Accounts'
+                ) && /^1/.test(glc);
             });
 
             console.log(`[BankAccount Modal] Accounts fetched: ${allAccounts.length}; eligible cash accounts: ${cashAccounts.length}`);
             if (allAccounts.length > 0 && cashAccounts.length === 0) {
                 // Inform user in UI if nothing matches the current filter
-                try { showToast('No GL accounts match Bank Accounts/Investments with GL code starting with 1', 'warning'); } catch (_) {}
+                try { showToast('No GL accounts match Bank Accounts/Investments/Cash Accounts (1xxx) or Credit Cards (2xxx)', 'warning'); } catch (_) {}
             }
 
             // Sort for usability
