@@ -1322,6 +1322,16 @@ export async function openBankAccountModal(id) {
     // Title
     titleEl.textContent = id ? 'Edit Bank Account' : 'Add Bank Account';
 
+    // Defaults in create mode
+    if (!id) {
+        try {
+            const amtInput = form.querySelector('#initial-balance-input');
+            const dateInput = form.querySelector('#beginning-balance-date-input');
+            if (amtInput) amtInput.value = '0.00';
+            if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+        } catch (_) { /* ignore */ }
+    }
+
     // Populate Cash GL Account selector (per org: classifications 'Bank Accounts' or 'Investments')
     try {
         // Ensure accounts are loaded
@@ -1373,7 +1383,22 @@ export async function openBankAccountModal(id) {
             form.querySelector('#bank-account-type-select').value      = acct.type                || 'Checking';
             form.querySelector('#bank-account-status-select').value    = acct.status              || 'Active';
             form.querySelector('#connection-method-select').value      = acct.connection_method   || 'Manual';
-            form.querySelector('#initial-balance-input').value         = acct.balance             || 0;
+
+            // Prefill beginning balance from canonical field; fallback to legacy balance
+            const bbVal = (acct.beginning_balance != null) ? acct.beginning_balance : (acct.balance || 0);
+            const bbInput = form.querySelector('#initial-balance-input');
+            if (bbInput) bbInput.value = bbVal;
+
+            // Prefill beginning balance date; default to today when absent
+            const bbDateInput = form.querySelector('#beginning-balance-date-input');
+            if (bbDateInput) {
+                if (acct.beginning_balance_date) {
+                    const d = new Date(acct.beginning_balance_date);
+                    if (!isNaN(d.getTime())) bbDateInput.value = d.toISOString().split('T')[0];
+                } else {
+                    bbDateInput.value = new Date().toISOString().split('T')[0];
+                }
+            }
             form.querySelector('#bank-account-description-textarea').value = acct.description     || '';
 
             // Set cash account selection (prefer cash_account_id, then gl_account_id)
@@ -1410,7 +1435,12 @@ export async function saveBankAccount(event) {
         routing_number   : form.querySelector('#routing-number-input').value,
         type             : form.querySelector('#bank-account-type-select').value,
         status           : form.querySelector('#bank-account-status-select').value,
-        balance          : parseFloat(form.querySelector('#initial-balance-input').value || 0),
+        // Begin canonical beginning-balance fields
+        beginning_balance: parseFloat(form.querySelector('#initial-balance-input').value || 0),
+        beginning_balance_date: (function(){
+            const v = form.querySelector('#beginning-balance-date-input')?.value;
+            return v && v.trim() ? v : new Date().toISOString().split('T')[0];
+        })(),
         connection_method: form.querySelector('#connection-method-select').value,
         description      : form.querySelector('#bank-account-description-textarea').value
     };

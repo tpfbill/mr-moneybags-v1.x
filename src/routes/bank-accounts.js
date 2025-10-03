@@ -100,6 +100,8 @@ router.post('/', asyncHandler(async (req, res) => {
         type,
         status,
         balance,
+        beginning_balance,
+        beginning_balance_date,
         connection_method,
         description,
         gl_account_id,
@@ -137,6 +139,28 @@ router.post('/', asyncHandler(async (req, res) => {
         }
     }
 
+    // Canonicalize beginning balance inputs
+    const bbNum =
+        beginning_balance === '' || beginning_balance == null
+            ? null
+            : Number(beginning_balance);
+    const bbDate = beginning_balance_date
+        ? new Date(beginning_balance_date)
+        : new Date();
+    const bbDateIso = isNaN(bbDate.getTime())
+        ? new Date().toISOString().split('T')[0]
+        : bbDate.toISOString().split('T')[0];
+
+    // Backward-compat shim: if caller provided only legacy balance and a cash/GL mapping,
+    // treat it as beginning_balance for current balance computation.
+    const hasExplicitBB = typeof beginning_balance !== 'undefined' || typeof beginning_balance_date !== 'undefined';
+    const effBeginningBalance = hasExplicitBB
+        ? (bbNum ?? 0)
+        : (syncedAccountId ? (Number(balance) || 0) : 0);
+    const effBeginningBalanceDate = hasExplicitBB
+        ? bbDateIso
+        : (syncedAccountId ? bbDateIso : null);
+
     const { rows } = await pool.query(`
         INSERT INTO bank_accounts (
             entity_id,
@@ -147,11 +171,13 @@ router.post('/', asyncHandler(async (req, res) => {
             type,
             status,
             balance,
+            beginning_balance,
+            beginning_balance_date,
             connection_method,
             description,
             gl_account_id,
             cash_account_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
     `, [
         entityId,
@@ -161,7 +187,9 @@ router.post('/', asyncHandler(async (req, res) => {
         routing_number,
         type || 'Checking',
         status || 'Active',
-        balance || 0.00,
+        Number(balance) || 0.00,
+        effBeginningBalance,
+        effBeginningBalanceDate,
         connection_method || 'Manual',
         description || '',
         syncedAccountId,
@@ -185,6 +213,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
         type,
         status,
         balance,
+        beginning_balance,
+        beginning_balance_date,
         connection_method,
         description,
         last_sync,
@@ -233,7 +263,19 @@ router.put('/:id', asyncHandler(async (req, res) => {
     if (typeof routing_number !== 'undefined') { updateFields.push(`routing_number = $${idx++}`); params.push(routing_number); }
     if (typeof type !== 'undefined')           { updateFields.push(`type = $${idx++}`);           params.push(type); }
     if (typeof status !== 'undefined')         { updateFields.push(`status = $${idx++}`);         params.push(status); }
-    if (typeof balance !== 'undefined')        { updateFields.push(`balance = $${idx++}`);        params.push(balance); }
+    if (typeof balance !== 'undefined')        { updateFields.push(`balance = $${idx++}`);        params.push(Number(balance)); }
+    if (typeof beginning_balance !== 'undefined') {
+        updateFields.push(`beginning_balance = $${idx++}`);
+        params.push(beginning_balance === '' || beginning_balance == null ? null : Number(beginning_balance));
+    }
+    if (typeof beginning_balance_date !== 'undefined') {
+        updateFields.push(`beginning_balance_date = COALESCE($${idx++}::date, beginning_balance_date)`);
+        // default to today if empty string provided
+        const d = beginning_balance_date && String(beginning_balance_date).trim()
+            ? new Date(beginning_balance_date)
+            : new Date();
+        params.push(isNaN(d.getTime()) ? null : d.toISOString().split('T')[0]);
+    }
     if (typeof connection_method !== 'undefined') { updateFields.push(`connection_method = $${idx++}`); params.push(connection_method); }
     if (typeof description !== 'undefined')    { updateFields.push(`description = $${idx++}`);    params.push(description); }
     if (typeof last_sync !== 'undefined')      { updateFields.push(`last_sync = $${idx++}`);      params.push(last_sync); }
@@ -243,6 +285,14 @@ router.put('/:id', asyncHandler(async (req, res) => {
         updateFields.push(`gl_account_id = $${idx}, cash_account_id = $${idx}`);
         params.push(syncedAccountId);
         idx++;
+    }
+
+    // Backward-compat shim: when mapping exists and caller only sends legacy balance (no beginning fields),
+    // treat balance as beginning_balance if beginning_balance is NULL currently.
+    if (!hasOwnProperty.call(req.body, 'beginning_balance') && !hasOwnProperty.call(req.body, 'beginning_balance_date') && (cash_account_id || gl_account_id)) {
+        updateFields.push(`beginning_balance = COALESCE(beginning_balance, $${idx++})`);
+        params.push(Number(balance) || 0);
+        updateFields.push(`beginning_balance_date = COALESCE(beginning_balance_date, CURRENT_DATE)`);
     }
 
     updateFields.push('updated_at = NOW()');
