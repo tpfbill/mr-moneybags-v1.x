@@ -81,7 +81,19 @@ function normalizeRestriction(v) {
 
 function toDateYYYYMMDD(v) {
     if (!v) return null;
+    // Already ISO yyyy-mm-dd
     if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    // Support D/M/Y or DD/MM/YYYY (and 2-digit year) explicitly
+    const dmy = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*$/;
+    const m = dmy.exec(v);
+    if (m) {
+        let [_, d, mth, y] = m;
+        const dd = String(d).padStart(2, '0');
+        const mm = String(mth).padStart(2, '0');
+        let yyyy = y.length === 2 ? (Number(y) >= 70 ? `19${y}` : `20${y}`) : y; // pivot at 1970/2000
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    // Fallback to Date parsing
     const d = new Date(v);
     return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
 }
@@ -114,6 +126,7 @@ const HEADER_ALIAS_MAP = (() => {
     ];
     CANON.forEach(k => map.set(k, k));
     const aliases = {
+        fund_number: ['fund_no', 'fund#', 'no', 'number'],
         fund_code: ['code'],
         fund_name: ['name'],
         entity_name: ['entityname', 'entity'],
@@ -528,6 +541,20 @@ router.post(
             updated = 0,
             failed = 0;
         const errors = [];
+        // Track duplicates within the uploaded CSV (case-insensitive, trimmed)
+        const seenFundNumbers = new Set();
+
+        // Accounting number parser: commas, parentheses for negatives; '-' or '' => 0
+        const parseAccountingNumber = (val) => {
+            if (val == null) return 0;
+            const s = String(val).trim();
+            if (s === '' || s === '-') return 0;
+            const neg = /^\(.*\)$/.test(s);
+            const cleaned = s.replace(/[(),]/g, '');
+            const num = Number(cleaned);
+            if (isNaN(num)) return 0;
+            return neg ? -Math.abs(num) : num;
+        };
 
         for (let i = 0; i < records.length; i++) {
             const raw = records[i];
@@ -541,16 +568,26 @@ router.post(
                     entity_code
                 } = rec;
 
-                if (!fund_code || !fund_name || !entity_name || !entity_code) {
+                if (!fund_number || !fund_name || !entity_name || !entity_code) {
                     throw new Error(
-                        'Missing required fields (fund_code, fund_name, entity_name, entity_code)'
+                        'Missing required fields (fund_number, fund_name, entity_name, entity_code)'
                     );
                 }
 
+                // Reject duplicates within the same upload
+                const fnKey = String(fund_number).trim().toLowerCase();
+                if (seenFundNumbers.has(fnKey)) {
+                    throw new Error(`Duplicate Fund No within file: ${fund_number}`);
+                }
+                seenFundNumbers.add(fnKey);
+
                 const normRow = {
-                    // default fund_number to fund_code if missing
-                    fund_number: (fund_number || fund_code || '').toString().trim(),
-                    fund_code: fund_code.trim(),
+                    // fund_number is authoritative, required
+                    fund_number: String(fund_number).trim(),
+                    // fund_code no longer required – fallback to fund_number to satisfy NOT NULL schema
+                    fund_code: (fund_code != null && String(fund_code).trim() !== '')
+                        ? String(fund_code).trim()
+                        : String(fund_number).trim(),
                     fund_name: fund_name.trim(),
                     entity_name: entity_name.trim(),
                     entity_code: entity_code.trim(),
@@ -558,22 +595,26 @@ router.post(
                     budget: normalizeYN(rec.budget),
                     balance_sheet: normalizeYN(rec.balance_sheet),
                     status: normalizeStatus(rec.status),
-                    starting_balance: (rec.starting_balance === '' || rec.starting_balance == null) ? null : Number(rec.starting_balance),
+                    starting_balance: parseAccountingNumber(rec.starting_balance),
                     starting_balance_date: toDateYYYYMMDD(rec.starting_balance_date),
                     last_used: toDateYYYYMMDD(rec.last_used)
                 };
 
-                // Upsert by fund_code (case-insensitive)
+                // Upsert by fund_number (case-insensitive)
                 const existing = await pool.query(
-                    'SELECT id FROM funds WHERE LOWER(fund_code)=LOWER($1) LIMIT 1',
-                    [normRow.fund_code]
+                    'SELECT id FROM funds WHERE LOWER(fund_number)=LOWER($1)',
+                    [normRow.fund_number]
                 );
 
-                if (existing.rows.length) {
+                if (existing.rows.length > 1) {
+                    throw new Error(`Multiple existing rows found with Fund No: ${normRow.fund_number}. Please deduplicate in database.`);
+                }
+
+                if (existing.rows.length === 1) {
                     // UPDATE
                     await pool.query(
                         `UPDATE funds
-                           SET fund_number=COALESCE($1,$2,fund_number),
+                           SET fund_number=$1,
                                fund_code=$2,
                                fund_name=$3,
                                entity_name=$4,
@@ -609,7 +650,7 @@ router.post(
                         `INSERT INTO funds
                             (fund_number,fund_code,fund_name,entity_name,entity_code,
                              restriction,budget,balance_sheet,status,starting_balance,starting_balance_date,last_used)
-                         VALUES (COALESCE($1,$2),$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::numeric,0::numeric),COALESCE($11::date,CURRENT_DATE),COALESCE($12::date,CURRENT_DATE))`,
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::numeric,0::numeric),COALESCE($11::date,CURRENT_DATE),COALESCE($12::date,CURRENT_DATE))`,
                         [
                             normRow.fund_number,
                             normRow.fund_code,

@@ -1322,6 +1322,16 @@ export async function openBankAccountModal(id) {
     // Title
     titleEl.textContent = id ? 'Edit Bank Account' : 'Add Bank Account';
 
+    // Defaults in create mode
+    if (!id) {
+        try {
+            const amtInput = form.querySelector('#initial-balance-input');
+            const dateInput = form.querySelector('#beginning-balance-date-input');
+            if (amtInput) amtInput.value = '0.00';
+            if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+        } catch (_) { /* ignore */ }
+    }
+
     // Populate Cash GL Account selector (per org: classifications 'Bank Accounts' or 'Investments')
     try {
         // Ensure accounts are loaded
@@ -1334,18 +1344,24 @@ export async function openBankAccountModal(id) {
         if (sel) {
             sel.innerHTML = '<option value="">Select Cash Account…</option>';
 
-            // Filter: classification IN ('Bank Accounts','Investments') AND gl_code starts with '1'
+            // Filter:
+            //   - 'Bank Accounts' | 'Investments' | 'Cash Accounts' | 'Credit Cards' -> GL starts with '1'
             const allAccounts = Array.isArray(appState.accounts) ? appState.accounts : [];
             const cashAccounts = allAccounts.filter(a => {
                 const cls = (a.classification || a.classifications || '').toString();
                 const glc = (a.gl_code || a.code || '').toString();
-                return (cls === 'Bank Accounts' || cls === 'Investments') && /^1/.test(glc);
+                return (
+                    cls === 'Bank Accounts' ||
+                    cls === 'Investments' ||
+                    cls === 'Cash Accounts' ||
+                    cls === 'Credit Cards'
+                ) && /^1/.test(glc);
             });
 
             console.log(`[BankAccount Modal] Accounts fetched: ${allAccounts.length}; eligible cash accounts: ${cashAccounts.length}`);
             if (allAccounts.length > 0 && cashAccounts.length === 0) {
                 // Inform user in UI if nothing matches the current filter
-                try { showToast('No GL accounts match Bank Accounts/Investments with GL code starting with 1', 'warning'); } catch (_) {}
+                try { showToast('No GL accounts match Bank Accounts/Investments/Cash Accounts/Credit Cards (1xxx)', 'warning'); } catch (_) {}
             }
 
             // Sort for usability
@@ -1373,7 +1389,22 @@ export async function openBankAccountModal(id) {
             form.querySelector('#bank-account-type-select').value      = acct.type                || 'Checking';
             form.querySelector('#bank-account-status-select').value    = acct.status              || 'Active';
             form.querySelector('#connection-method-select').value      = acct.connection_method   || 'Manual';
-            form.querySelector('#initial-balance-input').value         = acct.balance             || 0;
+
+            // Prefill beginning balance from canonical field; fallback to legacy balance
+            const bbVal = (acct.beginning_balance != null) ? acct.beginning_balance : (acct.balance || 0);
+            const bbInput = form.querySelector('#initial-balance-input');
+            if (bbInput) bbInput.value = bbVal;
+
+            // Prefill beginning balance date; default to today when absent
+            const bbDateInput = form.querySelector('#beginning-balance-date-input');
+            if (bbDateInput) {
+                if (acct.beginning_balance_date) {
+                    const d = new Date(acct.beginning_balance_date);
+                    if (!isNaN(d.getTime())) bbDateInput.value = d.toISOString().split('T')[0];
+                } else {
+                    bbDateInput.value = new Date().toISOString().split('T')[0];
+                }
+            }
             form.querySelector('#bank-account-description-textarea').value = acct.description     || '';
 
             // Set cash account selection (prefer cash_account_id, then gl_account_id)
@@ -1410,7 +1441,12 @@ export async function saveBankAccount(event) {
         routing_number   : form.querySelector('#routing-number-input').value,
         type             : form.querySelector('#bank-account-type-select').value,
         status           : form.querySelector('#bank-account-status-select').value,
-        balance          : parseFloat(form.querySelector('#initial-balance-input').value || 0),
+        // Begin canonical beginning-balance fields
+        beginning_balance: parseFloat(form.querySelector('#initial-balance-input').value || 0),
+        beginning_balance_date: (function(){
+            const v = form.querySelector('#beginning-balance-date-input')?.value;
+            return v && v.trim() ? v : new Date().toISOString().split('T')[0];
+        })(),
         connection_method: form.querySelector('#connection-method-select').value,
         description      : form.querySelector('#bank-account-description-textarea').value
     };
