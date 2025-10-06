@@ -764,15 +764,19 @@ export function updateJournalEntriesTable() {
     }
     
     displayEntries.forEach(entry => {
-        const entityName = appState.entities.find(entity => entity.id === entry.entity_id)?.name || 'Unknown';
-        
+        const entityNameHdr = appState.entities.find(entity => entity.id === entry.entity_id)?.name || 'Unknown';
+        const derivedEntities = (entry.derived_entities || '').trim();
+        const derivedFunds = (entry.derived_funds || '').trim();
+        const entityDisplay = derivedEntities || entityNameHdr;
+        const fundDisplay = derivedFunds || 'N/A';
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${formatDate(entry.entry_date)}</td>
             <td>${entry.reference_number || 'N/A'}</td>
-            <td>${entry.description || 'N/A'}${appState.isConsolidatedView ? ` (${entityName})` : ''}</td>
-            <td>N/A</td>
-            <td>${entityName}</td>
+            <td>${entry.description || 'N/A'}${appState.isConsolidatedView ? ` (${entityNameHdr})` : ''}</td>
+            <td>${fundDisplay}</td>
+            <td>${entityDisplay}</td>
             <td>${formatCurrency(entry.total_amount)}</td>
             <td><span class="status status-${entry.status.toLowerCase()}">${entry.status}</span></td>
             <td>${entry.created_by || 'System'}</td>
