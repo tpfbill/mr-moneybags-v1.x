@@ -129,7 +129,40 @@ router.get('/', asyncHandler(async (req, res) => {
     const jeiCols = await getJeiCoreCols(pool);
     selectFields += `, (SELECT COUNT(*) FROM journal_entry_items WHERE ${jeiCols.jeRef} = je.id) as line_count`;
 
-    let query = `SELECT ${selectFields} FROM journal_entries je${joins} WHERE 1=1`;
+    // Derived lists (comma-separated) from line items
+    // Funds: support various schema variants (id, fund_number, fund_code)
+    const hasFundNumber = await hasColumn(pool, 'funds', 'fund_number');
+    const hasFundCode = await hasColumn(pool, 'funds', 'fund_code');
+    const fundMatchParts = [
+        `(jel.${jeiCols.fundRef}::text = f.id::text)`
+    ];
+    if (hasFundNumber) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_number::text)`);
+    if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
+    const fundMatchClause = fundMatchParts.join(' OR ');
+
+    // Build schema-aware fund label expression (prefer code then name)
+    const { fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const fundLabelExpr = `COALESCE(${fundCodeExpr}, ${fundNameExpr})`;
+
+    // LATERAL subqueries to aggregate derived entity and fund labels
+    const derivedJoins = `
+      LEFT JOIN LATERAL (
+        SELECT string_agg(DISTINCT COALESCE(e2.name, e2.code, a.entity_code)::text, ', ' ORDER BY COALESCE(e2.name, e2.code, a.entity_code)::text) AS derived_entities
+        FROM journal_entry_items jel
+        LEFT JOIN accounts a ON jel.${jeiCols.accRef} = a.id
+        LEFT JOIN entities e2 ON lower(e2.code) = lower(a.entity_code)
+        WHERE jel.${jeiCols.jeRef} = je.id
+      ) d_entities ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT string_agg(DISTINCT (${fundLabelExpr})::text, ', ' ORDER BY (${fundLabelExpr})::text) AS derived_funds
+        FROM journal_entry_items jel
+        LEFT JOIN funds f ON (${fundMatchClause})
+        WHERE jel.${jeiCols.jeRef} = je.id
+      ) d_funds ON TRUE
+    `;
+    selectFields += `, COALESCE(d_entities.derived_entities, '') AS derived_entities, COALESCE(d_funds.derived_funds, '') AS derived_funds`;
+
+    let query = `SELECT ${selectFields} FROM journal_entries je${joins} ${derivedJoins} WHERE 1=1`;
     
     const params = [];
     let paramIndex = 1;
