@@ -460,7 +460,7 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
 
 // Process endpoint – background job
 router.post('/process', asyncHandler(async (req, res) => {
-  const { data, mapping } = req.body || {};
+  const { data, mapping, filename } = req.body || {};
   if (!Array.isArray(data) || !data.length) return res.status(400).json({ error: 'No data provided.' });
   if (!mapping) return res.status(400).json({ error: 'Mapping is required.' });
 
@@ -476,7 +476,8 @@ router.post('/process', asyncHandler(async (req, res) => {
     createdBatches: [],
     createdItems: 0,
     createdJEs: [],
-    startTime: new Date()
+    startTime: new Date(),
+    filename: filename || null
   };
 
   res.status(202).json({ message: 'Import started', id: jobId });
@@ -741,6 +742,46 @@ router.post('/process', asyncHandler(async (req, res) => {
       job.endTime = new Date();
       job.processedRecords = data.length;
       job.progress = 100;
+
+      // Persist import run (best-effort)
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS vendor_payment_import_runs (
+            id UUID PRIMARY KEY,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_by INTEGER NULL,
+            filename TEXT NULL,
+            total_records INTEGER NOT NULL DEFAULT 0,
+            processed_records INTEGER NOT NULL DEFAULT 0,
+            created_batches INTEGER NOT NULL DEFAULT 0,
+            created_items INTEGER NOT NULL DEFAULT 0,
+            created_journal_entries INTEGER NOT NULL DEFAULT 0,
+            errors INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'completed',
+            log JSONB NOT NULL
+          )`);
+        const runId = crypto.randomUUID();
+        const errorsCount = (job.errors?.length || 0) + (job.logs?.filter(l => l.level === 'error').length || 0);
+        await pool.query(
+          `INSERT INTO vendor_payment_import_runs (
+             id, created_by, filename, total_records, processed_records, created_batches, created_items, created_journal_entries, errors, status, log
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            runId,
+            null, // created_by unknown without auth on this route; filled when auth middleware adds req.user
+            job.filename,
+            job.totalRecords || 0,
+            job.processedRecords || 0,
+            (job.createdBatches?.length || 0),
+            (job.createdItems || 0),
+            (job.createdJEs?.length || 0),
+            errorsCount,
+            job.status,
+            JSON.stringify(job.logs || [])
+          ]
+        );
+        job.importRunId = runId;
+      } catch (_) { /* ignore logging failures */ }
     } catch (e) {
       try { console.error('[VPI] Process error:', e && e.stack ? e.stack : e); } catch (_) {}
       await client.query('ROLLBACK');
@@ -751,6 +792,46 @@ router.post('/process', asyncHandler(async (req, res) => {
       importJobs[jobId].createdItems = 0;
       importJobs[jobId].createdJEs = [];
       importJobs[jobId].endTime = new Date();
+      // Persist failed run (best-effort)
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS vendor_payment_import_runs (
+            id UUID PRIMARY KEY,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_by INTEGER NULL,
+            filename TEXT NULL,
+            total_records INTEGER NOT NULL DEFAULT 0,
+            processed_records INTEGER NOT NULL DEFAULT 0,
+            created_batches INTEGER NOT NULL DEFAULT 0,
+            created_items INTEGER NOT NULL DEFAULT 0,
+            created_journal_entries INTEGER NOT NULL DEFAULT 0,
+            errors INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'completed',
+            log JSONB NOT NULL
+          )`);
+        const runId = crypto.randomUUID();
+        const j = importJobs[jobId];
+        const errorsCount = (j.errors?.length || 0) + (j.logs?.filter(l => l.level === 'error').length || 0);
+        await pool.query(
+          `INSERT INTO vendor_payment_import_runs (
+             id, created_by, filename, total_records, processed_records, created_batches, created_items, created_journal_entries, errors, status, log
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            runId,
+            null,
+            j.filename,
+            j.totalRecords || 0,
+            j.processedRecords || 0,
+            (j.createdBatches?.length || 0),
+            (j.createdItems || 0),
+            (j.createdJEs?.length || 0),
+            errorsCount,
+            j.status,
+            JSON.stringify(j.logs || [])
+          ]
+        );
+        j.importRunId = runId;
+      } catch (_) { /* ignore logging failures */ }
     } finally {
       client.release();
     }
@@ -761,6 +842,65 @@ router.get('/status/:id', asyncHandler(async (req, res) => {
   const job = importJobs[req.params.id];
   if (!job) return res.status(404).json({ error: 'Job not found' });
   res.json(job);
+}));
+
+// Return the most recent vendor payment import log
+router.get('/last', asyncHandler(async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS vendor_payment_import_runs (
+        id UUID PRIMARY KEY,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER NULL,
+        filename TEXT NULL,
+        total_records INTEGER NOT NULL DEFAULT 0,
+        processed_records INTEGER NOT NULL DEFAULT 0,
+        created_batches INTEGER NOT NULL DEFAULT 0,
+        created_items INTEGER NOT NULL DEFAULT 0,
+        created_journal_entries INTEGER NOT NULL DEFAULT 0,
+        errors INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'completed',
+        log JSONB NOT NULL
+      )`);
+
+    // If auth is in place, prefer user-specific; otherwise global last
+    const uid = req.user?.id;
+    let q;
+    if (uid) {
+      q = await pool.query(
+        `SELECT id, created_at, filename, total_records, processed_records, created_batches, created_items, created_journal_entries, errors, status, log
+           FROM vendor_payment_import_runs
+          WHERE created_by = $1
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [uid]
+      );
+    } else {
+      q = await pool.query(
+        `SELECT id, created_at, filename, total_records, processed_records, created_batches, created_items, created_journal_entries, errors, status, log
+           FROM vendor_payment_import_runs
+          ORDER BY created_at DESC
+          LIMIT 1`
+      );
+    }
+    if (!q.rows.length) return res.json({ log: [], created_batches: 0, created_items: 0, created_journal_entries: 0, errors: 0 });
+    const r = q.rows[0];
+    return res.json({
+      id: r.id,
+      created_at: r.created_at,
+      filename: r.filename,
+      total_records: r.total_records,
+      processed_records: r.processed_records,
+      created_batches: r.created_batches,
+      created_items: r.created_items,
+      created_journal_entries: r.created_journal_entries,
+      errors: r.errors,
+      status: r.status,
+      log: r.log
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
 }));
 
 module.exports = router;

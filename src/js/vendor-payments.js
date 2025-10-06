@@ -1109,7 +1109,7 @@ async function importPaymentsCsvOneClick(file) {
         console.log('[payments-import] Parsed rows:', rows.length);
 
         // 3) Kick off processing job
-        const payload = { data: rows, mapping };
+        const payload = { data: rows, mapping, filename: file.name };
         const procRes = await fetch(`${API_BASE_URL}/api/vendor-payments/import/process`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1138,9 +1138,11 @@ async function importPaymentsCsvOneClick(file) {
             // Refresh UI
             await fetchBatches();
             await fetchNachaFiles();
+            await loadLastPaymentsImportLog();
         } else if (job.status === 'failed') {
             const msg = (job.errors && job.errors[0]) || 'Unknown error';
             showToast('Import failed', String(msg), true);
+            await loadLastPaymentsImportLog();
         } else {
             showToast('Import', `Unexpected status: ${job.status}`, true);
         }
@@ -1169,6 +1171,33 @@ async function pollPaymentsImportStatus(jobId, opts = {}) {
         await new Promise(r => setTimeout(r, intervalMs));
     }
     throw new Error('Import timed out');
+}
+
+// Load the most recent Payments import log
+async function loadLastPaymentsImportLog() {
+    try {
+        const tableBody = document.querySelector('#paymentsImportLogTable tbody');
+        if (!tableBody) return;
+        const res = await fetch(`${API_BASE_URL}/api/vendor-payments/import/last`, { credentials: 'include' });
+        const ct = res.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await res.json() : { error: await res.text() };
+        if (!res.ok) throw new Error(data?.error || `Failed to load import log (${res.status})`);
+
+        const rows = Array.isArray(data?.log) ? data.log : [];
+        if (!rows.length) {
+            tableBody.innerHTML = `<tr><td colspan="3" class="text-center">No recent import log</td></tr>`;
+            return;
+        }
+        tableBody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.i ?? ''}</td>
+                <td>${r.level || ''}</td>
+                <td>${r.msg || ''}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        console.error('[payments-import] loadLastPaymentsImportLog failed:', e);
+    }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1546,6 +1575,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         await fetchNachaSettings();
         await fetchBatches();
         await fetchNachaFiles();
+        await loadLastPaymentsImportLog();
         
         // Setup refresh button event listeners
         const refreshButtons = [
