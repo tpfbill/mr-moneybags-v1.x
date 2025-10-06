@@ -358,6 +358,13 @@ export function updateDashboardUnpostedEntries() {
     
     unpostedEntries.forEach(entry => {
         const entityName = appState.entities.find(entity => entity.id === entry.entity_id)?.name || 'Unknown';
+        const createdByDisplay = (() => {
+            const id = entry.created_by;
+            if (!id) return 'System';
+            const user = (appState.users || []).find(u => String(u.id) === String(id));
+            const name = user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim();
+            return name || String(id);
+        })();
         
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -365,7 +372,7 @@ export function updateDashboardUnpostedEntries() {
             <td>${entry.reference_number || 'N/A'}</td>
             <td>${entry.description || 'N/A'}${appState.isConsolidatedView ? ` (${entityName})` : ''}</td>
             <td>${formatCurrency(entry.total_amount)}</td>
-            <td>${entry.created_by || 'System'}</td>
+            <td>${createdByDisplay}</td>
             <td>
                 <button class="action-button btn-post-entry" data-id="${entry.id}">Post</button>
                 <button class="action-button btn-edit-entry" data-id="${entry.id}">Edit</button>
@@ -769,6 +776,13 @@ export function updateJournalEntriesTable() {
         const derivedFunds = (entry.derived_funds || '').trim();
         const entityDisplay = derivedEntities || entityNameHdr;
         const fundDisplay = derivedFunds || 'N/A';
+        const createdByDisplay = (() => {
+            const id = entry.created_by;
+            if (!id) return 'System';
+            const user = (appState.users || []).find(u => String(u.id) === String(id));
+            const name = user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim();
+            return name || String(id);
+        })();
 
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -779,7 +793,7 @@ export function updateJournalEntriesTable() {
             <td>${entityDisplay}</td>
             <td>${formatCurrency(entry.total_amount)}</td>
             <td><span class="status status-${entry.status.toLowerCase()}">${entry.status}</span></td>
-            <td>${entry.created_by || 'System'}</td>
+            <td>${createdByDisplay}</td>
             <td>
                 <button class="action-button btn-view-entry" data-id="${entry.id}">View</button>
                 ${entry.status === 'Draft' ? `<button class="action-button btn-edit-entry" data-id="${entry.id}">Edit</button>` : ''}

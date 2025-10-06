@@ -379,6 +379,13 @@ export async function loadUserData() {
         if (typeof updateUsersTable === 'function') {
             updateUsersTable();
         }
+        // Refresh JE-related tables to pick up user display names
+        if (typeof updateJournalEntriesTable === 'function') {
+            updateJournalEntriesTable();
+        }
+        if (typeof updateDashboardUnpostedEntries === 'function') {
+            updateDashboardUnpostedEntries();
+        }
         
         return users;
     } catch (error) {
