@@ -140,6 +140,10 @@ router.get('/', asyncHandler(async (req, res) => {
     if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
     const fundMatchClause = fundMatchParts.join(' OR ');
 
+    // Build schema-aware fund label expression (prefer code then name)
+    const { fundNameExpr, fundCodeExpr } = await getAccountFundSelectFragments(pool);
+    const fundLabelExpr = `COALESCE(${fundCodeExpr}, ${fundNameExpr})`;
+
     // LATERAL subqueries to aggregate derived entity and fund labels
     const derivedJoins = `
       LEFT JOIN LATERAL (
@@ -150,7 +154,7 @@ router.get('/', asyncHandler(async (req, res) => {
         WHERE jel.${jeiCols.jeRef} = je.id
       ) d_entities ON TRUE
       LEFT JOIN LATERAL (
-        SELECT string_agg(DISTINCT COALESCE(f.fund_code, f.fund_name, f.code, f.name)::text, ', ' ORDER BY COALESCE(f.fund_code, f.fund_name, f.code, f.name)::text) AS derived_funds
+        SELECT string_agg(DISTINCT (${fundLabelExpr})::text, ', ' ORDER BY (${fundLabelExpr})::text) AS derived_funds
         FROM journal_entry_items jel
         LEFT JOIN funds f ON (${fundMatchClause})
         WHERE jel.${jeiCols.jeRef} = je.id
