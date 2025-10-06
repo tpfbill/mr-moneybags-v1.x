@@ -103,18 +103,20 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS funds (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    fund_code VARCHAR(10) NOT NULL,
+    fund_name VARCHAR(100) NOT NULL,
+    restriction_type VARCHAR(50) DEFAULT 'unrestricted',
+    status VARCHAR(20) DEFAULT 'Active',
+    last_used DATE NOT NULL DEFAULT CURRENT_DATE,
     fund_number VARCHAR(10) NOT NULL,
-    fund_code   VARCHAR(50) NOT NULL,
-    fund_name   VARCHAR(255) NOT NULL,
-    entity_name VARCHAR(255) NOT NULL,
-    entity_code VARCHAR(20) NOT NULL REFERENCES entities(code) ON DELETE RESTRICT,
-    restriction VARCHAR(10) NOT NULL, -- 00/01/02/03
-    budget VARCHAR(10) NOT NULL CHECK (budget IN ('Yes','No')),
-    balance_sheet VARCHAR(10) NOT NULL CHECK (balance_sheet IN ('Yes','No')),
-    status VARCHAR(10) NOT NULL CHECK (status IN ('Active','Inactive')),
-    starting_balance DECIMAL(15,2) DEFAULT 0.00,
-    starting_balance_date DATE DEFAULT CURRENT_DATE,
-    last_used DATE DEFAULT CURRENT_DATE
+    entity_name VARCHAR(10) NOT NULL,
+    entity_code VARCHAR(10) NOT NULL,
+    restriction VARCHAR(10) NOT NULL,
+    budget VARCHAR(10) NOT NULL,
+    balance_sheet VARCHAR(10) NOT NULL,
+    balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+    starting_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+    starting_balance_date DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
 -- =============================================================================
@@ -1020,13 +1022,13 @@ INSERT INTO funds (id, fund_number, fund_code, fund_name, entity_name, entity_co
                    restriction, budget, balance_sheet, status,
                    starting_balance, starting_balance_date, last_used)
 VALUES
-    ('f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'GEN', 'GEN_OP', 'General Operations', 'The Principle Foundation', 'TPF_PARENT',
+    ('f1e2d3c4-b5a6-4a5b-8c9d-1e2f3a4b5c6d', 'GEN', 'GEN_OP', 'General Operations', 'TPF_PARENT', 'TPF_PARENT',
         '00', 'Yes', 'Yes', 'Active', 75000.00, CURRENT_DATE, CURRENT_DATE),
-    ('f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'EDU', 'EDU_FND', 'Education Fund', 'The Principle Foundation', 'TPF_PARENT',
+    ('f2e3d4c5-b6a7-5b6c-9d0e-2f3a4b5c6d7e', 'EDU', 'EDU_FND', 'Education Fund', 'TPF_PARENT', 'TPF_PARENT',
         '01', 'Yes', 'Yes', 'Active', 25000.00, CURRENT_DATE, CURRENT_DATE),
-    ('f3e4d5c6-b7a8-6c7d-0e1f-3a4b5c6d7e8f', 'END', 'ENDOW', 'Endowment Fund', 'The Principle Foundation', 'TPF_PARENT',
+    ('f3e4d5c6-b7a8-6c7d-0e1f-3a4b5c6d7e8f', 'END', 'ENDOW', 'Endowment Fund', 'TPF_PARENT', 'TPF_PARENT',
         '03', 'No', 'Yes', 'Active', 10000.00, CURRENT_DATE, CURRENT_DATE),
-    ('f4e5d6c7-b8a9-7d8e-1f2a-4b5c6d7e8f9a', 'ESGEN', 'ES_GEN', 'ES General Fund', 'TPF Education Services', 'TPF-ES',
+    ('f4e5d6c7-b8a9-7d8e-1f2a-4b5c6d7e8f9a', 'ESGEN', 'ES_GEN', 'ES General Fund', 'TPF-ES', 'TPF-ES',
         '00', 'Yes', 'Yes', 'Active', 15000.00, CURRENT_DATE, CURRENT_DATE)
 ON CONFLICT (id) DO NOTHING;
 
