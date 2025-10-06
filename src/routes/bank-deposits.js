@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/connection');
+const crypto = require('crypto');
 const { asyncHandler } = require('../utils/helpers');
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
@@ -456,12 +457,83 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
         client.release();
     }
 
-    res.json({
-        created_deposits: createdDeposits,
-        created_items: createdItems,
-        errors,
-        log
-    });
+    // Persist import log (best-effort; non-fatal on failure)
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS bank_deposit_import_runs (
+                id UUID PRIMARY KEY,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by INTEGER NULL,
+                filename TEXT NULL,
+                created_deposits INTEGER NOT NULL DEFAULT 0,
+                created_items INTEGER NOT NULL DEFAULT 0,
+                errors INTEGER NOT NULL DEFAULT 0,
+                log JSONB NOT NULL
+            )`);
+        const runId = crypto.randomUUID();
+        await pool.query(
+            `INSERT INTO bank_deposit_import_runs (id, created_by, filename, created_deposits, created_items, errors, log)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [runId, req.user?.id || null, req.file?.originalname || null, createdDeposits, createdItems, errors, JSON.stringify(log)]
+        );
+        return res.json({
+            id: runId,
+            created_deposits: createdDeposits,
+            created_items: createdItems,
+            errors,
+            log
+        });
+    } catch (err) {
+        // If logging fails, still return successful import response
+        return res.json({
+            created_deposits: createdDeposits,
+            created_items: createdItems,
+            errors,
+            log,
+            warn: 'Import saved, but logging of results failed.'
+        });
+    }
+}));
+
+// Return the most recent batched deposit import log
+router.get('/batched/import/last', asyncHandler(async (req, res) => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS bank_deposit_import_runs (
+                id UUID PRIMARY KEY,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by INTEGER NULL,
+                filename TEXT NULL,
+                created_deposits INTEGER NOT NULL DEFAULT 0,
+                created_items INTEGER NOT NULL DEFAULT 0,
+                errors INTEGER NOT NULL DEFAULT 0,
+                log JSONB NOT NULL
+            )`);
+        const uid = req.user?.id;
+        let q;
+        if (uid) {
+            q = await pool.query(
+                `SELECT id, created_at, filename, created_deposits, created_items, errors, log
+                 FROM bank_deposit_import_runs
+                 WHERE created_by = $1
+                 ORDER BY created_at DESC
+                 LIMIT 1`,
+                [uid]
+            );
+        } else {
+            q = await pool.query(
+                `SELECT id, created_at, filename, created_deposits, created_items, errors, log
+                 FROM bank_deposit_import_runs
+                 ORDER BY created_at DESC
+                 LIMIT 1`
+            );
+        }
+        if (!q.rows.length) return res.json({ log: [], created_deposits: 0, created_items: 0, errors: 0 });
+        const r = q.rows[0];
+        return res.json({ id: r.id, created_at: r.created_at, filename: r.filename, created_deposits: r.created_deposits, created_items: r.created_items, errors: r.errors, log: r.log });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
 }));
 
 /**

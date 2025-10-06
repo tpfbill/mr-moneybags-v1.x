@@ -17,6 +17,41 @@ const importJobs = {};
 // Utility: safe lower
 const lower = (s) => (s ?? '').toString().trim().toLowerCase();
 
+// Normalize header to snake-ish: lower, non-alnum -> _
+function normHeader(k = '') {
+  return String(k).replace(/^['"]+|['"]+$/g, '')
+    .trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+// Parse accounting-format numbers: commas, parentheses for negatives, optional $/spaces
+function parseAccountingAmount(v) {
+  if (v == null) return 0;
+  let t = String(v).trim();
+  let neg = false;
+  if (/^\(.+\)$/.test(t)) { neg = true; t = t.replace(/^\(|\)$/g, ''); }
+  t = t.replace(/[,$\s]/g, '');
+  const num = parseFloat(t);
+  if (isNaN(num)) return 0;
+  return neg ? -num : num;
+}
+
+// Parse M/D/Y (or MM/DD/YYYY) with 2-digit-year pivot
+function parseDateMDY(input) {
+  if (!input) return null;
+  const s = String(input).trim();
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (!m) {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  let mm = parseInt(m[1], 10);
+  let dd = parseInt(m[2], 10);
+  let yy = parseInt(m[3], 10);
+  if (yy < 100) yy += yy >= 70 ? 1900 : 2000;
+  const dt = new Date(yy, mm - 1, dd);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
 // Schema guard: check if a table has a column (any schema)
 async function hasColumn(db, table, column) {
   const q = await db.query(
@@ -403,21 +438,22 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
 
   // Heuristic mapping per user answers
   const map = {};
-  for (const h of headers) {
-    const hl = h.toLowerCase();
-    if (!map.bank && hl === 'bank') map.bank = h;
-    if (!map.paymentId && hl.includes('payment') && hl.includes('id')) map.paymentId = h;
-    if (!map.accountNo && (hl === 'account no.' || hl === 'account no' || hl === 'account')) map.accountNo = h;
-    if (!map.paymentType && hl.includes('payment') && hl.includes('type')) map.paymentType = h;
-    if (!map.reference && hl === 'reference') map.reference = h;
-    if (!map.amount && (hl === 'amount' || hl.includes('amount'))) map.amount = h;
-    if (!map.vendorZid && (hl === 'zid' || hl === 'vendor zid')) map.vendorZid = h;
-    if (!map.vendorName && hl.includes('vendor') && hl.includes('name')) map.vendorName = h;
-    if (!map.effectiveDate && (hl === 'effective date' || hl === 'effective_date')) map.effectiveDate = h;
-    if (!map.paidDate && (hl === 'paid date' || hl === 'paid_date')) map.paidDate = h;
-    if (!map.memo && (hl.includes('memo') || hl.includes('description'))) map.memo = h;
-    if (!map.invoiceNumber && (hl.includes('invoice') && hl.includes('number'))) map.invoiceNumber = h;
-  }
+  const norm = headers.reduce((acc, h) => { acc[normHeader(h)] = h; return acc; }, {});
+  // Prefer new specified headers; fall back to older heuristics
+  map.bank = norm['af_bank'] || norm['bank'] || headers.find(h => h.toLowerCase() === 'bank');
+  map.paymentId = norm['paymentid'] || headers.find(h => h.toLowerCase().includes('payment') && h.toLowerCase().includes('id'));
+  map.accountNo = norm['account_no'] || norm['account_no.'] || norm['account'] || headers.find(h => ['account no.','account no','account'].includes(h.toLowerCase()));
+  map.paymentType = norm['payment_type'] || headers.find(h => h.toLowerCase().includes('payment') && h.toLowerCase().includes('type'));
+  map.reference = norm['reference'] || headers.find(h => h.toLowerCase() === 'reference');
+  map.amount = norm['amount'] || headers.find(h => h.toLowerCase().includes('amount'));
+  map.vendorZid = norm['payee_zid'] || norm['vendor_zid'] || headers.find(h => ['zid','vendor zid'].includes(h.toLowerCase()));
+  map.vendorName = norm['payee'] || norm['vendor'] || headers.find(h => h.toLowerCase().includes('vendor') && h.toLowerCase().includes('name'));
+  map.effectiveDate = norm['post_date'] || norm['effective_date'] || norm['paid_date'];
+  map.invoiceNumber = norm['invoice_grant_no'] || norm['invoice_no'] || headers.find(h => h.toLowerCase().includes('invoice') && h.toLowerCase().includes('no'));
+  map.memo = norm['description'] || norm['memo'] || headers.find(h => h.toLowerCase().includes('memo') || h.toLowerCase().includes('description'));
+  // Extra: include invoice_date and _1099 if present (not used in processing yet)
+  if (norm['invoice_date']) map.invoiceDate = norm['invoice_date'];
+  if (norm['1099_amount']) map.amount1099 = norm['1099_amount'];
 
   res.json({ headers, suggestedMapping: map, recordCount: rows.length, sampleData: rows.slice(0, 5) });
 }));
@@ -470,8 +506,8 @@ router.post('/process', asyncHandler(async (req, res) => {
         const effectiveDateStr = mapping.effectiveDate ? row[mapping.effectiveDate] : '';
         const invoiceNumber = mapping.invoiceNumber ? row[mapping.invoiceNumber] : '';
 
-        // Normalize amount (remove $ , and spaces)
-        const amount = parseFloat(String(amountStr ?? '').replace(/[$,\s]/g, ''));
+        // Normalize amount from accounting format
+        const amount = parseAccountingAmount(amountStr);
         
         if (!amount || isNaN(amount)) {
           job.logs.push({ i: i + 1, level: 'error', msg: 'Invalid amount' });
@@ -518,7 +554,7 @@ router.post('/process', asyncHandler(async (req, res) => {
           continue;
         }
 
-        const effDate = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
+        const effDate = effectiveDateStr ? (parseDateMDY(effectiveDateStr) || new Date(effectiveDateStr)) : new Date();
         const key = `${nachaId}||${fundId}||${reference}||${effDate.toISOString().slice(0, 10)}`;
         if (!pendingGroups.has(key)) pendingGroups.set(key, { nachaId, reference, effDate, entityId, fundId, rows: [] });
         pendingGroups.get(key).rows.push({ i, vendorId, amount, memo });
@@ -654,7 +690,10 @@ router.post('/process', asyncHandler(async (req, res) => {
 
         // JE1: Expense/AP (Debit Expense acctId, Credit AP apAccountId)
         const je1Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
-        const je1Vals = [pr.entityId, new Date(), ref, pr.memo || 'Payments import (Expense/AP)', pr.amount, 'Posted', 'Payments Import', jobId];
+        const jeDate = (mapping.effectiveDate && data[pr.i][mapping.effectiveDate])
+          ? (parseDateMDY(data[pr.i][mapping.effectiveDate]) || new Date())
+          : new Date();
+        const je1Vals = [pr.entityId, jeDate, ref, pr.memo || 'Payments import (Expense/AP)', pr.amount, 'Posted', 'Payments Import', jobId];
         if (hasEntryMode) { je1Cols.push('entry_mode'); je1Vals.push('Auto'); }
         const je1Ph = je1Vals.map((_,i)=>`$${i+1}`).join(',');
         const je1 = await client.query(
@@ -676,7 +715,7 @@ router.post('/process', asyncHandler(async (req, res) => {
 
         // JE2: AP/Bank (Debit AP, Credit Bank)
         const je2Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
-        const je2Vals = [pr.entityId, new Date(), ref, pr.memo || 'Payments import (AP/Bank)', pr.amount, 'Posted', 'Payments Import', jobId];
+        const je2Vals = [pr.entityId, jeDate, ref, pr.memo || 'Payments import (AP/Bank)', pr.amount, 'Posted', 'Payments Import', jobId];
         if (hasEntryMode) { je2Cols.push('entry_mode'); je2Vals.push('Auto'); }
         const je2Ph = je2Vals.map((_,i)=>`$${i+1}`).join(',');
         const je2 = await client.query(
