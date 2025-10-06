@@ -21,9 +21,36 @@ function normHeader(k = '') {
 
 function parseAmount(v) {
     if (v == null) return 0;
-    const t = String(v).replace(/[",\s]/g, '');
+    let t = String(v).trim();
+    // Accounting format: parentheses indicate negative
+    let neg = false;
+    if (/^\(.+\)$/.test(t)) {
+        neg = true;
+        t = t.replace(/^\(|\)$/g, '');
+    }
+    // Remove commas, spaces, quotes
+    t = t.replace(/[",\s]/g, '');
     const num = parseFloat(t);
-    return isNaN(num) ? 0 : num;
+    if (isNaN(num)) return 0;
+    return neg ? -num : num;
+}
+
+function parseDateMDY(input) {
+    if (!input) return null;
+    const s = String(input).trim();
+    // Accept M/D/Y or MM/DD/YYYY (also single-digit month/day)
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if (!m) {
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }
+    let mm = parseInt(m[1], 10);
+    let dd = parseInt(m[2], 10);
+    let yy = parseInt(m[3], 10);
+    if (yy < 100) yy += yy >= 70 ? 1900 : 2000; // 2-digit year pivot
+    const dt = new Date(yy, mm - 1, dd);
+    if (isNaN(dt.getTime())) return null;
+    return dt.toISOString().slice(0, 10);
 }
 
 /**
@@ -259,8 +286,18 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
         acc[normHeader(h)] = h; return acc;
     }, {});
 
-    const required = ['reference', 'activity_date', 'description', 'amount', 'account_number', 'bank'];
-    const missing = required.filter(k => !headers[k] && !(k === 'amount' && headers['amount_']));
+    // New CSV headers expected:
+    // Reference, Activity Date, Description, Amount, Account No, Deposit zID, Bank
+    // Backward compatible with legacy 'account_number' and 'amount_'
+    const requiredBase = ['reference', 'activity_date', 'description', 'bank'];
+    const missing = [];
+    for (const k of requiredBase) {
+        if (!headers[k]) missing.push(k);
+    }
+    const hasAmount = headers['amount'] || headers['amount_'];
+    if (!hasAmount) missing.push('amount');
+    const hasAcct = headers['account_no'] || headers['account_number'];
+    if (!hasAcct) missing.push('account_no');
     if (missing.length) return res.status(400).json({ error: `Missing required headers: ${missing.join(', ')}` });
 
     // Group by reference
@@ -273,7 +310,8 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
         const dateStr = (row[headers['activity_date']] || '').toString().trim();
         const desc = (row[headers['description']] || '').toString().trim();
         const amt = parseAmount(row[headers['amount'] || headers['amount_']]);
-        const acct = (row[headers['account_number']] || '').toString();
+        const acct = (row[headers['account_no']] || row[headers['account_number']] || '').toString();
+        const depositZid = (row[headers['deposit_zid']] || '').toString().trim();
         const bankName = (row[headers['bank']] || '').toString().trim();
 
         if (!ref || !dateStr || !acct || !bankName) {
@@ -286,7 +324,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
         }
 
         const key = ref;
-        const item = { line: lineNo, ref, dateStr, desc, amt, acctCanon: canon(acct), bankName };
+        const item = { line: lineNo, ref, dateStr, desc, amt, acctCanon: canon(acct), bankName, depositZid };
         const arr = groups.get(key) || [];
         arr.push(item);
         groups.set(key, arr);
@@ -345,9 +383,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
             }
 
             // Determine deposit date (first item's date)
-            const d = new Date(items[0].dateStr);
-            const deposit_date = isNaN(d.getTime()) ? new Date() : d;
-            const ymd = deposit_date.toISOString().slice(0, 10);
+            const ymd = parseDateMDY(items[0].dateStr) || new Date().toISOString().slice(0, 10);
 
             // Build valid items with resolved account and fund
             const validItems = [];
