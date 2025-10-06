@@ -19,6 +19,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logTableBody = document.querySelector('#batched-import-log-table tbody');
   const listTableBody = document.querySelector('#batched-deposits-table tbody');
 
+  async function loadLastImportLog() {
+    try {
+      const url = `${API_BASE}/api/bank-deposits/batched/import/last`;
+      console.debug('[Batched Deposits] GET last import log', url);
+      const res = await fetch(url, { method: 'GET', credentials: 'include' });
+      const ctype = res.headers.get('content-type') || '';
+      const isJson = ctype.includes('application/json');
+      const data = isJson ? await res.json() : { error: await res.text() };
+      if (!res.ok) throw new Error(data?.error || `Failed to load import log (${res.status})`);
+
+      const rows = Array.isArray(data?.log) ? data.log : [];
+      if (!rows.length) return; // keep default empty row
+      logTableBody.innerHTML = rows.map((r) => `
+        <tr>
+          <td>${r.line ?? ''}</td>
+          <td>${r.status}</td>
+          <td>${r.message || ''}</td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   async function loadBatchedDeposits() {
     try {
       if (listTableBody) {
@@ -113,7 +137,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Initial load
-  await loadBatchedDeposits();
+  await Promise.all([
+    loadBatchedDeposits(),
+    loadLastImportLog()
+  ]);
 });
 
 function toast(message, type = 'info') {
