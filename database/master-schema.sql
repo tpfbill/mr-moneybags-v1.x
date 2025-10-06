@@ -1,3 +1,16 @@
+-- DEPRECATED/LEGACY NOTICE
+-- -----------------------------------------------------------------------------
+-- This file is retained for historical reference only and does NOT reflect the
+-- current live database schema. Do not use this file to initialize or migrate
+-- the database.
+--
+-- Source of truth:
+--   - database/schema-only.sql (auto-generated from the live DB schema)
+--   - database/db-init.sql plus database/migrations/*.sql for initialization
+--
+-- Always consider the running database as canonical.
+-- -----------------------------------------------------------------------------
+--
 -- =============================================================================
 -- NONPROFIT FUND ACCOUNTING SYSTEM - MASTER DATABASE SCHEMA
 -- =============================================================================
