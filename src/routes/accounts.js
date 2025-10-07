@@ -130,6 +130,10 @@ router.get('/', asyncHandler(async (req, res) => {
   const jei = await getJeiCoreCols(pool);
   const jeRefCols = await getExistingCols(pool, 'journal_entry_items', ['journal_entry_id', 'entry_id', 'je_id']);
   const accRefCols = await getExistingCols(pool, 'journal_entry_items', ['account_id', 'gl_account_id', 'acct_id', 'account', 'account_code', 'code', 'chart_code']);
+  const jeiEntityCols = await getExistingCols(pool, 'journal_entry_items', ['entity_code']);
+  const jeiGlCols     = await getExistingCols(pool, 'journal_entry_items', ['gl_code']);
+  const jeiFundCols   = await getExistingCols(pool, 'journal_entry_items', ['fund_number']);
+  const jeiRestrCols  = await getExistingCols(pool, 'journal_entry_items', ['restriction']);
 
   // Determine how to match JEI account reference to accounts table
   const hasAccAccountCode = await hasColumn(pool, 'accounts', 'account_code');
@@ -163,6 +167,15 @@ router.get('/', asyncHandler(async (req, res) => {
     }
     if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
       accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number || '-' || COALESCE(a.restriction,'')`)}`);
+    }
+  }
+  // Attribute-based matching (when JEI stores separate entity/gl/fund[/restriction] columns)
+  if (hasAccEntity && hasAccGL && hasAccFundNum && jeiEntityCols.length && jeiGlCols.length && jeiFundCols.length) {
+    const e = jeiEntityCols[0], g = jeiGlCols[0], f = jeiFundCols[0];
+    accMatchParts.push(`lower(jel.${e}::text) = lower(a.entity_code::text) AND lower(jel.${g}::text) = lower(a.gl_code::text) AND lower(jel.${f}::text) = lower(a.fund_number::text)`);
+    if (hasAccRestriction && jeiRestrCols.length) {
+      const r = jeiRestrCols[0];
+      accMatchParts.push(`lower(jel.${e}::text) = lower(a.entity_code::text) AND lower(jel.${g}::text) = lower(a.gl_code::text) AND lower(jel.${f}::text) = lower(a.fund_number::text) AND lower(COALESCE(jel.${r}::text,'')) = lower(COALESCE(a.restriction::text,''))`);
     }
   }
   const accMatchClause = accMatchParts.join(' OR ');
