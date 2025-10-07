@@ -628,13 +628,24 @@ router.post('/process', asyncHandler(async (req, res) => {
         const batchId = insBatch.rows[0].id;
         job.createdBatches.push(batchId);
 
-        // Insert items, skip duplicates within this batch on (vendor_id, amount, description)
+        // Insert items, skip duplicates within this batch on (vendor_id, amount, description/memo if present)
         for (const it of group.rows) {
           const vbaId = await resolveVendorBankAccountId(client, it.vendorId);
-          const dupCheck = await client.query(
-            `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(memo,'') = COALESCE($4,'') LIMIT 1`,
-            [batchId, it.vendorId, it.amount, it.memo || '']
-          );
+          const hasPiDescCol = await hasColumn(client, 'payment_items', 'description');
+          const hasPiMemoCol = await hasColumn(client, 'payment_items', 'memo');
+          const descCol = hasPiDescCol ? 'description' : (hasPiMemoCol ? 'memo' : null);
+          let dupCheck;
+          if (descCol) {
+            dupCheck = await client.query(
+              `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(${descCol},'') = COALESCE($4,'') LIMIT 1`,
+              [batchId, it.vendorId, it.amount, it.memo || '']
+            );
+          } else {
+            dupCheck = await client.query(
+              `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 LIMIT 1`,
+              [batchId, it.vendorId, it.amount]
+            );
+          }
           if (dupCheck.rows.length) {
             job.logs.push({ i: it.i + 1, level: 'warn', msg: 'Duplicate in batch skipped' });
             continue;
@@ -648,9 +659,11 @@ router.post('/process', asyncHandler(async (req, res) => {
               job.logs.push({ i: it.i + 1, level: 'error', msg: 'No vendor bank account; payment_items requires vendor_bank_account_id' });
               continue;
             }
-            const itemCols = ['payment_batch_id','vendor_id','amount','memo'];
-            const itemVals = [batchId, it.vendorId, it.amount, it.memo || ''];
-            if (hasPiVbaCol && vbaId) { itemCols.splice(2,0,'vendor_bank_account_id'); itemVals.splice(2,0,vbaId); }
+            const itemCols = ['payment_batch_id','vendor_id'];
+            const itemVals = [batchId, it.vendorId];
+            if (hasPiVbaCol && vbaId) { itemCols.push('vendor_bank_account_id'); itemVals.push(vbaId); }
+            itemCols.push('amount'); itemVals.push(it.amount);
+            if (descCol) { itemCols.push(descCol); itemVals.push(it.memo || ''); }
             if (hasPiStatus) { itemCols.push('status'); itemVals.push('pending'); }
             const ph = itemVals.map((_,i)=>`$${i+1}`).join(',');
             await client.query(
