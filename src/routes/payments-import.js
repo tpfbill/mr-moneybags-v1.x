@@ -710,11 +710,29 @@ router.post('/process', asyncHandler(async (req, res) => {
           continue;
         }
 
-        // Idempotency: separate reference column (required). Use same reference for both JEs.
-        const ref = (data[pr.i][mapping.reference] || '').toString().trim();
+        // Idempotency: derive a stable reference
+        const row2 = data[pr.i] || {};
+        let ref = '';
+        // 1) Use mapped Reference value if present
+        if (mapping.reference) ref = (row2[mapping.reference] || '').toString().trim();
+        // 2) Fallback to any header literally named 'Reference' (case-insensitive)
         if (!ref) {
-          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Missing reference' });
-          continue;
+          const keyRef = Object.keys(row2).find(k => k && k.trim().toLowerCase() === 'reference');
+          if (keyRef) ref = (row2[keyRef] || '').toString().trim();
+        }
+        // 3) Fallback to invoice/grant no
+        if (!ref && mapping.invoiceNumber) ref = (row2[mapping.invoiceNumber] || '').toString().trim();
+        // 4) Fallback to paymentId
+        if (!ref && mapping.paymentId) ref = (row2[mapping.paymentId] || '').toString().trim();
+        // 5) Last-resort composite (stable enough for idempotency)
+        if (!ref) {
+          const parts = [];
+          if (mapping.vendorZid) parts.push((row2[mapping.vendorZid] || '').toString().trim());
+          if (mapping.vendorName) parts.push((row2[mapping.vendorName] || '').toString().trim());
+          if (mapping.accountNo) parts.push((row2[mapping.accountNo] || '').toString().trim());
+          if (mapping.effectiveDate) parts.push((row2[mapping.effectiveDate] || '').toString().trim());
+          parts.push(String(pr.amount));
+          ref = parts.filter(Boolean).join('|').slice(0, 120);
         }
         const dupJe = await client.query('SELECT id FROM journal_entries WHERE reference_number = $1 LIMIT 1', [ref]);
         if (dupJe.rows.length) {
