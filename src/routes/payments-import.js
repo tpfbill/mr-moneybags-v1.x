@@ -205,6 +205,29 @@ async function resolveFundId(db, entityCode, fundToken) {
   return null;
 }
 
+// Resolve fund by entity_id directly (preferred when we know the paying bank's entity)
+async function resolveFundIdByEntityId(db, entityId, fundToken) {
+  if (!entityId || !fundToken) return null;
+  // Try canonical shape first
+  if (await hasColumn(db, 'funds', 'entity_id') && await hasColumn(db, 'funds', 'fund_number')) {
+    const r = await db.query('SELECT id FROM funds WHERE entity_id = $1 AND fund_number = $2 LIMIT 1', [entityId, fundToken]);
+    if (r.rows[0]?.id) return r.rows[0].id;
+  }
+  if (await hasColumn(db, 'funds', 'entity_id') && await hasColumn(db, 'funds', 'fund_code')) {
+    const r2 = await db.query('SELECT id FROM funds WHERE entity_id = $1 AND LOWER(fund_code) = LOWER($2) LIMIT 1', [entityId, fundToken]);
+    if (r2.rows[0]?.id) return r2.rows[0].id;
+  }
+  // Fallback: attempt via entities join using entity_id when only entity_code is present on funds
+  if (await hasColumn(db, 'funds', 'entity_code')) {
+    try {
+      const e = await db.query('SELECT code FROM entities WHERE id = $1 LIMIT 1', [entityId]);
+      const entityCode = e.rows[0]?.code || null;
+      if (entityCode) return await resolveFundId(db, entityCode, fundToken);
+    } catch(_) {}
+  }
+  return null;
+}
+
 async function resolveVendor(db, { zid, name }) {
   if (zid && await hasColumn(db, 'vendors', 'zid')) {
     const rz = await db.query('SELECT id FROM vendors WHERE LOWER(zid) = LOWER($1) LIMIT 1', [zid]);
@@ -344,8 +367,8 @@ async function resolveAPAccountId(db, { entityId, entityCode, fundToken }) {
 
   // Build classification predicate
   const classPred = hasClassCol
-    ? 'LOWER(classification) LIKE LOWER($X || "%")'
-    : (hasClassCols ? 'LOWER(classifications) LIKE LOWER($X || "%")' : null);
+    ? "LOWER(classification) LIKE LOWER($X) || '%'"
+    : (hasClassCols ? "LOWER(classifications) LIKE LOWER($X) || '%'" : null);
 
   const apLabel = 'Accounts Payable';
 
@@ -378,7 +401,7 @@ async function resolveAPAccountId(db, { entityId, entityCode, fundToken }) {
     const fId = await resolveFundId(db, entityCode, fundToken);
     if (fId) {
       const params = [fId, apLabel];
-      let where = 'fund_id = $1 AND ' + (hasClassCol ? 'LOWER(classification) LIKE LOWER($2 || "%")' : 'LOWER(classifications) LIKE LOWER($2 || "%")');
+      let where = 'fund_id = $1 AND ' + (hasClassCol ? "LOWER(classification) LIKE LOWER($2) || '%'" : "LOWER(classifications) LIKE LOWER($2) || '%'");
       if (hasEntityIdCol && entityId) {
         params.push(entityId);
         where += ` AND entity_id = $${params.length}`;
@@ -460,7 +483,7 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
 
 // Process endpoint – background job
 router.post('/process', asyncHandler(async (req, res) => {
-  const { data, mapping } = req.body || {};
+  const { data, mapping, filename } = req.body || {};
   if (!Array.isArray(data) || !data.length) return res.status(400).json({ error: 'No data provided.' });
   if (!mapping) return res.status(400).json({ error: 'Mapping is required.' });
 
@@ -476,7 +499,8 @@ router.post('/process', asyncHandler(async (req, res) => {
     createdBatches: [],
     createdItems: 0,
     createdJEs: [],
-    startTime: new Date()
+    startTime: new Date(),
+    filename: filename || null
   };
 
   res.status(202).json({ message: 'Import started', id: jobId });
@@ -515,14 +539,33 @@ router.post('/process', asyncHandler(async (req, res) => {
         }
 
         const { entityCode, glCode, fundToken } = parseAccountNo(accountNo);
-        const entityId = await resolveEntityId(client, entityCode);
+        // Resolve paying bank; use its entity for posting context
+        let bankGlAccountId = null;
+        let entityId = null;
+        if (bank) {
+          try {
+            const bq = await client.query(
+              `SELECT id, gl_account_id, entity_id FROM bank_accounts
+                WHERE LOWER(account_name) = LOWER($1) OR LOWER(bank_name) = LOWER($1)
+                LIMIT 1`,
+              [bank]
+            );
+            bankGlAccountId = bq.rows[0]?.gl_account_id || null;
+            entityId = bq.rows[0]?.entity_id || null;
+          } catch(_) {}
+        }
         if (!entityId) {
-          job.logs.push({ i: i + 1, level: 'error', msg: `Unknown entity from Account No.: ${accountNo}` });
+          // Fallback to entity parsed from Account No.
+          const parsedEntityId = await resolveEntityId(client, entityCode);
+          if (parsedEntityId) entityId = parsedEntityId;
+        }
+        if (!entityId) {
+          job.logs.push({ i: i + 1, level: 'error', msg: `Unable to resolve entity (AF Bank/Account No.): ${bank || accountNo}` });
           continue;
         }
-        const fundId = await resolveFundId(client, entityCode, fundToken);
+        const fundId = await resolveFundIdByEntityId(client, entityId, fundToken);
         if (!fundId) {
-          job.logs.push({ i: i + 1, level: 'error', msg: `Unknown fund from Account No.: ${accountNo}` });
+          job.logs.push({ i: i + 1, level: 'error', msg: `Unknown fund for entity from Account No.: ${accountNo}` });
           continue;
         }
 
@@ -535,7 +578,7 @@ router.post('/process', asyncHandler(async (req, res) => {
         const isCompleted = !!paymentId; // per user: Payment ID populated => completed
 
         // Prepare posting row for ALL rows (completed or pending)
-        postRows.push({ i, row, entityId, amount, memo, entityCode, glCode, fundToken });
+        postRows.push({ i, row, entityId, amount, memo, entityCode, glCode, fundToken, bankGlAccountId, fundId });
 
         if (isCompleted) {
           completedRows.push({ i, row, entityId, amount, memo, vendorId, entityCode, glCode, fundToken });
@@ -585,17 +628,24 @@ router.post('/process', asyncHandler(async (req, res) => {
         const batchId = insBatch.rows[0].id;
         job.createdBatches.push(batchId);
 
-        // Insert items, skip duplicates within this batch on (vendor_id, amount, description)
+        // Insert items, skip duplicates within this batch on (vendor_id, amount, description/memo if present)
         for (const it of group.rows) {
           const vbaId = await resolveVendorBankAccountId(client, it.vendorId);
-          if (!vbaId) {
-            job.logs.push({ i: it.i + 1, level: 'error', msg: 'No active vendor bank account on file' });
-            throw new Error(`EFT row ${it.i + 1} missing vendor bank account`);
+          const hasPiDescCol = await hasColumn(client, 'payment_items', 'description');
+          const hasPiMemoCol = await hasColumn(client, 'payment_items', 'memo');
+          const descCol = hasPiDescCol ? 'description' : (hasPiMemoCol ? 'memo' : null);
+          let dupCheck;
+          if (descCol) {
+            dupCheck = await client.query(
+              `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(${descCol},'') = COALESCE($4,'') LIMIT 1`,
+              [batchId, it.vendorId, it.amount, it.memo || '']
+            );
+          } else {
+            dupCheck = await client.query(
+              `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 LIMIT 1`,
+              [batchId, it.vendorId, it.amount]
+            );
           }
-          const dupCheck = await client.query(
-            `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(memo,'') = COALESCE($4,'') LIMIT 1`,
-            [batchId, it.vendorId, it.amount, it.memo || '']
-          );
           if (dupCheck.rows.length) {
             job.logs.push({ i: it.i + 1, level: 'warn', msg: 'Duplicate in batch skipped' });
             continue;
@@ -604,8 +654,16 @@ router.post('/process', asyncHandler(async (req, res) => {
           // Insert item (status pending)
           try {
             const hasPiStatus = await hasColumn(client, 'payment_items', 'status');
-            const itemCols = ['payment_batch_id','vendor_id','vendor_bank_account_id','amount','memo'];
-            const itemVals = [batchId, it.vendorId, vbaId, it.amount, it.memo || ''];
+            const hasPiVbaCol = await hasColumn(client, 'payment_items', 'vendor_bank_account_id');
+            if (hasPiVbaCol && !vbaId) {
+              job.logs.push({ i: it.i + 1, level: 'error', msg: 'No vendor bank account; payment_items requires vendor_bank_account_id' });
+              continue;
+            }
+            const itemCols = ['payment_batch_id','vendor_id'];
+            const itemVals = [batchId, it.vendorId];
+            if (hasPiVbaCol && vbaId) { itemCols.push('vendor_bank_account_id'); itemVals.push(vbaId); }
+            itemCols.push('amount'); itemVals.push(it.amount);
+            if (descCol) { itemCols.push(descCol); itemVals.push(it.memo || ''); }
             if (hasPiStatus) { itemCols.push('status'); itemVals.push('pending'); }
             const ph = itemVals.map((_,i)=>`$${i+1}`).join(',');
             await client.query(
@@ -631,7 +689,7 @@ router.post('/process', asyncHandler(async (req, res) => {
       for (const pr of postRows) {
         // Parse account/fund from Account No.
         const acctId = await resolveAccountId(client, pr.entityId, pr.glCode);
-        const fundId = await resolveFundId(client, pr.entityCode, pr.fundToken);
+        const fundId = pr.fundId;
         if (!acctId || !fundId) {
           job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Account or Fund not resolvable for row' });
           continue;
@@ -644,40 +702,37 @@ router.post('/process', asyncHandler(async (req, res) => {
           continue;
         }
 
-        // Resolve bank GL account: by bank name or fallback to first bank account for entity
-        let bankGlAccountId = null;
-        const bankVal = (data[pr.i][mapping.bank] || '').toString().trim();
-        if (bankVal) {
-          try {
-            const r1 = await client.query(
-              `SELECT gl_account_id FROM bank_accounts 
-                WHERE (LOWER(account_name) = LOWER($1) OR LOWER(bank_name) = LOWER($1))
-                LIMIT 1`,
-              [bankVal]
-            );
-            bankGlAccountId = r1.rows[0]?.gl_account_id || null;
-          } catch (_) { /* ignore */ }
-        }
-        if (!bankGlAccountId) {
-          try {
-            const r2 = await client.query(
-              `SELECT gl_account_id FROM bank_accounts 
-                WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1`,
-              [pr.entityId]
-            );
-            bankGlAccountId = r2.rows[0]?.gl_account_id || null;
-          } catch (_) { /* ignore */ }
-        }
-        if (!bankGlAccountId) {
-          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Bank GL account not resolvable for row' });
+        // Resolve bank GL account from earlier lookup
+        const bankGlAccountId2 = pr.bankGlAccountId;
+        if (!bankGlAccountId2) {
+          const bankVal = (data[pr.i][mapping.bank] || '').toString().trim();
+          job.logs.push({ i: pr.i + 1, level: 'error', msg: bankVal ? `AF Bank not found in bank_accounts: ${bankVal}` : 'AF Bank value missing' });
           continue;
         }
 
-        // Idempotency: separate reference column (required). Use same reference for both JEs.
-        const ref = (data[pr.i][mapping.reference] || '').toString().trim();
+        // Idempotency: derive a stable reference
+        const row2 = data[pr.i] || {};
+        let ref = '';
+        // 1) Use mapped Reference value if present
+        if (mapping.reference) ref = (row2[mapping.reference] || '').toString().trim();
+        // 2) Fallback to any header literally named 'Reference' (case-insensitive)
         if (!ref) {
-          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Missing reference' });
-          continue;
+          const keyRef = Object.keys(row2).find(k => k && k.trim().toLowerCase() === 'reference');
+          if (keyRef) ref = (row2[keyRef] || '').toString().trim();
+        }
+        // 3) Fallback to invoice/grant no
+        if (!ref && mapping.invoiceNumber) ref = (row2[mapping.invoiceNumber] || '').toString().trim();
+        // 4) Fallback to paymentId
+        if (!ref && mapping.paymentId) ref = (row2[mapping.paymentId] || '').toString().trim();
+        // 5) Last-resort composite (stable enough for idempotency)
+        if (!ref) {
+          const parts = [];
+          if (mapping.vendorZid) parts.push((row2[mapping.vendorZid] || '').toString().trim());
+          if (mapping.vendorName) parts.push((row2[mapping.vendorName] || '').toString().trim());
+          if (mapping.accountNo) parts.push((row2[mapping.accountNo] || '').toString().trim());
+          if (mapping.effectiveDate) parts.push((row2[mapping.effectiveDate] || '').toString().trim());
+          parts.push(String(pr.amount));
+          ref = parts.filter(Boolean).join('|').slice(0, 120);
         }
         const dupJe = await client.query('SELECT id FROM journal_entries WHERE reference_number = $1 LIMIT 1', [ref]);
         if (dupJe.rows.length) {
@@ -687,6 +742,8 @@ router.post('/process', asyncHandler(async (req, res) => {
 
         // Insert two posted journal entries with entry_mode = 'Auto' when column exists
         const hasEntryMode = await hasColumn(client, 'journal_entries', 'entry_mode');
+        const hasTypeCol = await hasColumn(client, 'journal_entries', 'type');
+        const hasEntryTypeCol = await hasColumn(client, 'journal_entries', 'entry_type');
 
         // JE1: Expense/AP (Debit Expense acctId, Credit AP apAccountId)
         const je1Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
@@ -695,6 +752,9 @@ router.post('/process', asyncHandler(async (req, res) => {
           : new Date();
         const je1Vals = [pr.entityId, jeDate, ref, pr.memo || 'Payments import (Expense/AP)', pr.amount, 'Posted', 'Payments Import', jobId];
         if (hasEntryMode) { je1Cols.push('entry_mode'); je1Vals.push('Auto'); }
+        // Tag JE1 as Expense when schema supports type/entry_type
+        if (hasTypeCol) { je1Cols.push('type'); je1Vals.push('Expense'); }
+        else if (hasEntryTypeCol) { je1Cols.push('entry_type'); je1Vals.push('Expense'); }
         const je1Ph = je1Vals.map((_,i)=>`$${i+1}`).join(',');
         const je1 = await client.query(
           `INSERT INTO journal_entries (${je1Cols.join(',')}) VALUES (${je1Ph}) RETURNING id`,
@@ -731,7 +791,7 @@ router.post('/process', asyncHandler(async (req, res) => {
         await client.query(
           `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
            VALUES ($1,$2,$3,0,$4,$5)`,
-          [je2Id, bankGlAccountId, fundId, pr.amount, pr.memo || '']
+          [je2Id, bankGlAccountId2, fundId, pr.amount, pr.memo || '']
         );
         job.createdJEs.push(je2Id);
       }
@@ -741,6 +801,46 @@ router.post('/process', asyncHandler(async (req, res) => {
       job.endTime = new Date();
       job.processedRecords = data.length;
       job.progress = 100;
+
+      // Persist import run (best-effort)
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS vendor_payment_import_runs (
+            id UUID PRIMARY KEY,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_by INTEGER NULL,
+            filename TEXT NULL,
+            total_records INTEGER NOT NULL DEFAULT 0,
+            processed_records INTEGER NOT NULL DEFAULT 0,
+            created_batches INTEGER NOT NULL DEFAULT 0,
+            created_items INTEGER NOT NULL DEFAULT 0,
+            created_journal_entries INTEGER NOT NULL DEFAULT 0,
+            errors INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'completed',
+            log JSONB NOT NULL
+          )`);
+        const runId = crypto.randomUUID();
+        const errorsCount = (job.errors?.length || 0) + (job.logs?.filter(l => l.level === 'error').length || 0);
+        await pool.query(
+          `INSERT INTO vendor_payment_import_runs (
+             id, created_by, filename, total_records, processed_records, created_batches, created_items, created_journal_entries, errors, status, log
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            runId,
+            null, // created_by unknown without auth on this route; filled when auth middleware adds req.user
+            job.filename,
+            job.totalRecords || 0,
+            job.processedRecords || 0,
+            (job.createdBatches?.length || 0),
+            (job.createdItems || 0),
+            (job.createdJEs?.length || 0),
+            errorsCount,
+            job.status,
+            JSON.stringify(job.logs || [])
+          ]
+        );
+        job.importRunId = runId;
+      } catch (_) { /* ignore logging failures */ }
     } catch (e) {
       try { console.error('[VPI] Process error:', e && e.stack ? e.stack : e); } catch (_) {}
       await client.query('ROLLBACK');
@@ -751,6 +851,46 @@ router.post('/process', asyncHandler(async (req, res) => {
       importJobs[jobId].createdItems = 0;
       importJobs[jobId].createdJEs = [];
       importJobs[jobId].endTime = new Date();
+      // Persist failed run (best-effort)
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS vendor_payment_import_runs (
+            id UUID PRIMARY KEY,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_by INTEGER NULL,
+            filename TEXT NULL,
+            total_records INTEGER NOT NULL DEFAULT 0,
+            processed_records INTEGER NOT NULL DEFAULT 0,
+            created_batches INTEGER NOT NULL DEFAULT 0,
+            created_items INTEGER NOT NULL DEFAULT 0,
+            created_journal_entries INTEGER NOT NULL DEFAULT 0,
+            errors INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'completed',
+            log JSONB NOT NULL
+          )`);
+        const runId = crypto.randomUUID();
+        const j = importJobs[jobId];
+        const errorsCount = (j.errors?.length || 0) + (j.logs?.filter(l => l.level === 'error').length || 0);
+        await pool.query(
+          `INSERT INTO vendor_payment_import_runs (
+             id, created_by, filename, total_records, processed_records, created_batches, created_items, created_journal_entries, errors, status, log
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            runId,
+            null,
+            j.filename,
+            j.totalRecords || 0,
+            j.processedRecords || 0,
+            (j.createdBatches?.length || 0),
+            (j.createdItems || 0),
+            (j.createdJEs?.length || 0),
+            errorsCount,
+            j.status,
+            JSON.stringify(j.logs || [])
+          ]
+        );
+        j.importRunId = runId;
+      } catch (_) { /* ignore logging failures */ }
     } finally {
       client.release();
     }
@@ -761,6 +901,51 @@ router.get('/status/:id', asyncHandler(async (req, res) => {
   const job = importJobs[req.params.id];
   if (!job) return res.status(404).json({ error: 'Job not found' });
   res.json(job);
+}));
+
+// Return the most recent vendor payment import log
+router.get('/last', asyncHandler(async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS vendor_payment_import_runs (
+        id UUID PRIMARY KEY,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER NULL,
+        filename TEXT NULL,
+        total_records INTEGER NOT NULL DEFAULT 0,
+        processed_records INTEGER NOT NULL DEFAULT 0,
+        created_batches INTEGER NOT NULL DEFAULT 0,
+        created_items INTEGER NOT NULL DEFAULT 0,
+        created_journal_entries INTEGER NOT NULL DEFAULT 0,
+        errors INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'completed',
+        log JSONB NOT NULL
+      )`);
+    // Global last (avoid created_by type mismatches across installations)
+    const q = await pool.query(
+      `SELECT id, created_at, filename, total_records, processed_records, created_batches, created_items, created_journal_entries, errors, status, log
+         FROM vendor_payment_import_runs
+        ORDER BY created_at DESC
+        LIMIT 1`
+    );
+    if (!q.rows.length) return res.json({ log: [], created_batches: 0, created_items: 0, created_journal_entries: 0, errors: 0 });
+    const r = q.rows[0];
+    return res.json({
+      id: r.id,
+      created_at: r.created_at,
+      filename: r.filename,
+      total_records: r.total_records,
+      processed_records: r.processed_records,
+      created_batches: r.created_batches,
+      created_items: r.created_items,
+      created_journal_entries: r.created_journal_entries,
+      errors: r.errors,
+      status: r.status,
+      log: r.log
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
 }));
 
 module.exports = router;

@@ -12,6 +12,54 @@ const upload = multer({ storage: multer.memoryStorage() });
 /* ---------------------------------------------------------------------------
  * Helpers
  * -------------------------------------------------------------------------*/
+// Schema helpers (duplicated from journal-entries.js for JEI column detection)
+async function hasColumn(db, tableName, colName) {
+  const { rows } = await db.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`,
+    [tableName, colName]
+  );
+  return rows.length > 0;
+}
+
+async function getJeiCoreCols(db) {
+  // Detect JEI foreign key to journal_entries
+  const jeRefCandidates = ['journal_entry_id', 'entry_id', 'je_id'];
+  let jeRef = 'journal_entry_id';
+  for (const c of jeRefCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { jeRef = c; break; }
+  }
+
+  // Detect JEI account reference
+  const accRefCandidates = ['account_id', 'gl_account_id', 'acct_id', 'account'];
+  let accRef = 'account_id';
+  for (const c of accRefCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { accRef = c; break; }
+  }
+
+  // Detect debit and credit columns
+  const debitCandidates = ['debit', 'debits', 'dr_amount', 'debit_amount', 'dr'];
+  const creditCandidates = ['credit', 'credits', 'cr_amount', 'credit_amount', 'cr'];
+  let debitCol = 'debit';
+  let creditCol = 'credit';
+  for (const c of debitCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { debitCol = c; break; }
+  }
+  for (const c of creditCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { creditCol = c; break; }
+  }
+
+  return { jeRef, accRef, debitCol, creditCol };
+}
+
+// Return the subset of candidate column names that actually exist on the table
+async function getExistingCols(db, tableName, candidates) {
+  const out = [];
+  for (const c of candidates) {
+    if (await hasColumn(db, tableName, c)) out.push(c);
+  }
+  return out;
+}
+
 function normalizeYN(v) {
   const t = (v || '').toString().trim().toLowerCase();
   if (!t) return 'No';
@@ -78,6 +126,34 @@ function mapCsvRecordStrict(rec) {
 router.get('/', asyncHandler(async (req, res) => {
   const { entity_code, gl_code, fund_number, status } = req.query;
 
+  // Detect JEI columns dynamically so balance works across schemas
+  const jei = await getJeiCoreCols(pool);
+  const jeRefCols = await getExistingCols(pool, 'journal_entry_items', ['journal_entry_id', 'entry_id', 'je_id']);
+  // For this schema: journal_entry_items has a UUID account_id referencing accounts.id; prefer direct id match
+  const accRefCols = await getExistingCols(pool, 'journal_entry_items', ['account_id']);
+
+  // Determine how to match JEI account reference to accounts table
+  const hasAccAccountCode = await hasColumn(pool, 'accounts', 'account_code');
+  const hasAccCode = await hasColumn(pool, 'accounts', 'code');
+  const hasAccEntity = await hasColumn(pool, 'accounts', 'entity_code');
+  const hasAccGL = await hasColumn(pool, 'accounts', 'gl_code');
+  const hasAccFundNum = await hasColumn(pool, 'accounts', 'fund_number');
+  const hasAccRestriction = await hasColumn(pool, 'accounts', 'restriction');
+  // Tight, schema-correct match: JEI.account_id = accounts.id
+  const accMatchClause = `jel.${(accRefCols[0] || jei.accRef)}::text = a.id::text`;
+
+  // Journal entry posted filter (supports status or posted boolean)
+  const hasStatusCol = await hasColumn(pool, 'journal_entries', 'status');
+  const hasPostedCol = await hasColumn(pool, 'journal_entries', 'posted');
+  let postedFilter = 'TRUE';
+  if (hasStatusCol && hasPostedCol) {
+    postedFilter = `(je.posted = TRUE OR je.status ILIKE 'post%')`;
+  } else if (hasStatusCol) {
+    postedFilter = `(je.status ILIKE 'post%')`;
+  } else if (hasPostedCol) {
+    postedFilter = `(je.posted = TRUE)`;
+  }
+
   let query = `
     SELECT 
       a.id,
@@ -94,14 +170,14 @@ router.get('/', asyncHandler(async (req, res) => {
       a.beginning_balance_date,
       a.last_used,
       COALESCE(a.beginning_balance, 0) + COALESCE(
-        (SELECT 
-           SUM(jei.debit - jei.credit) 
-         FROM journal_entry_items jei
-         JOIN journal_entries je ON jei.journal_entry_id = je.id
-         WHERE jei.account_id = a.id 
-           AND je.status = 'Posted'
+        (
+          SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
+          FROM journal_entry_items jel
+          JOIN journal_entries je ON ${jeRefCols && jeRefCols.length ? '(' + jeRefCols.map(c => `jel.${c} = je.id`).join(' OR ') + ')' : `jel.${jei.jeRef} = je.id`}
+          WHERE (${accMatchClause})
+            AND ${postedFilter}
         ), 0
-      ) as current_balance
+      ) AS current_balance
     FROM accounts a 
     WHERE 1=1
   `;

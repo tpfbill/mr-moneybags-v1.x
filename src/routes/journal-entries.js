@@ -112,6 +112,8 @@ router.get('/', asyncHandler(async (req, res) => {
     // Introspect optional columns/labels
     const hasJEEntity = await hasColumn(pool, 'journal_entries', 'entity_id');
     const hasJETarget = await hasColumn(pool, 'journal_entries', 'target_entity_id');
+    const hasTypeCol = await hasColumn(pool, 'journal_entries', 'type');
+    const hasEntryTypeCol = await hasColumn(pool, 'journal_entries', 'entry_type');
     const entityNameExpr = await getEntityNameExpr(pool, 'e');
     const targetNameExpr = await getEntityNameExpr(pool, 'te');
 
@@ -124,6 +126,14 @@ router.get('/', asyncHandler(async (req, res) => {
     if (hasJETarget) {
         selectFields += `, ${targetNameExpr} as target_entity_name`;
         joins += ' LEFT JOIN entities te ON je.target_entity_id = te.id';
+    }
+    // Normalize type field across schema variants
+    if (hasTypeCol && hasEntryTypeCol) {
+        selectFields += ', COALESCE(je.type, je.entry_type) AS type';
+    } else if (hasTypeCol) {
+        selectFields += ', je.type AS type';
+    } else if (hasEntryTypeCol) {
+        selectFields += ', je.entry_type AS type';
     }
     // Count lines using schema-aware reference column
     const jeiCols = await getJeiCoreCols(pool);
@@ -228,6 +238,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
     // Build dynamic header SELECT avoiding optional columns
     const hasJEEntity = await hasColumn(pool, 'journal_entries', 'entity_id');
     const hasJETarget = await hasColumn(pool, 'journal_entries', 'target_entity_id');
+    const hasTypeCol = await hasColumn(pool, 'journal_entries', 'type');
+    const hasEntryTypeCol = await hasColumn(pool, 'journal_entries', 'entry_type');
     const entityNameExpr = await getEntityNameExpr(pool, 'e');
     const targetNameExpr = await getEntityNameExpr(pool, 'te');
 
@@ -240,6 +252,14 @@ router.get('/:id', asyncHandler(async (req, res) => {
     if (hasJETarget) {
         selectFields += `, ${targetNameExpr} as target_entity_name`;
         joins += ' LEFT JOIN entities te ON je.target_entity_id = te.id';
+    }
+    // Normalize type field across schema variants
+    if (hasTypeCol && hasEntryTypeCol) {
+        selectFields += ', COALESCE(je.type, je.entry_type) AS type';
+    } else if (hasTypeCol) {
+        selectFields += ', je.type AS type';
+    } else if (hasEntryTypeCol) {
+        selectFields += ', je.entry_type AS type';
     }
 
     const entryResult = await pool.query(
@@ -369,7 +389,9 @@ router.post('/', asyncHandler(async (req, res) => {
             posted: await hasColumn(client, 'journal_entries', 'posted'),
             is_inter_entity: await hasColumn(client, 'journal_entries', 'is_inter_entity'),
             total_amount: await hasColumn(client, 'journal_entries', 'total_amount'),
-            entry_mode: await hasColumn(client, 'journal_entries', 'entry_mode')
+            entry_mode: await hasColumn(client, 'journal_entries', 'entry_mode'),
+            type: await hasColumn(client, 'journal_entries', 'type'),
+            entry_type: await hasColumn(client, 'journal_entries', 'entry_type')
         };
 
         // Build INSERT dynamically based on existing columns
@@ -388,6 +410,12 @@ router.post('/', asyncHandler(async (req, res) => {
         if (jeHas.is_inter_entity && typeof is_inter_entity !== 'undefined') add('is_inter_entity', !!is_inter_entity);
         if (jeHas.total_amount) add('total_amount', hasLines ? totalDebits : 0);
         if (jeHas.entry_mode) add('entry_mode', 'Manual');
+        // Persist type if provided in request
+        const reqType = (req.body && (req.body.type ?? req.body.entry_type)) || undefined;
+        if (typeof reqType !== 'undefined') {
+            if (jeHas.type) add('type', reqType);
+            else if (jeHas.entry_type) add('entry_type', reqType);
+        }
 
         // Ensure we have at least minimal required columns
         if (!jeHas.entity_id || !jeHas.entry_date) {
@@ -471,6 +499,12 @@ router.post('/', asyncHandler(async (req, res) => {
             selFields += `, ${targetNameExpr2} as target_entity_name`;
             selJoins += ' LEFT JOIN entities te ON je.target_entity_id = te.id';
         }
+        // Normalize type on response as well
+        const hasTypeCol2 = await hasColumn(pool, 'journal_entries', 'type');
+        const hasEntryTypeCol2 = await hasColumn(pool, 'journal_entries', 'entry_type');
+        if (hasTypeCol2 && hasEntryTypeCol2) selFields += ', COALESCE(je.type, je.entry_type) AS type';
+        else if (hasTypeCol2) selFields += ', je.type AS type';
+        else if (hasEntryTypeCol2) selFields += ', je.entry_type AS type';
 
         const { rows } = await pool.query(
             `SELECT ${selFields} FROM journal_entries je${selJoins} WHERE je.id = $1`,
@@ -547,7 +581,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
         reference: await hasColumn(pool, 'journal_entries', 'reference'),
         description: await hasColumn(pool, 'journal_entries', 'description'),
         status: await hasColumn(pool, 'journal_entries', 'status'),
-        is_inter_entity: await hasColumn(pool, 'journal_entries', 'is_inter_entity')
+        is_inter_entity: await hasColumn(pool, 'journal_entries', 'is_inter_entity'),
+        type: await hasColumn(pool, 'journal_entries', 'type'),
+        entry_type: await hasColumn(pool, 'journal_entries', 'entry_type')
     };
 
     const sets = ['entity_id = $1', 'entry_date = $2'];
@@ -575,6 +611,17 @@ router.put('/:id', asyncHandler(async (req, res) => {
     if (jeHas.is_inter_entity && typeof is_inter_entity !== 'undefined') {
         sets.push(`is_inter_entity = $${idx++}`);
         vals.push(!!is_inter_entity);
+    }
+    // Update type if provided
+    const reqType = (req.body && (req.body.type ?? req.body.entry_type)) || undefined;
+    if (typeof reqType !== 'undefined') {
+        if (jeHas.type) {
+            sets.push(`type = $${idx++}`);
+            vals.push(reqType);
+        } else if (jeHas.entry_type) {
+            sets.push(`entry_type = $${idx++}`);
+            vals.push(reqType);
+        }
     }
     sets.push(`id = id`); // no-op to simplify comma handling
     vals.push(id);

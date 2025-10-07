@@ -1034,6 +1034,173 @@ async function importVendorsFromCsv(file) {
 }
 
 /* ---------------------------------------------------------------------------
+ * PAYMENTS CSV IMPORT (one-click)
+ * -------------------------------------------------------------------------*/
+
+function papaParseCsvFile(file) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (window.Papa && Papa.parse) {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: results => resolve(results.data || []),
+                    error: err => reject(err)
+                });
+                return;
+            }
+        } catch (_) { /* fall through to manual parse */ }
+
+        // Fallback: naive CSV parsing (no quoted-commas support)
+        try {
+            const text = await file.text();
+            const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+            if (!lines.length) return resolve([]);
+            const headers = lines.shift().split(',').map(h => h.replace(/^['"]+|['"]+$/g, '').trim());
+            const rows = lines.map(line => {
+                const cols = line.split(',');
+                const obj = {};
+                headers.forEach((h, i) => { obj[h] = cols[i] !== undefined ? cols[i] : ''; });
+                return obj;
+            });
+            resolve(rows);
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+async function importPaymentsCsvOneClick(file) {
+    if (!file) {
+        showToast('Validation', 'Please choose a Payments CSV file first', true);
+        return;
+    }
+
+    // 1) Analyze to get suggested mapping
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        showLoading();
+        console.log('[payments-import] Analyzing CSV…', file.name);
+        const analyzeRes = await fetch(`${API_BASE_URL}/api/vendor-payments/import/analyze`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+        if (!analyzeRes.ok) {
+            let serverMsg = '';
+            try {
+                const ct = analyzeRes.headers.get('content-type') || '';
+                serverMsg = ct.includes('application/json') ? (await analyzeRes.json()).error ?? '' : await analyzeRes.text();
+            } catch (_) { /* ignore */ }
+            throw new Error(`Analyze failed – HTTP ${analyzeRes.status}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+        const analyze = await analyzeRes.json();
+        const mapping = analyze?.suggestedMapping || {};
+        console.log('[payments-import] Suggested mapping:', mapping);
+
+        // 2) Parse CSV client-side
+        const rows = await papaParseCsvFile(file);
+        if (!rows.length) {
+            showToast('Validation', 'CSV file appears empty', true);
+            return;
+        }
+        console.log('[payments-import] Parsed rows:', rows.length);
+
+        // 3) Kick off processing job
+        const payload = { data: rows, mapping, filename: file.name };
+        const procRes = await fetch(`${API_BASE_URL}/api/vendor-payments/import/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        });
+        if (!procRes.ok) {
+            let serverMsg = '';
+            try {
+                const ct = procRes.headers.get('content-type') || '';
+                serverMsg = ct.includes('application/json') ? (await procRes.json()).error ?? '' : await procRes.text();
+            } catch (_) { /* ignore */ }
+            throw new Error(`Process start failed – HTTP ${procRes.status}${serverMsg ? ' – ' + serverMsg : ''}`);
+        }
+        const { id } = await procRes.json();
+        if (!id) throw new Error('Missing job id from process response');
+        showToast('Import started', 'Processing payments in the background…');
+
+        // 4) Poll status until done
+        const job = await pollPaymentsImportStatus(id);
+        if (job.status === 'completed') {
+            const createdBatches = job.createdBatches?.length || 0;
+            const createdItems = job.createdItems || 0;
+            const createdJEs = job.createdJEs?.length || 0;
+            showToast('Import complete', `Batches: ${createdBatches}, Items: ${createdItems}, JEs: ${createdJEs}`);
+            // Refresh UI
+            await fetchBatches();
+            await fetchNachaFiles();
+            await loadLastPaymentsImportLog();
+        } else if (job.status === 'failed') {
+            const msg = (job.errors && job.errors[0]) || 'Unknown error';
+            showToast('Import failed', String(msg), true);
+            await loadLastPaymentsImportLog();
+        } else {
+            showToast('Import', `Unexpected status: ${job.status}`, true);
+        }
+    } catch (err) {
+        console.error('[payments-import] Error:', err);
+        showToast('Error', err.message || String(err), true);
+        throw err;
+    } finally {
+        hideLoading();
+    }
+}
+
+async function pollPaymentsImportStatus(jobId, opts = {}) {
+    const intervalMs = opts.intervalMs ?? 1000;
+    const timeoutMs = opts.timeoutMs ?? 120000; // 2 minutes
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const res = await fetch(`${API_BASE_URL}/api/vendor-payments/import/status/${jobId}`, {
+            credentials: 'include'
+        });
+        if (!res.ok) {
+            throw new Error(`Status check failed – HTTP ${res.status}`);
+        }
+        const job = await res.json();
+        if (['completed', 'failed'].includes(job.status)) return job;
+        await new Promise(r => setTimeout(r, intervalMs));
+    }
+    throw new Error('Import timed out');
+}
+
+// Load the most recent Payments import log
+async function loadLastPaymentsImportLog() {
+    try {
+        const tableBody = document.querySelector('#paymentsImportLogTable tbody');
+        if (!tableBody) return;
+        const res = await fetch(`${API_BASE_URL}/api/vendor-payments/import/last`, { credentials: 'include' });
+        const ct = res.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await res.json() : { error: await res.text() };
+        if (!res.ok) throw new Error(data?.error || `Failed to load import log (${res.status})`);
+
+        const rows = Array.isArray(data?.log) ? data.log : [];
+        if (!rows.length) {
+            tableBody.innerHTML = `<tr><td colspan="3" class="text-center">No recent import log</td></tr>`;
+            return;
+        }
+        tableBody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.i ?? ''}</td>
+                <td>${r.level || ''}</td>
+                <td>${r.msg || ''}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        console.error('[payments-import] loadLastPaymentsImportLog failed:', e);
+    }
+}
+
+/* ---------------------------------------------------------------------------
  * NACHA SETTINGS CRUD OPERATIONS
  * -------------------------------------------------------------------------*/
 
@@ -1408,6 +1575,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         await fetchNachaSettings();
         await fetchBatches();
         await fetchNachaFiles();
+        await loadLastPaymentsImportLog();
         
         // Setup refresh button event listeners
         const refreshButtons = [
@@ -1424,6 +1592,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                 console.log(`✅ Refresh button ${id} event listener added`);
             }
         });
+
+        /* -----------------------------------------------------------
+         * Payments CSV Import button (one-click)
+         * ---------------------------------------------------------*/
+        const importPaymentsBtn = document.getElementById('importPaymentsBtn');
+        const paymentsFileInput = document.getElementById('paymentsCsvFile');
+        if (importPaymentsBtn && paymentsFileInput) {
+            importPaymentsBtn.addEventListener('click', async () => {
+                const file = paymentsFileInput.files && paymentsFileInput.files[0];
+                if (!file) {
+                    showToast('Validation', 'Please choose a Payments CSV file', true);
+                    return;
+                }
+                try {
+                    await importPaymentsCsvOneClick(file);
+                } finally {
+                    paymentsFileInput.value = '';
+                }
+            });
+            console.log('✅ Payments CSV import button listener added');
+        }
 
         /* -----------------------------------------------------------
          * Vendor CSV Import button
