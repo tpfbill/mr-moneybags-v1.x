@@ -12,6 +12,45 @@ const upload = multer({ storage: multer.memoryStorage() });
 /* ---------------------------------------------------------------------------
  * Helpers
  * -------------------------------------------------------------------------*/
+// Schema helpers (duplicated from journal-entries.js for JEI column detection)
+async function hasColumn(db, tableName, colName) {
+  const { rows } = await db.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`,
+    [tableName, colName]
+  );
+  return rows.length > 0;
+}
+
+async function getJeiCoreCols(db) {
+  // Detect JEI foreign key to journal_entries
+  const jeRefCandidates = ['journal_entry_id', 'entry_id', 'je_id'];
+  let jeRef = 'journal_entry_id';
+  for (const c of jeRefCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { jeRef = c; break; }
+  }
+
+  // Detect JEI account reference
+  const accRefCandidates = ['account_id', 'gl_account_id', 'acct_id', 'account'];
+  let accRef = 'account_id';
+  for (const c of accRefCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { accRef = c; break; }
+  }
+
+  // Detect debit and credit columns
+  const debitCandidates = ['debit', 'debits', 'dr_amount', 'debit_amount', 'dr'];
+  const creditCandidates = ['credit', 'credits', 'cr_amount', 'credit_amount', 'cr'];
+  let debitCol = 'debit';
+  let creditCol = 'credit';
+  for (const c of debitCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { debitCol = c; break; }
+  }
+  for (const c of creditCandidates) {
+    if (await hasColumn(db, 'journal_entry_items', c)) { creditCol = c; break; }
+  }
+
+  return { jeRef, accRef, debitCol, creditCol };
+}
+
 function normalizeYN(v) {
   const t = (v || '').toString().trim().toLowerCase();
   if (!t) return 'No';
@@ -78,6 +117,9 @@ function mapCsvRecordStrict(rec) {
 router.get('/', asyncHandler(async (req, res) => {
   const { entity_code, gl_code, fund_number, status } = req.query;
 
+  // Detect JEI columns dynamically so balance works across schemas
+  const jei = await getJeiCoreCols(pool);
+
   let query = `
     SELECT 
       a.id,
@@ -94,14 +136,14 @@ router.get('/', asyncHandler(async (req, res) => {
       a.beginning_balance_date,
       a.last_used,
       COALESCE(a.beginning_balance, 0) + COALESCE(
-        (SELECT 
-           SUM(jei.debit - jei.credit) 
-         FROM journal_entry_items jei
-         JOIN journal_entries je ON jei.journal_entry_id = je.id
-         WHERE jei.account_id = a.id 
-           AND je.status = 'Posted'
+        (
+          SELECT SUM(COALESCE(jel.${jei.debitCol},0) - COALESCE(jel.${jei.creditCol},0))
+          FROM journal_entry_items jel
+          JOIN journal_entries je ON jel.${jei.jeRef} = je.id
+          WHERE jel.${jei.accRef} = a.id
+            AND je.status = 'Posted'
         ), 0
-      ) as current_balance
+      ) AS current_balance
     FROM accounts a 
     WHERE 1=1
   `;
