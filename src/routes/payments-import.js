@@ -578,7 +578,7 @@ router.post('/process', asyncHandler(async (req, res) => {
         const isCompleted = !!paymentId; // per user: Payment ID populated => completed
 
         // Prepare posting row for ALL rows (completed or pending)
-        postRows.push({ i, row, entityId, amount, memo, entityCode, glCode, fundToken, bankGlAccountId });
+        postRows.push({ i, row, entityId, amount, memo, entityCode, glCode, fundToken, bankGlAccountId, fundId });
 
         if (isCompleted) {
           completedRows.push({ i, row, entityId, amount, memo, vendorId, entityCode, glCode, fundToken });
@@ -676,7 +676,7 @@ router.post('/process', asyncHandler(async (req, res) => {
       for (const pr of postRows) {
         // Parse account/fund from Account No.
         const acctId = await resolveAccountId(client, pr.entityId, pr.glCode);
-        const fundId = await resolveFundId(client, pr.entityCode, pr.fundToken);
+        const fundId = pr.fundId;
         if (!acctId || !fundId) {
           job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Account or Fund not resolvable for row' });
           continue;
