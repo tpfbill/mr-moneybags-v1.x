@@ -742,6 +742,8 @@ router.post('/process', asyncHandler(async (req, res) => {
 
         // Insert two posted journal entries with entry_mode = 'Auto' when column exists
         const hasEntryMode = await hasColumn(client, 'journal_entries', 'entry_mode');
+        const hasTypeCol = await hasColumn(client, 'journal_entries', 'type');
+        const hasEntryTypeCol = await hasColumn(client, 'journal_entries', 'entry_type');
 
         // JE1: Expense/AP (Debit Expense acctId, Credit AP apAccountId)
         const je1Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
@@ -750,6 +752,9 @@ router.post('/process', asyncHandler(async (req, res) => {
           : new Date();
         const je1Vals = [pr.entityId, jeDate, ref, pr.memo || 'Payments import (Expense/AP)', pr.amount, 'Posted', 'Payments Import', jobId];
         if (hasEntryMode) { je1Cols.push('entry_mode'); je1Vals.push('Auto'); }
+        // Tag JE1 as Expense when schema supports type/entry_type
+        if (hasTypeCol) { je1Cols.push('type'); je1Vals.push('Expense'); }
+        else if (hasEntryTypeCol) { je1Cols.push('entry_type'); je1Vals.push('Expense'); }
         const je1Ph = je1Vals.map((_,i)=>`$${i+1}`).join(',');
         const je1 = await client.query(
           `INSERT INTO journal_entries (${je1Cols.join(',')}) VALUES (${je1Ph}) RETURNING id`,
