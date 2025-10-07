@@ -388,6 +388,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
             // Build valid items with resolved account and fund
             const validItems = [];
             const fundTotals = new Map(); // fund_id -> sum amount (for cash debits)
+            const entityCodeFreq = new Map(); // canonical entity_code -> total amount
             for (const it of items) {
                 // Resolve account record
                 const accRes = await client.query(
@@ -414,8 +415,11 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                     continue;
                 }
 
-                validItems.push({ ...it, account_id, fund_id });
+                validItems.push({ ...it, account_id, fund_id, account_entity_code: entity_code });
                 fundTotals.set(fund_id, (fundTotals.get(fund_id) || 0) + it.amt);
+                // Tally entity_code frequency by amount to choose JE owning entity
+                const key = (entity_code || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (key) entityCodeFreq.set(key, (entityCodeFreq.get(key) || 0) + Math.abs(it.amt));
             }
 
             if (validItems.length === 0) {
@@ -444,13 +448,26 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                 log.push({ line: it.line, status: 'OK', message: `Added item $${it.amt.toFixed(2)}` });
             }
 
+            // Determine JE owning entity: prefer entity derived from deposit Account No (line account_code)
+            let jeEntityId = entity_id; // fallback to bank account's entity
+            if (entityCodeFreq.size > 0) {
+                // Choose the entity_code with the highest total amount
+                const sorted = [...entityCodeFreq.entries()].sort((a, b) => b[1] - a[1]);
+                const topEntityCodeCanon = sorted[0][0];
+                const entRes = await client.query(
+                    "SELECT id FROM entities WHERE regexp_replace(lower(code), '[^a-z0-9]', '', 'g') = $1 LIMIT 1",
+                    [topEntityCodeCanon]
+                );
+                if (entRes.rows[0]?.id) jeEntityId = entRes.rows[0].id;
+            }
+
             // Create Journal Entry (Posted, Auto)
             const jeDesc = `Auto deposit ${ref} for bank account ${bankName}`;
             const jeRes = await client.query(
                 `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, entry_type, status, total_amount, created_by, entry_mode)
                  VALUES ($1,$2,$3,$4,'Revenue','Posted',$5,$6,'Auto') RETURNING id`,
                 [
-                    entity_id,
+                    jeEntityId,
                     ymd,
                     ref,
                     jeDesc,
