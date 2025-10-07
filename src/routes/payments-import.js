@@ -344,8 +344,8 @@ async function resolveAPAccountId(db, { entityId, entityCode, fundToken }) {
 
   // Build classification predicate
   const classPred = hasClassCol
-    ? 'LOWER(classification) LIKE LOWER($X || "%")'
-    : (hasClassCols ? 'LOWER(classifications) LIKE LOWER($X || "%")' : null);
+    ? "LOWER(classification) LIKE LOWER($X) || '%'"
+    : (hasClassCols ? "LOWER(classifications) LIKE LOWER($X) || '%'" : null);
 
   const apLabel = 'Accounts Payable';
 
@@ -378,7 +378,7 @@ async function resolveAPAccountId(db, { entityId, entityCode, fundToken }) {
     const fId = await resolveFundId(db, entityCode, fundToken);
     if (fId) {
       const params = [fId, apLabel];
-      let where = 'fund_id = $1 AND ' + (hasClassCol ? 'LOWER(classification) LIKE LOWER($2 || "%")' : 'LOWER(classifications) LIKE LOWER($2 || "%")');
+      let where = 'fund_id = $1 AND ' + (hasClassCol ? "LOWER(classification) LIKE LOWER($2) || '%'" : "LOWER(classifications) LIKE LOWER($2) || '%'");
       if (hasEntityIdCol && entityId) {
         params.push(entityId);
         where += ` AND entity_id = $${params.length}`;
