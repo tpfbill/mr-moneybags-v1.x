@@ -47,6 +47,7 @@ router.get('/', asyncHandler(async (req, res) => {
   // Posted tolerance
   const hasStatusCol = await hasColumn(pool, 'journal_entries', 'status');
   const hasPostedCol = await hasColumn(pool, 'journal_entries', 'posted');
+  const hasJeEntityId = await hasColumn(pool, 'journal_entries', 'entity_id');
   const postCond = (hasStatusCol && hasPostedCol)
     ? `(je.posted = TRUE OR je.status ILIKE 'post%')`
     : (hasStatusCol ? `(je.status ILIKE 'post%')` : (hasPostedCol ? `(je.posted = TRUE)` : 'TRUE'));
@@ -144,7 +145,7 @@ router.get('/', asyncHandler(async (req, res) => {
        AND ${postCond}
   `;
   const revenueParams = [yStart, yEnd];
-  if (entityIds.length) {
+  if (hasJeEntityId && entityIds.length) {
     revenueSql += ` AND je.entity_id = ANY($3)`;
     revenueParams.push(entityIds);
   }

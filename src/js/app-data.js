@@ -412,9 +412,12 @@ export async function loadDashboardData() {
             codes.forEach(code => params.append('entity_code', code));
             const qs = params.toString() ? `?${params.toString()}` : '';
             const metrics = await fetchData(`metrics${qs}`);
-            if (metrics && typeof metrics === 'object') {
-                appState.dashboardMetrics = metrics;
-            }
+            const hasNumeric = (obj) => {
+                if (!obj || typeof obj !== 'object') return false;
+                const keys = ['assets', 'liabilities', 'net_assets', 'revenue_ytd'];
+                return keys.some(k => typeof obj[k] === 'number' && !Number.isNaN(obj[k]));
+            };
+            appState.dashboardMetrics = hasNumeric(metrics) ? metrics : null;
         } catch (e) {
             console.warn('Metrics fetch failed, falling back to client-side computation:', e);
             appState.dashboardMetrics = null;
