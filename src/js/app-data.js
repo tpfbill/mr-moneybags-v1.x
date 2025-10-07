@@ -5,7 +5,7 @@
  */
 
 // Import shared configuration and state
-import { API_BASE, appState } from './app-config.js';
+import { API_BASE, appState, getRelevantEntityIds, getRelevantEntityCodes } from './app-config.js';
 
 // Forward declarations for UI update functions that will be imported in app-main.js
 // These are called after data is loaded to update the UI
@@ -402,6 +402,23 @@ export async function loadDashboardData() {
         // Refresh data used by dashboard cards/tables to avoid stale values
         await loadFundData();
         await loadAccountData();
+        
+        // Fetch server-side metrics scoped to current entity/consolidated view
+        try {
+            const ids = getRelevantEntityIds();
+            const codes = getRelevantEntityCodes();
+            const params = new URLSearchParams();
+            ids.forEach(id => params.append('entity_id', id));
+            codes.forEach(code => params.append('entity_code', code));
+            const qs = params.toString() ? `?${params.toString()}` : '';
+            const metrics = await fetchData(`metrics${qs}`);
+            if (metrics && typeof metrics === 'object') {
+                appState.dashboardMetrics = metrics;
+            }
+        } catch (e) {
+            console.warn('Metrics fetch failed, falling back to client-side computation:', e);
+            appState.dashboardMetrics = null;
+        }
         // Update dashboard title based on selected entity
         if (typeof updateDashboardTitle === 'function') {
             updateDashboardTitle();

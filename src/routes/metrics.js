@@ -36,6 +36,9 @@ async function getJeiCoreCols(db) {
 
 // GET /api/metrics
 // Returns { assets, liabilities, net_assets, revenue_ytd }
+// Optional scoping via query params (any may be provided):
+// - entity_code (repeatable) or entity_codes=CSV   → filters funds/accounts by entity_code
+// - entity_id   (repeatable) or entity_ids=CSV     → filters journal_entries by entity_id
 router.get('/', asyncHandler(async (req, res) => {
   const year = new Date().getFullYear();
   const yStart = `${year}-01-01`;
@@ -47,6 +50,26 @@ router.get('/', asyncHandler(async (req, res) => {
   const postCond = (hasStatusCol && hasPostedCol)
     ? `(je.posted = TRUE OR je.status ILIKE 'post%')`
     : (hasStatusCol ? `(je.status ILIKE 'post%')` : (hasPostedCol ? `(je.posted = TRUE)` : 'TRUE'));
+
+  // Parse entity filters from query
+  const q = req.query || {};
+  const toArray = (v) => Array.isArray(v)
+    ? v
+    : (typeof v === 'string' && v.length ? v.split(',') : []);
+
+  const entityCodes = [
+    ...toArray(q.entity_code),
+    ...toArray(q.entity_codes)
+  ]
+    .map(s => String(s || '').trim())
+    .filter(Boolean);
+
+  const entityIds = [
+    ...toArray(q.entity_id),
+    ...toArray(q.entity_ids)
+  ]
+    .map(s => String(s || '').trim())
+    .filter(Boolean);
 
   // Funds balance expression mirrors src/routes/funds.js, summed for assets
   const jei = await getJeiCoreCols(pool);
@@ -60,7 +83,7 @@ router.get('/', asyncHandler(async (req, res) => {
   if (hasFundCode)   fundMatchParts.push(`(jel.${jei.fundRef}::text = f.fund_code::text)`);
   const fundMatchClause = fundMatchParts.join(' OR ');
 
-  const assetsSql = `
+  let assetsSql = `
     SELECT COALESCE(SUM(${sbExpr} + COALESCE((
       SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
         FROM journal_entry_items jel
@@ -69,10 +92,16 @@ router.get('/', asyncHandler(async (req, res) => {
          AND ${postCond}
     ), 0::numeric)), 0::numeric) AS assets
     FROM funds f
+    WHERE 1=1
   `;
+  const assetsParams = [];
+  if (entityCodes.length) {
+    assetsSql += ' AND f.entity_code = ANY($1)';
+    assetsParams.push(entityCodes);
+  }
 
   // Liabilities: sum magnitudes of negative current_balance across liability accounts
-  const liabilitiesSql = `
+  let liabilitiesSql = `
     WITH acc AS (
       SELECT 
         a.id,
@@ -84,8 +113,15 @@ router.get('/', asyncHandler(async (req, res) => {
              AND ${postCond}
         ), 0::numeric) AS current_balance
       FROM accounts a
-      WHERE (LOWER(COALESCE(a.classification,'')) LIKE '%liab%')
-         OR (COALESCE(a.gl_code,'')::text LIKE '2%')
+      WHERE ((LOWER(COALESCE(a.classification,'')) LIKE '%liab%')
+         OR (COALESCE(a.gl_code,'')::text LIKE '2%'))
+  `;
+  const liabilitiesParams = [];
+  if (entityCodes.length) {
+    liabilitiesSql += ` AND a.entity_code = ANY($1)`;
+    liabilitiesParams.push(entityCodes);
+  }
+  liabilitiesSql += `
     )
     SELECT COALESCE(SUM(CASE WHEN current_balance < 0 THEN -current_balance ELSE 0 END), 0::numeric) AS liabilities
     FROM acc
@@ -93,7 +129,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   // Revenue YTD: sum of total_amount where normalized type = 'Revenue' in current year
   const hasTotalAmt = await hasColumn(pool, 'journal_entries', 'total_amount');
-  const revenueSql = hasTotalAmt ? `
+  let revenueSql = hasTotalAmt ? `
     SELECT COALESCE(SUM(COALESCE(je.total_amount::numeric,0)), 0::numeric) AS revenue_ytd
       FROM journal_entries je
      WHERE COALESCE(je.type, je.entry_type) ILIKE 'revenue'
@@ -107,11 +143,16 @@ router.get('/', asyncHandler(async (req, res) => {
        AND je.entry_date BETWEEN $1 AND $2
        AND ${postCond}
   `;
+  const revenueParams = [yStart, yEnd];
+  if (entityIds.length) {
+    revenueSql += ` AND je.entity_id = ANY($3)`;
+    revenueParams.push(entityIds);
+  }
 
   const [assetsR, liabilitiesR, revenueR] = await Promise.all([
-    pool.query(assetsSql),
-    pool.query(liabilitiesSql),
-    pool.query(revenueSql, [yStart, yEnd])
+    pool.query(assetsSql, assetsParams),
+    pool.query(liabilitiesSql, liabilitiesParams),
+    pool.query(revenueSql, revenueParams)
   ]);
 
   const assets = Number(assetsR.rows[0]?.assets || 0);

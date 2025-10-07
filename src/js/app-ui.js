@@ -159,25 +159,41 @@ export function updateDashboardSummaryCards() {
     const summaryCardsContainer = document.getElementById('dashboard-summary-cards');
     if (!summaryCardsContainer) return;
     
-    // Get relevant funds based on selected entity and consolidated view
+    // Prefer server-side metrics when available
+    const m = appState.dashboardMetrics;
+    if (m && typeof m === 'object') {
+        summaryCardsContainer.innerHTML = `
+            <div class="card">
+                <div class="card-title">Total Assets</div>
+                <div class="card-value">${formatCurrency(m.assets || 0)}</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Total Liabilities</div>
+                <div class="card-value">${formatCurrency(m.liabilities || 0)}</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Net Assets</div>
+                <div class="card-value">${formatCurrency(m.net_assets || 0)}</div>
+            </div>
+            <div class="card">
+                <div class="card-title">YTD Revenue</div>
+                <div class="card-value">${formatCurrency(m.revenue_ytd || 0)}</div>
+            </div>
+        `;
+        return;
+    }
+
+    // Fallback: compute client-side if server metrics unavailable
     const relevantFunds = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
-    
-    // Calculate summary values
     const totalAssets = relevantFunds.reduce(
-        (sum, fund) =>
-            sum +
-            parseFloat(
-                fund.balance ?? fund.starting_balance ?? 0
-            ),
+        (sum, fund) => sum + parseFloat(fund.balance ?? fund.starting_balance ?? 0),
         0
     );
-    // Compute liabilities from accounts classified as 'Liability' using current_balance
     const accounts = Array.isArray(appState.accounts) ? appState.accounts : [];
     const totalLiabilities = accounts
         .filter(acc => {
             const cls = (acc.classification || '').toLowerCase();
             const gl  = String(acc.gl_code || '').trim();
-            // Treat as liability if classification mentions "liab" OR GL code starts with '2'
             return cls.includes('liab') || gl.startsWith('2');
         })
         .reduce((sum, acc) => {
@@ -185,11 +201,8 @@ export function updateDashboardSummaryCards() {
             return sum + (bal < 0 ? -bal : 0);
         }, 0);
     const netAssets = totalAssets - totalLiabilities;
-    
-    // Calculate YTD revenue from journal entries
     const currentYear = new Date().getFullYear();
     const relevantEntityIds = getRelevantEntityIds();
-    
     const journalEntries = Array.isArray(appState.journalEntries) ? appState.journalEntries : [];
     const ytdRevenue = journalEntries
         .filter(entry => 
@@ -198,8 +211,8 @@ export function updateDashboardSummaryCards() {
             entry.type === 'Revenue'
         )
         .reduce((sum, entry) => sum + parseFloat(entry.total_amount || 0), 0);
-    
-    // Update the cards
+
+    // Update the cards (fallback)
     summaryCardsContainer.innerHTML = `
         <div class="card">
             <div class="card-title">Total Assets</div>

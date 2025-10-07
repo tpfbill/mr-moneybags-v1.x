@@ -47,6 +47,7 @@ export const appState = {
     glCodes: [],            // <--- GL Codes data collection
     organizationSettings: {},
     customReportDefinitions: [],
+    dashboardMetrics: null,
     
     // Current selections and view state
     selectedEntityId: null,
@@ -141,4 +142,25 @@ export function getRelevantFunds() {
     // After funds schema refactor, funds are no longer linked by entity_id.
     // Return all funds for now; filtering (if needed) will be handled elsewhere.
     return appState.funds;
+}
+
+/**
+ * Get relevant entity codes based on selected entity and consolidated view
+ * @returns {Array<string>} entity_code values
+ */
+export function getRelevantEntityCodes() {
+    if (!appState.selectedEntityId) return [];
+
+    const selected = appState.entities.find(e => e.id === appState.selectedEntityId);
+    if (!selected) return [];
+
+    if (!appState.isConsolidatedView || !selected.is_consolidated) {
+        return [selected.code].filter(Boolean);
+    }
+
+    const childCodes = appState.entities
+        .filter(e => e.parent_entity_id === selected.id)
+        .map(e => e.code)
+        .filter(Boolean);
+    return [selected.code, ...childCodes].filter(Boolean);
 }
