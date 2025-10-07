@@ -590,8 +590,9 @@ router.post('/process', asyncHandler(async (req, res) => {
         for (const it of group.rows) {
           const vbaId = await resolveVendorBankAccountId(client, it.vendorId);
           if (!vbaId) {
+            // Non-fatal: log and skip this item
             job.logs.push({ i: it.i + 1, level: 'error', msg: 'No active vendor bank account on file' });
-            throw new Error(`EFT row ${it.i + 1} missing vendor bank account`);
+            continue;
           }
           const dupCheck = await client.query(
             `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(memo,'') = COALESCE($4,'') LIMIT 1`,
@@ -660,17 +661,7 @@ router.post('/process', asyncHandler(async (req, res) => {
           } catch (_) { /* ignore */ }
         }
         if (!bankGlAccountId) {
-          try {
-            const r2 = await client.query(
-              `SELECT gl_account_id FROM bank_accounts 
-                WHERE entity_id = $1 ORDER BY created_at ASC LIMIT 1`,
-              [pr.entityId]
-            );
-            bankGlAccountId = r2.rows[0]?.gl_account_id || null;
-          } catch (_) { /* ignore */ }
-        }
-        if (!bankGlAccountId) {
-          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Bank GL account not resolvable for row' });
+          job.logs.push({ i: pr.i + 1, level: 'error', msg: bankVal ? `AF Bank not found in bank_accounts: ${bankVal}` : 'AF Bank value missing' });
           continue;
         }
 
