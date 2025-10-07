@@ -38,6 +38,8 @@ const checkFormatsRoutes   = require('./src/routes/check-formats'); // NEW
 const usersRoutes          = require('./src/routes/users');
 const reportsRoutes        = require('./src/routes/reports');
 const importRoutes         = require('./src/routes/import');
+const metricsRoutes        = require('./src/routes/metrics'); // NEW
+const liabilitiesRoutes    = require('./src/routes/liabilities'); // NEW
 const glCodesRoutes        = require('./src/routes/gl-codes'); // NEW
 const paymentsImportRoutes = require('./src/routes/payments-import'); // NEW
 
@@ -182,6 +184,10 @@ app.use('/api/funds',    requireAuth, fundsRoutes);
 app.use('/api/accounts', requireAuth, accountsRoutes);
 // GL Codes – core reference table
 app.use('/api/gl-codes', requireAuth, glCodesRoutes);
+
+// Metrics & summaries
+app.use('/api/metrics',     requireAuth, metricsRoutes);     // NEW
+app.use('/api/liabilities', requireAuth, liabilitiesRoutes); // NEW
 
 // Configuration & processing
 app.use('/api/nacha-settings', requireAuth, nachaSettingsRoutes);
