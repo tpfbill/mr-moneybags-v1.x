@@ -263,13 +263,13 @@ router.get('/gl', asyncHandler(async (req, res) => {
         params.push(fund_id);
     }
     if (account_code_from) {
-        // Support older schemas without a.report_code or a.code
-        conds.push(`COALESCE(a.report_code, a.code, a.account_code) >= $${idx++}`);
+        // Use canonical column present in current schema
+        conds.push(`a.account_code >= $${idx++}`);
         params.push(account_code_from);
     }
     if (account_code_to) {
-        // Support older schemas without a.report_code or a.code
-        conds.push(`COALESCE(a.report_code, a.code, a.account_code) <= $${idx++}`);
+        // Use canonical column present in current schema
+        conds.push(`a.account_code <= $${idx++}`);
         params.push(account_code_to);
     }
     if (status && status.trim() !== '') {
@@ -292,12 +292,12 @@ WITH items AS (
     je.entry_date,
     je.reference_number,
     a.id   AS account_id,
-    COALESCE(a.report_code, a.code, a.account_code) AS account_code,
+    a.account_code AS account_code,
     a.description AS account_name,
-    COALESCE(a.classifications, a.classification) AS acct_class,
+    a.classification AS acct_class,
     f.id   AS fund_id,
-    COALESCE(f.code, f.fund_code) AS fund_code,
-    COALESCE(f.name, f.fund_name) AS fund_name
+    f.fund_code AS fund_code,
+    f.fund_name AS fund_name
   FROM journal_entry_items AS jei
   JOIN journal_entries      AS je ON je.id = jei.journal_entry_id
   JOIN accounts             AS a  ON a.id  = jei.account_id
@@ -367,9 +367,9 @@ WITH items AS (
     jei.credit,
     je.entry_date,
     a.id   AS account_id,
-    COALESCE(a.report_code, a.code, a.account_code) AS account_code,
+    a.account_code AS account_code,
     a.description AS account_name,
-    COALESCE(a.classifications, a.classification) AS acct_class
+    a.classification AS acct_class
   FROM journal_entry_items AS jei
   JOIN journal_entries      AS je ON je.id = jei.journal_entry_id
   JOIN accounts             AS a  ON a.id  = jei.account_id
