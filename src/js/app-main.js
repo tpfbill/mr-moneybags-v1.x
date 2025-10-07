@@ -270,32 +270,12 @@ function showPage(pageId) {
  */
 function initializeEntitySelector() {
     const entitySelector = document.getElementById('entity-selector');
-    const consolidatedViewToggle = document.getElementById('consolidated-view-toggle');
     
     if (entitySelector) {
         entitySelector.addEventListener('change', () => {
             appState.selectedEntityId = entitySelector.value;
-            
-            // Update consolidated view toggle based on selected entity
-            if (consolidatedViewToggle) {
-                const selectedEntity = appState.entities.find(entity => entity.id === appState.selectedEntityId);
-                consolidatedViewToggle.disabled = !selectedEntity || !selectedEntity.is_consolidated;
-                
-                // Reset consolidated view if entity doesn't support it
-                if (!selectedEntity || !selectedEntity.is_consolidated) {
-                    consolidatedViewToggle.checked = false;
-                    appState.isConsolidatedView = false;
-                }
-            }
-            
-            // Reload data for current page
-            refreshCurrentPageData();
-        });
-    }
-    
-    if (consolidatedViewToggle) {
-        consolidatedViewToggle.addEventListener('change', () => {
-            appState.isConsolidatedView = consolidatedViewToggle.checked;
+            const selectedEntity = appState.entities.find(entity => entity.id === appState.selectedEntityId);
+            appState.isConsolidatedView = !!(selectedEntity && selectedEntity.is_consolidated);
             
             // Reload data for current page
             refreshCurrentPageData();

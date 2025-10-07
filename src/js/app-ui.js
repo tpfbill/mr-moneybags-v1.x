@@ -79,7 +79,7 @@ export function updateEntitySelector() {
     if (rootEntity) {
         const option = document.createElement('option');
         option.value = rootEntity.id;
-        option.textContent = `${rootEntity.name} (Consolidated)`;
+        option.textContent = 'All Entities (Consolidated)';
         entitySelector.appendChild(option);
     }
     
@@ -114,12 +114,9 @@ export function updateEntitySelector() {
         entitySelector.value = appState.selectedEntityId;
     }
     
-    // Set consolidated view toggle state based on selected entity
-    const consolidatedViewToggle = document.getElementById('consolidated-view-toggle');
-    if (consolidatedViewToggle && rootEntity && appState.selectedEntityId === rootEntity.id) {
-        consolidatedViewToggle.checked = true;
-        appState.isConsolidatedView = true;
-    }
+    // Derive consolidated view automatically from the selected entity
+    const selectedEntity = appState.entities.find(e => e.id === appState.selectedEntityId);
+    appState.isConsolidatedView = !!(selectedEntity && selectedEntity.is_consolidated);
 }
 
 /**
