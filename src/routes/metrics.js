@@ -130,22 +130,64 @@ router.get('/', asyncHandler(async (req, res) => {
     FROM acc
   `;
 
-  // Revenue YTD: derive from line-items hitting accounts classified as Revenue
+  // Revenue YTD: derive from line-items that hit Revenue/Income accounts
+  // Robust join + classification detection across schema variants
   const hasAccClassification = await hasColumn(pool, 'accounts', 'classification');
   const hasAccEntityCode = await hasColumn(pool, 'accounts', 'entity_code');
+  const hasAccAccountCode = await hasColumn(pool, 'accounts', 'account_code');
+  const hasJeiAccountCode = await hasColumn(pool, 'journal_entry_items', 'account_code');
+  const hasJeiGlCode = await hasColumn(pool, 'journal_entry_items', 'gl_code');
+  const hasGlCodes = await hasColumn(pool, 'gl_codes', 'code');
+
+  // Account match: prefer ID, fallback to account_code when present
+  const accMatchParts = [
+    `(jel.${jei.accRef}::text = a.id::text)`
+  ];
+  if (hasJeiAccountCode && hasAccAccountCode) {
+    accMatchParts.push(
+      "(regexp_replace(lower(jel.account_code),'[^a-z0-9]','','g') = regexp_replace(lower(a.account_code),'[^a-z0-9]','','g'))"
+    );
+  }
+  const accMatchClause = accMatchParts.join(' OR ');
+
+  // Optional joins for classification fallback
+  const gcAJoin = hasGlCodes ? ' LEFT JOIN gl_codes gcA ON a.gl_code = gcA.code' : '';
+  const gcJJoin = hasGlCodes && hasJeiGlCode ? ' LEFT JOIN gl_codes gcJ ON jel.gl_code = gcJ.code' : '';
+
+  // Determine revenue via accounts.classification, gl_codes.classification, or GL prefix 4xxx
+  const revenueClassPredicate = `(
+    LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,
+      CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
+           THEN 'revenue' ELSE '' END
+    )) LIKE 'revenue%'
+    OR LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,'')) LIKE 'income%'
+  )`;
+
+  // Join funds to enable entity scoping even if account join doesn't resolve
+  const revenueFundsJoin = ` LEFT JOIN funds f ON (${fundMatchClause})`;
+
   let revenueSql = `
     SELECT COALESCE(SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)), 0::numeric) AS revenue_ytd
       FROM journal_entry_items jel
       JOIN journal_entries je ON jel.${jei.jeRef} = je.id
-      LEFT JOIN accounts a ON jel.${jei.accRef}::text = a.id::text
+      LEFT JOIN accounts a ON (${accMatchClause})
+      ${gcAJoin}
+      ${gcJJoin}
+      ${revenueFundsJoin}
      WHERE je.entry_date BETWEEN $1 AND $2
        AND ${postCond}
-       ${hasAccClassification ? "AND LOWER(COALESCE(a.classification,'')) LIKE 'revenue%'" : ''}
+       AND ${revenueClassPredicate}
   `;
   const revenueParams = [yStart, yEnd];
-  if (hasAccEntityCode && entityCodes.length) {
-    revenueSql += ` AND a.entity_code = ANY($${revenueParams.length + 1})`;
-    revenueParams.push(entityCodes);
+  if (entityCodes.length) {
+    if (hasAccEntityCode) {
+      revenueSql += ` AND COALESCE(a.entity_code, f.entity_code) = ANY($${revenueParams.length + 1})`;
+      revenueParams.push(entityCodes);
+    } else {
+      // Fallback: scope by funds.entity_code only
+      revenueSql += ` AND f.entity_code = ANY($${revenueParams.length + 1})`;
+      revenueParams.push(entityCodes);
+    }
   }
 
   const [assetsR, liabilitiesR, revenueR] = await Promise.all([
