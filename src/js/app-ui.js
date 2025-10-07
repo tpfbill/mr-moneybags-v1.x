@@ -174,10 +174,14 @@ export function updateDashboardSummaryCards() {
     // Compute liabilities from accounts classified as 'Liability' using current_balance
     const accounts = Array.isArray(appState.accounts) ? appState.accounts : [];
     const totalLiabilities = accounts
-        .filter(acc => (acc.classification || '').toLowerCase().startsWith('liab'))
+        .filter(acc => {
+            const cls = (acc.classification || '').toLowerCase();
+            const gl  = String(acc.gl_code || '').trim();
+            // Treat as liability if classification mentions "liab" OR GL code starts with '2'
+            return cls.includes('liab') || gl.startsWith('2');
+        })
         .reduce((sum, acc) => {
             const bal = parseFloat(acc.current_balance ?? 0);
-            // Liabilities normally carry a credit (negative) balance in our balance formula (debit - credit)
             return sum + (bal < 0 ? -bal : 0);
         }, 0);
     const netAssets = totalAssets - totalLiabilities;
