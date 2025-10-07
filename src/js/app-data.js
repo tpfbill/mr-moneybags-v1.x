@@ -399,10 +399,9 @@ export async function loadUserData() {
  */
 export async function loadDashboardData() {
     try {
-        // Ensure fund balances reflect latest posted entries by re-fetching funds from API
-        // before rendering the dashboard. This avoids stale balances when navigating back
-        // to the Dashboard without having explicitly reloaded funds elsewhere.
+        // Refresh data used by dashboard cards/tables to avoid stale values
         await loadFundData();
+        await loadAccountData();
         // Update dashboard title based on selected entity
         if (typeof updateDashboardTitle === 'function') {
             updateDashboardTitle();
