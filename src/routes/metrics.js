@@ -180,14 +180,14 @@ router.get('/', asyncHandler(async (req, res) => {
   `;
   const revenueParams = [yStart, yEnd];
   if (entityCodes.length) {
-    // Case-insensitive compare; also derive entity from JEI.account_code when present
+    // Canonical comparison: strip non-alphanumerics + lowercase on both sides
     const jelEntityFromAcctCode = hasJeiAccountCode
-      ? "substring(jel.account_code from '^[A-Za-z0-9]+')"
+      ? "regexp_replace(lower(jel.account_code), '[^a-z0-9]', '', 'g')"
       : "NULL";
-    const entityScopeExpr = `LOWER(COALESCE(f.entity_code, a.entity_code, ${jelEntityFromAcctCode}))`;
-    const entityCodesLC = entityCodes.map(c => c.toLowerCase());
-    revenueSql += ` AND ${entityScopeExpr} = ANY($${revenueParams.length + 1})`;
-    revenueParams.push(entityCodesLC);
+    const entityScopeExpr = `regexp_replace(lower(COALESCE(f.entity_code, a.entity_code)), '[^a-z0-9]', '', 'g')`;
+    const entityCodesCanon = entityCodes.map(c => String(c || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+    revenueSql += ` AND COALESCE(${entityScopeExpr}, ${jelEntityFromAcctCode}) = ANY($${revenueParams.length + 1})`;
+    revenueParams.push(entityCodesCanon);
   }
 
   const [assetsR, liabilitiesR, revenueR] = await Promise.all([
