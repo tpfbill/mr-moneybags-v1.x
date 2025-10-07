@@ -180,15 +180,14 @@ router.get('/', asyncHandler(async (req, res) => {
   `;
   const revenueParams = [yStart, yEnd];
   if (entityCodes.length) {
-    if (hasAccEntityCode) {
-      // Prefer fund's entity mapping for scoping; fallback to account when fund linkage is missing
-      revenueSql += ` AND COALESCE(f.entity_code, a.entity_code) = ANY($${revenueParams.length + 1})`;
-      revenueParams.push(entityCodes);
-    } else {
-      // Fallback: scope by funds.entity_code only
-      revenueSql += ` AND f.entity_code = ANY($${revenueParams.length + 1})`;
-      revenueParams.push(entityCodes);
-    }
+    // Case-insensitive compare; also derive entity from JEI.account_code when present
+    const jelEntityFromAcctCode = hasJeiAccountCode
+      ? "substring(jel.account_code from '^[A-Za-z0-9]+')"
+      : "NULL";
+    const entityScopeExpr = `LOWER(COALESCE(f.entity_code, a.entity_code, ${jelEntityFromAcctCode}))`;
+    const entityCodesLC = entityCodes.map(c => c.toLowerCase());
+    revenueSql += ` AND ${entityScopeExpr} = ANY($${revenueParams.length + 1})`;
+    revenueParams.push(entityCodesLC);
   }
 
   const [assetsR, liabilitiesR, revenueR] = await Promise.all([
