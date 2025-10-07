@@ -120,6 +120,22 @@ router.get('/', asyncHandler(async (req, res) => {
   // Detect JEI columns dynamically so balance works across schemas
   const jei = await getJeiCoreCols(pool);
 
+  // Determine how to match JEI account reference to accounts table
+  const hasAccAccountCode = await hasColumn(pool, 'accounts', 'account_code');
+  const hasAccCode = await hasColumn(pool, 'accounts', 'code');
+  const hasAccEntity = await hasColumn(pool, 'accounts', 'entity_code');
+  const hasAccGL = await hasColumn(pool, 'accounts', 'gl_code');
+  const hasAccFundNum = await hasColumn(pool, 'accounts', 'fund_number');
+  const accMatchParts = [
+    `jel.${jei.accRef}::text = a.id::text`
+  ];
+  if (hasAccAccountCode) accMatchParts.push(`jel.${jei.accRef}::text = a.account_code::text`);
+  if (hasAccCode) accMatchParts.push(`jel.${jei.accRef}::text = a.code::text`);
+  if (hasAccEntity && hasAccGL && hasAccFundNum) {
+    accMatchParts.push(`jel.${jei.accRef}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text)`);
+  }
+  const accMatchClause = accMatchParts.join(' OR ');
+
   let query = `
     SELECT 
       a.id,
@@ -140,7 +156,7 @@ router.get('/', asyncHandler(async (req, res) => {
           SELECT SUM(COALESCE(jel.${jei.debitCol},0) - COALESCE(jel.${jei.creditCol},0))
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jei.jeRef} = je.id
-          WHERE jel.${jei.accRef} = a.id
+          WHERE (${accMatchClause})
             AND je.status = 'Posted'
         ), 0
       ) AS current_balance
