@@ -126,7 +126,9 @@ router.get('/', asyncHandler(async (req, res) => {
   const hasAccEntity = await hasColumn(pool, 'accounts', 'entity_code');
   const hasAccGL = await hasColumn(pool, 'accounts', 'gl_code');
   const hasAccFundNum = await hasColumn(pool, 'accounts', 'fund_number');
+  const hasAccRestriction = await hasColumn(pool, 'accounts', 'restriction');
   const accMatchParts = [
+    // Direct id match
     `jel.${jei.accRef}::text = a.id::text`
   ];
   if (hasAccAccountCode) accMatchParts.push(`jel.${jei.accRef}::text = a.account_code::text`);
@@ -134,7 +136,34 @@ router.get('/', asyncHandler(async (req, res) => {
   if (hasAccEntity && hasAccGL && hasAccFundNum) {
     accMatchParts.push(`jel.${jei.accRef}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text)`);
   }
+  if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
+    accMatchParts.push(`jel.${jei.accRef}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text || '-' || COALESCE(a.restriction::text,''))`);
+  }
+
+  // Canonical (sanitized) comparisons: strip non-alphanumerics and lowercase
+  const canon = (expr) => `regexp_replace(lower(${expr}::text), '[^a-z0-9]', '', 'g')`;
+  const jelCanon = canon(`jel.${jei.accRef}`);
+  if (hasAccAccountCode) accMatchParts.push(`${jelCanon} = ${canon('a.account_code')}`);
+  if (hasAccCode) accMatchParts.push(`${jelCanon} = ${canon('a.code')}`);
+  if (hasAccEntity && hasAccGL && hasAccFundNum) {
+    accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number`)}`);
+  }
+  if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
+    accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number || '-' || COALESCE(a.restriction,'')`)}`);
+  }
   const accMatchClause = accMatchParts.join(' OR ');
+
+  // Journal entry posted filter (supports status or posted boolean)
+  const hasStatusCol = await hasColumn(pool, 'journal_entries', 'status');
+  const hasPostedCol = await hasColumn(pool, 'journal_entries', 'posted');
+  let postedFilter = 'TRUE';
+  if (hasStatusCol && hasPostedCol) {
+    postedFilter = `(je.status = 'Posted' OR je.posted = TRUE)`;
+  } else if (hasStatusCol) {
+    postedFilter = `(je.status = 'Posted')`;
+  } else if (hasPostedCol) {
+    postedFilter = `(je.posted = TRUE)`;
+  }
 
   let query = `
     SELECT 
@@ -153,11 +182,11 @@ router.get('/', asyncHandler(async (req, res) => {
       a.last_used,
       COALESCE(a.beginning_balance, 0) + COALESCE(
         (
-          SELECT SUM(COALESCE(jel.${jei.debitCol},0) - COALESCE(jel.${jei.creditCol},0))
+          SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jei.jeRef} = je.id
           WHERE (${accMatchClause})
-            AND je.status = 'Posted'
+            AND ${postedFilter}
         ), 0
       ) AS current_balance
     FROM accounts a 
