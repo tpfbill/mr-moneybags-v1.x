@@ -914,7 +914,7 @@ export async function openJournalEntryModal(id, readOnly = false) {
     if (id) {
         try {
             const journalEntry = await fetchData(`journal-entries/${id}`);
-            const lineItems = await fetchData(`journal-entries/${id}/items`);
+            const lineItems = await fetchData(`journal-entries/${id}/lines`);
             
             form.elements['journal-entry-date'].value = journalEntry.entry_date ? journalEntry.entry_date.split('T')[0] : '';
             form.elements['journal-entry-reference'].value = journalEntry.reference_number || '';
