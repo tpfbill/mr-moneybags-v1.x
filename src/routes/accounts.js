@@ -51,6 +51,15 @@ async function getJeiCoreCols(db) {
   return { jeRef, accRef, debitCol, creditCol };
 }
 
+// Return the subset of candidate column names that actually exist on the table
+async function getExistingCols(db, tableName, candidates) {
+  const out = [];
+  for (const c of candidates) {
+    if (await hasColumn(db, tableName, c)) out.push(c);
+  }
+  return out;
+}
+
 function normalizeYN(v) {
   const t = (v || '').toString().trim().toLowerCase();
   if (!t) return 'No';
@@ -119,6 +128,8 @@ router.get('/', asyncHandler(async (req, res) => {
 
   // Detect JEI columns dynamically so balance works across schemas
   const jei = await getJeiCoreCols(pool);
+  const jeRefCols = await getExistingCols(pool, 'journal_entry_items', ['journal_entry_id', 'entry_id', 'je_id']);
+  const accRefCols = await getExistingCols(pool, 'journal_entry_items', ['account_id', 'gl_account_id', 'acct_id', 'account', 'account_code', 'code', 'chart_code']);
 
   // Determine how to match JEI account reference to accounts table
   const hasAccAccountCode = await hasColumn(pool, 'accounts', 'account_code');
@@ -127,29 +138,32 @@ router.get('/', asyncHandler(async (req, res) => {
   const hasAccGL = await hasColumn(pool, 'accounts', 'gl_code');
   const hasAccFundNum = await hasColumn(pool, 'accounts', 'fund_number');
   const hasAccRestriction = await hasColumn(pool, 'accounts', 'restriction');
-  const accMatchParts = [
-    // Direct id match
-    `jel.${jei.accRef}::text = a.id::text`
-  ];
-  if (hasAccAccountCode) accMatchParts.push(`jel.${jei.accRef}::text = a.account_code::text`);
-  if (hasAccCode) accMatchParts.push(`jel.${jei.accRef}::text = a.code::text`);
-  if (hasAccEntity && hasAccGL && hasAccFundNum) {
-    accMatchParts.push(`jel.${jei.accRef}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text)`);
-  }
-  if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
-    accMatchParts.push(`jel.${jei.accRef}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text || '-' || COALESCE(a.restriction::text,''))`);
-  }
-
+  const accMatchParts = [];
   // Canonical (sanitized) comparisons: strip non-alphanumerics and lowercase
   const canon = (expr) => `regexp_replace(lower(${expr}::text), '[^a-z0-9]', '', 'g')`;
-  const jelCanon = canon(`jel.${jei.accRef}`);
-  if (hasAccAccountCode) accMatchParts.push(`${jelCanon} = ${canon('a.account_code')}`);
-  if (hasAccCode) accMatchParts.push(`${jelCanon} = ${canon('a.code')}`);
-  if (hasAccEntity && hasAccGL && hasAccFundNum) {
-    accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number`)}`);
-  }
-  if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
-    accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number || '-' || COALESCE(a.restriction,'')`)}`);
+  const accCols = (accRefCols && accRefCols.length ? accRefCols : [jei.accRef]);
+  for (const col of accCols) {
+    // Direct id or textual matches
+    accMatchParts.push(`jel.${col}::text = a.id::text`);
+    if (hasAccAccountCode) accMatchParts.push(`jel.${col}::text = a.account_code::text`);
+    if (hasAccCode) accMatchParts.push(`jel.${col}::text = a.code::text`);
+    if (hasAccEntity && hasAccGL && hasAccFundNum) {
+      accMatchParts.push(`jel.${col}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text)`);
+    }
+    if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
+      accMatchParts.push(`jel.${col}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text || '-' || COALESCE(a.restriction::text,''))`);
+    }
+
+    // Canonicalized equality
+    const jelCanon = canon(`jel.${col}`);
+    if (hasAccAccountCode) accMatchParts.push(`${jelCanon} = ${canon('a.account_code')}`);
+    if (hasAccCode) accMatchParts.push(`${jelCanon} = ${canon('a.code')}`);
+    if (hasAccEntity && hasAccGL && hasAccFundNum) {
+      accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number`)}`);
+    }
+    if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
+      accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number || '-' || COALESCE(a.restriction,'')`)}`);
+    }
   }
   const accMatchClause = accMatchParts.join(' OR ');
 
@@ -184,7 +198,7 @@ router.get('/', asyncHandler(async (req, res) => {
         (
           SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
           FROM journal_entry_items jel
-          JOIN journal_entries je ON jel.${jei.jeRef} = je.id
+          JOIN journal_entries je ON ${jeRefCols && jeRefCols.length ? '(' + jeRefCols.map(c => `jel.${c} = je.id`).join(' OR ') + ')' : `jel.${jei.jeRef} = je.id`}
           WHERE (${accMatchClause})
             AND ${postedFilter}
         ), 0
