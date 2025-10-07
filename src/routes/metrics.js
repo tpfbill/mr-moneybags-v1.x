@@ -16,6 +16,7 @@ async function hasColumn(db, tableName, colName) {
 async function getJeiCoreCols(db) {
   const jeRefCandidates = ['journal_entry_id', 'entry_id', 'je_id'];
   const fundRefCandidates = ['fund_id', 'fund', 'fundid'];
+  const accRefCandidates = ['account_id', 'gl_account_id', 'acct_id', 'account'];
   const debitCandidates = ['debit', 'debits', 'dr_amount', 'debit_amount', 'dr'];
   const creditCandidates = ['credit', 'credits', 'cr_amount', 'credit_amount', 'cr'];
 
@@ -29,6 +30,7 @@ async function getJeiCoreCols(db) {
   return {
     jeRef: await pickFirst(jeRefCandidates),
     fundRef: await pickFirst(fundRefCandidates),
+    accRef: await pickFirst(accRefCandidates),
     debitCol: await pickFirst(debitCandidates),
     creditCol: await pickFirst(creditCandidates)
   };
@@ -128,26 +130,22 @@ router.get('/', asyncHandler(async (req, res) => {
     FROM acc
   `;
 
-  // Revenue YTD: sum of total_amount where normalized type = 'Revenue' in current year
-  const hasTotalAmt = await hasColumn(pool, 'journal_entries', 'total_amount');
-  let revenueSql = hasTotalAmt ? `
-    SELECT COALESCE(SUM(COALESCE(je.total_amount::numeric,0)), 0::numeric) AS revenue_ytd
-      FROM journal_entries je
-     WHERE COALESCE(je.type, je.entry_type) ILIKE 'revenue'
-       AND je.entry_date BETWEEN $1 AND $2
-       AND ${postCond}
-  ` : `
+  // Revenue YTD: derive from line-items hitting accounts classified as Revenue
+  const hasAccClassification = await hasColumn(pool, 'accounts', 'classification');
+  const hasAccEntityCode = await hasColumn(pool, 'accounts', 'entity_code');
+  let revenueSql = `
     SELECT COALESCE(SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)), 0::numeric) AS revenue_ytd
       FROM journal_entry_items jel
       JOIN journal_entries je ON jel.${jei.jeRef} = je.id
-     WHERE COALESCE(je.type, je.entry_type) ILIKE 'revenue'
-       AND je.entry_date BETWEEN $1 AND $2
+      LEFT JOIN accounts a ON jel.${jei.accRef}::text = a.id::text
+     WHERE je.entry_date BETWEEN $1 AND $2
        AND ${postCond}
+       ${hasAccClassification ? "AND LOWER(COALESCE(a.classification,'')) LIKE 'revenue%'" : ''}
   `;
   const revenueParams = [yStart, yEnd];
-  if (hasJeEntityId && entityIds.length) {
-    revenueSql += ` AND je.entity_id = ANY($3)`;
-    revenueParams.push(entityIds);
+  if (hasAccEntityCode && entityCodes.length) {
+    revenueSql += ` AND a.entity_code = ANY($${revenueParams.length + 1})`;
+    revenueParams.push(entityCodes);
   }
 
   const [assetsR, liabilitiesR, revenueR] = await Promise.all([
