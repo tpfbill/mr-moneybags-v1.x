@@ -181,7 +181,8 @@ router.get('/', asyncHandler(async (req, res) => {
   const revenueParams = [yStart, yEnd];
   if (entityCodes.length) {
     if (hasAccEntityCode) {
-      revenueSql += ` AND COALESCE(a.entity_code, f.entity_code) = ANY($${revenueParams.length + 1})`;
+      // Prefer fund's entity mapping for scoping; fallback to account when fund linkage is missing
+      revenueSql += ` AND COALESCE(f.entity_code, a.entity_code) = ANY($${revenueParams.length + 1})`;
       revenueParams.push(entityCodes);
     } else {
       // Fallback: scope by funds.entity_code only
