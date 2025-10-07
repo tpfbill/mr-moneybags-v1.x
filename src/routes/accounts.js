@@ -129,11 +129,8 @@ router.get('/', asyncHandler(async (req, res) => {
   // Detect JEI columns dynamically so balance works across schemas
   const jei = await getJeiCoreCols(pool);
   const jeRefCols = await getExistingCols(pool, 'journal_entry_items', ['journal_entry_id', 'entry_id', 'je_id']);
-  const accRefCols = await getExistingCols(pool, 'journal_entry_items', ['account_id', 'gl_account_id', 'acct_id', 'account', 'account_code', 'code', 'chart_code']);
-  const jeiEntityCols = await getExistingCols(pool, 'journal_entry_items', ['entity_code']);
-  const jeiGlCols     = await getExistingCols(pool, 'journal_entry_items', ['gl_code']);
-  const jeiFundCols   = await getExistingCols(pool, 'journal_entry_items', ['fund_number']);
-  const jeiRestrCols  = await getExistingCols(pool, 'journal_entry_items', ['restriction']);
+  // For this schema: journal_entry_items has a UUID account_id referencing accounts.id; prefer direct id match
+  const accRefCols = await getExistingCols(pool, 'journal_entry_items', ['account_id']);
 
   // Determine how to match JEI account reference to accounts table
   const hasAccAccountCode = await hasColumn(pool, 'accounts', 'account_code');
@@ -142,52 +139,17 @@ router.get('/', asyncHandler(async (req, res) => {
   const hasAccGL = await hasColumn(pool, 'accounts', 'gl_code');
   const hasAccFundNum = await hasColumn(pool, 'accounts', 'fund_number');
   const hasAccRestriction = await hasColumn(pool, 'accounts', 'restriction');
-  const accMatchParts = [];
-  // Canonical (sanitized) comparisons: strip non-alphanumerics and lowercase
-  const canon = (expr) => `regexp_replace(lower(${expr}::text), '[^a-z0-9]', '', 'g')`;
-  const accCols = (accRefCols && accRefCols.length ? accRefCols : [jei.accRef]);
-  for (const col of accCols) {
-    // Direct id or textual matches
-    accMatchParts.push(`jel.${col}::text = a.id::text`);
-    if (hasAccAccountCode) accMatchParts.push(`jel.${col}::text = a.account_code::text`);
-    if (hasAccCode) accMatchParts.push(`jel.${col}::text = a.code::text`);
-    if (hasAccEntity && hasAccGL && hasAccFundNum) {
-      accMatchParts.push(`jel.${col}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text)`);
-    }
-    if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
-      accMatchParts.push(`jel.${col}::text = (a.entity_code::text || '-' || a.gl_code::text || '-' || a.fund_number::text || '-' || COALESCE(a.restriction::text,''))`);
-    }
-
-    // Canonicalized equality
-    const jelCanon = canon(`jel.${col}`);
-    if (hasAccAccountCode) accMatchParts.push(`${jelCanon} = ${canon('a.account_code')}`);
-    if (hasAccCode) accMatchParts.push(`${jelCanon} = ${canon('a.code')}`);
-    if (hasAccEntity && hasAccGL && hasAccFundNum) {
-      accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number`)}`);
-    }
-    if (hasAccEntity && hasAccGL && hasAccFundNum && hasAccRestriction) {
-      accMatchParts.push(`${jelCanon} = ${canon(`a.entity_code || '-' || a.gl_code || '-' || a.fund_number || '-' || COALESCE(a.restriction,'')`)}`);
-    }
-  }
-  // Attribute-based matching (when JEI stores separate entity/gl/fund[/restriction] columns)
-  if (hasAccEntity && hasAccGL && hasAccFundNum && jeiEntityCols.length && jeiGlCols.length && jeiFundCols.length) {
-    const e = jeiEntityCols[0], g = jeiGlCols[0], f = jeiFundCols[0];
-    accMatchParts.push(`lower(jel.${e}::text) = lower(a.entity_code::text) AND lower(jel.${g}::text) = lower(a.gl_code::text) AND lower(jel.${f}::text) = lower(a.fund_number::text)`);
-    if (hasAccRestriction && jeiRestrCols.length) {
-      const r = jeiRestrCols[0];
-      accMatchParts.push(`lower(jel.${e}::text) = lower(a.entity_code::text) AND lower(jel.${g}::text) = lower(a.gl_code::text) AND lower(jel.${f}::text) = lower(a.fund_number::text) AND lower(COALESCE(jel.${r}::text,'')) = lower(COALESCE(a.restriction::text,''))`);
-    }
-  }
-  const accMatchClause = accMatchParts.join(' OR ');
+  // Tight, schema-correct match: JEI.account_id = accounts.id
+  const accMatchClause = `jel.${(accRefCols[0] || jei.accRef)}::text = a.id::text`;
 
   // Journal entry posted filter (supports status or posted boolean)
   const hasStatusCol = await hasColumn(pool, 'journal_entries', 'status');
   const hasPostedCol = await hasColumn(pool, 'journal_entries', 'posted');
   let postedFilter = 'TRUE';
   if (hasStatusCol && hasPostedCol) {
-    postedFilter = `(je.status = 'Posted' OR je.posted = TRUE)`;
+    postedFilter = `(je.posted = TRUE OR je.status ILIKE 'post%')`;
   } else if (hasStatusCol) {
-    postedFilter = `(je.status = 'Posted')`;
+    postedFilter = `(je.status ILIKE 'post%')`;
   } else if (hasPostedCol) {
     postedFilter = `(je.posted = TRUE)`;
   }
