@@ -16,6 +16,7 @@ async function hasColumn(db, tableName, colName) {
 async function getJeiCoreCols(db) {
   const jeRefCandidates = ['journal_entry_id', 'entry_id', 'je_id'];
   const fundRefCandidates = ['fund_id', 'fund', 'fundid'];
+  const accRefCandidates = ['account_id', 'gl_account_id', 'acct_id', 'account'];
   const debitCandidates = ['debit', 'debits', 'dr_amount', 'debit_amount', 'dr'];
   const creditCandidates = ['credit', 'credits', 'cr_amount', 'credit_amount', 'cr'];
 
@@ -29,6 +30,7 @@ async function getJeiCoreCols(db) {
   return {
     jeRef: await pickFirst(jeRefCandidates),
     fundRef: await pickFirst(fundRefCandidates),
+    accRef: await pickFirst(accRefCandidates),
     debitCol: await pickFirst(debitCandidates),
     creditCol: await pickFirst(creditCandidates)
   };
@@ -36,6 +38,9 @@ async function getJeiCoreCols(db) {
 
 // GET /api/metrics
 // Returns { assets, liabilities, net_assets, revenue_ytd }
+// Optional scoping via query params (any may be provided):
+// - entity_code (repeatable) or entity_codes=CSV   → filters funds/accounts by entity_code
+// - entity_id   (repeatable) or entity_ids=CSV     → filters journal_entries by entity_id
 router.get('/', asyncHandler(async (req, res) => {
   const year = new Date().getFullYear();
   const yStart = `${year}-01-01`;
@@ -44,9 +49,30 @@ router.get('/', asyncHandler(async (req, res) => {
   // Posted tolerance
   const hasStatusCol = await hasColumn(pool, 'journal_entries', 'status');
   const hasPostedCol = await hasColumn(pool, 'journal_entries', 'posted');
+  const hasJeEntityId = await hasColumn(pool, 'journal_entries', 'entity_id');
   const postCond = (hasStatusCol && hasPostedCol)
     ? `(je.posted = TRUE OR je.status ILIKE 'post%')`
     : (hasStatusCol ? `(je.status ILIKE 'post%')` : (hasPostedCol ? `(je.posted = TRUE)` : 'TRUE'));
+
+  // Parse entity filters from query
+  const q = req.query || {};
+  const toArray = (v) => Array.isArray(v)
+    ? v
+    : (typeof v === 'string' && v.length ? v.split(',') : []);
+
+  const entityCodes = [
+    ...toArray(q.entity_code),
+    ...toArray(q.entity_codes)
+  ]
+    .map(s => String(s || '').trim())
+    .filter(Boolean);
+
+  const entityIds = [
+    ...toArray(q.entity_id),
+    ...toArray(q.entity_ids)
+  ]
+    .map(s => String(s || '').trim())
+    .filter(Boolean);
 
   // Funds balance expression mirrors src/routes/funds.js, summed for assets
   const jei = await getJeiCoreCols(pool);
@@ -60,7 +86,7 @@ router.get('/', asyncHandler(async (req, res) => {
   if (hasFundCode)   fundMatchParts.push(`(jel.${jei.fundRef}::text = f.fund_code::text)`);
   const fundMatchClause = fundMatchParts.join(' OR ');
 
-  const assetsSql = `
+  let assetsSql = `
     SELECT COALESCE(SUM(${sbExpr} + COALESCE((
       SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
         FROM journal_entry_items jel
@@ -69,10 +95,16 @@ router.get('/', asyncHandler(async (req, res) => {
          AND ${postCond}
     ), 0::numeric)), 0::numeric) AS assets
     FROM funds f
+    WHERE 1=1
   `;
+  const assetsParams = [];
+  if (entityCodes.length) {
+    assetsSql += ' AND f.entity_code = ANY($1)';
+    assetsParams.push(entityCodes);
+  }
 
   // Liabilities: sum magnitudes of negative current_balance across liability accounts
-  const liabilitiesSql = `
+  let liabilitiesSql = `
     WITH acc AS (
       SELECT 
         a.id,
@@ -84,34 +116,84 @@ router.get('/', asyncHandler(async (req, res) => {
              AND ${postCond}
         ), 0::numeric) AS current_balance
       FROM accounts a
-      WHERE (LOWER(COALESCE(a.classification,'')) LIKE '%liab%')
-         OR (COALESCE(a.gl_code,'')::text LIKE '2%')
+      WHERE ((LOWER(COALESCE(a.classification,'')) LIKE '%liab%')
+         OR (COALESCE(a.gl_code,'')::text LIKE '2%'))
+  `;
+  const liabilitiesParams = [];
+  if (entityCodes.length) {
+    liabilitiesSql += ` AND a.entity_code = ANY($1)`;
+    liabilitiesParams.push(entityCodes);
+  }
+  liabilitiesSql += `
     )
     SELECT COALESCE(SUM(CASE WHEN current_balance < 0 THEN -current_balance ELSE 0 END), 0::numeric) AS liabilities
     FROM acc
   `;
 
-  // Revenue YTD: sum of total_amount where normalized type = 'Revenue' in current year
-  const hasTotalAmt = await hasColumn(pool, 'journal_entries', 'total_amount');
-  const revenueSql = hasTotalAmt ? `
-    SELECT COALESCE(SUM(COALESCE(je.total_amount::numeric,0)), 0::numeric) AS revenue_ytd
-      FROM journal_entries je
-     WHERE COALESCE(je.type, je.entry_type) ILIKE 'revenue'
-       AND je.entry_date BETWEEN $1 AND $2
-       AND ${postCond}
-  ` : `
+  // Revenue YTD: derive from line-items that hit Revenue/Income accounts
+  // Robust join + classification detection across schema variants
+  const hasAccClassification = await hasColumn(pool, 'accounts', 'classification');
+  const hasAccEntityCode = await hasColumn(pool, 'accounts', 'entity_code');
+  const hasAccAccountCode = await hasColumn(pool, 'accounts', 'account_code');
+  const hasJeiAccountCode = await hasColumn(pool, 'journal_entry_items', 'account_code');
+  const hasJeiGlCode = await hasColumn(pool, 'journal_entry_items', 'gl_code');
+  const hasGlCodes = await hasColumn(pool, 'gl_codes', 'code');
+
+  // Account match: prefer ID, fallback to account_code when present
+  const accMatchParts = [
+    `(jel.${jei.accRef}::text = a.id::text)`
+  ];
+  if (hasJeiAccountCode && hasAccAccountCode) {
+    accMatchParts.push(
+      "(regexp_replace(lower(jel.account_code),'[^a-z0-9]','','g') = regexp_replace(lower(a.account_code),'[^a-z0-9]','','g'))"
+    );
+  }
+  const accMatchClause = accMatchParts.join(' OR ');
+
+  // Optional joins for classification fallback
+  const gcAJoin = hasGlCodes ? ' LEFT JOIN gl_codes gcA ON a.gl_code = gcA.code' : '';
+  const gcJJoin = hasGlCodes && hasJeiGlCode ? ' LEFT JOIN gl_codes gcJ ON jel.gl_code = gcJ.code' : '';
+
+  // Determine revenue via accounts.classification, gl_codes.classification, or GL prefix 4xxx
+  const revenueClassPredicate = `(
+    LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,
+      CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
+           THEN 'revenue' ELSE '' END
+    )) LIKE 'revenue%'
+    OR LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,'')) LIKE 'income%'
+  )`;
+
+  // Join funds to enable entity scoping even if account join doesn't resolve
+  const revenueFundsJoin = ` LEFT JOIN funds f ON (${fundMatchClause})`;
+
+  let revenueSql = `
     SELECT COALESCE(SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)), 0::numeric) AS revenue_ytd
       FROM journal_entry_items jel
       JOIN journal_entries je ON jel.${jei.jeRef} = je.id
-     WHERE COALESCE(je.type, je.entry_type) ILIKE 'revenue'
-       AND je.entry_date BETWEEN $1 AND $2
+      LEFT JOIN accounts a ON (${accMatchClause})
+      ${gcAJoin}
+      ${gcJJoin}
+      ${revenueFundsJoin}
+     WHERE je.entry_date BETWEEN $1 AND $2
        AND ${postCond}
+       AND ${revenueClassPredicate}
   `;
+  const revenueParams = [yStart, yEnd];
+  if (entityCodes.length) {
+    // Canonical comparison: strip non-alphanumerics + lowercase on both sides
+    const jelEntityFromAcctCode = hasJeiAccountCode
+      ? "regexp_replace(lower(jel.account_code), '[^a-z0-9]', '', 'g')"
+      : "NULL";
+    const entityScopeExpr = `regexp_replace(lower(COALESCE(f.entity_code, a.entity_code)), '[^a-z0-9]', '', 'g')`;
+    const entityCodesCanon = entityCodes.map(c => String(c || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+    revenueSql += ` AND COALESCE(${entityScopeExpr}, ${jelEntityFromAcctCode}) = ANY($${revenueParams.length + 1})`;
+    revenueParams.push(entityCodesCanon);
+  }
 
   const [assetsR, liabilitiesR, revenueR] = await Promise.all([
-    pool.query(assetsSql),
-    pool.query(liabilitiesSql),
-    pool.query(revenueSql, [yStart, yEnd])
+    pool.query(assetsSql, assetsParams),
+    pool.query(liabilitiesSql, liabilitiesParams),
+    pool.query(revenueSql, revenueParams)
   ]);
 
   const assets = Number(assetsR.rows[0]?.assets || 0);
