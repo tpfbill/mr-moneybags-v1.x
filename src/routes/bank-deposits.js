@@ -35,6 +35,11 @@ function parseAmount(v) {
     return neg ? -num : num;
 }
 
+function round2(n) {
+    const x = Number(n) || 0;
+    return Math.round(x * 100) / 100;
+}
+
 function parseDateMDY(input) {
     if (!input) return null;
     const s = String(input).trim();
@@ -338,10 +343,14 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
     let createdDeposits = 0;
     let createdItems = 0;
     let errors = 0;
+    let currentGroupRef = null;
+    let currentGroupFirstLine = null;
     try {
         await client.query('BEGIN');
 
         for (const [ref, items] of groups.entries()) {
+            currentGroupRef = ref;
+            currentGroupFirstLine = items?.[0]?.line || null;
             // Enforce global uniqueness of reference_number
             const dup = await client.query(
                 'SELECT id FROM bank_deposits WHERE reference_number = $1 LIMIT 1',
@@ -445,7 +454,8 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                     [deposit_id, it.amt, it.desc || null, it.account_id, req.user?.id]
                 );
                 createdItems++;
-                log.push({ line: it.line, status: 'OK', message: `Added item $${it.amt.toFixed(2)}` });
+                const disp = round2(it.amt).toFixed(2);
+                log.push({ line: it.line, status: 'OK', message: `Added item $${disp}` });
             }
 
             // Determine JE owning entity: prefer entity derived from deposit Account No (line account_code)
@@ -463,6 +473,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
 
             // Create Journal Entry (Posted, Auto)
             const jeDesc = `Auto deposit ${ref} for bank account ${bankName}`;
+            const totalRounded = round2(validItems.reduce((s, v) => s + v.amt, 0));
             const jeRes = await client.query(
                 `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, entry_type, status, total_amount, created_by, entry_mode)
                  VALUES ($1,$2,$3,$4,'Revenue','Posted',$5,$6,'Auto') RETURNING id`,
@@ -471,28 +482,48 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                     ymd,
                     ref,
                     jeDesc,
-                    validItems.reduce((s, v) => s + v.amt, 0),
+                    totalRounded,
                     req.user?.id
                 ]
             );
             const journal_entry_id = jeRes.rows[0].id;
 
-            // Debit cash per fund
+            // Cash side per fund with rounding and sign handling
             for (const [fund_id, amt] of fundTotals.entries()) {
-                await client.query(
-                    `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
-                     VALUES ($1,$2,$3,$4,$5,0)`,
-                    [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash`, amt]
-                );
+                const n = round2(amt);
+                if (n > 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,$5,0)`,
+                        [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash`, n]
+                    );
+                } else if (n < 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,0,$5)`,
+                        [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash reversal`, Math.abs(n)]
+                    );
+                }
+                // if n == 0, skip
             }
 
-            // Credit revenue items per account/fund
+            // Revenue side per item with rounding and reversals
             for (const it of validItems) {
-                await client.query(
-                    `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
-                     VALUES ($1,$2,$3,$4,0,$5)`,
-                    [journal_entry_id, it.account_id, it.fund_id, it.desc || `Deposit ${ref}`, it.amt]
-                );
+                const a = round2(it.amt);
+                if (a > 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,0,$5)`,
+                        [journal_entry_id, it.account_id, it.fund_id, it.desc || `Deposit ${ref}`, a]
+                    );
+                } else if (a < 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,$5,0)`,
+                        [journal_entry_id, it.account_id, it.fund_id, (it.desc ? `${it.desc} reversal` : `Deposit ${ref} reversal`), Math.abs(a)]
+                    );
+                }
+                // if a == 0, skip
             }
 
             // Link deposit items to the JE
@@ -505,6 +536,8 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
         await client.query('COMMIT');
     } catch (e) {
         await client.query('ROLLBACK');
+        // Append final error row so UI can display failure context
+        log.push({ line: currentGroupFirstLine, status: 'Failed', message: `Error while processing reference ${currentGroupRef || ''}: ${e.message}` });
         return res.status(500).json({ error: e.message, log });
     } finally {
         client.release();
