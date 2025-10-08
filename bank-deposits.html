@@ -4,7 +4,7 @@
     <script src="src/js/override-entities.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bank Deposits (Checks) - Mr. MoneyBags v1.x</title>
+    <title>Bank Deposits - Mr. MoneyBags v1.x</title>
     <link rel="stylesheet" href="src/css/styles.css">
     <link rel="stylesheet" href="src/css/bank-deposits.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
@@ -29,36 +29,46 @@
     </div>
 
     <div class="main-content">
-        <!-- Single centered Back button -->
+        <!-- Back button -->
         <div class="text-center mb-4">
-            <button
-                class="action-button"
-                onclick="window.location.href='index.html'">
-                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+            <button class="action-button" onclick="window.location.href='index.html'">
+                Back to Dashboard
             </button>
         </div>
 
         <div class="page-header">
-            <h2>Bank Deposits (Checks)</h2>
-            <div class="page-actions">
-                <button id="refresh-deposits-btn" class="action-button">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                </button>
-                <button id="new-deposit-btn" class="action-button primary">
-                    <i class="bi bi-plus-circle"></i> New Deposit
-                </button>
+            <h2>Bank Deposits</h2>
+        </div>
+
+        <!-- Outer Tabs: Checks / Batched -->
+        <div class="outer-tab-navigation tab-navigation">
+            <div class="outer-tab-item active" data-outer-tab="outer-checks">Checks</div>
+            <div class="outer-tab-item" data-outer-tab="outer-batched">Batched</div>
+        </div>
+
+        <!-- ================= Checks Panel ================= -->
+        <div id="outer-checks" class="outer-tab-panel active">
+            <div class="page-header">
+                <h2>Bank Deposits (Checks)</h2>
+                <div class="page-actions">
+                    <button id="refresh-deposits-btn" class="action-button">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button id="new-deposit-btn" class="action-button primary">
+                        <i class="bi bi-plus-circle"></i> New Deposit
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <!-- Tab Navigation -->
-        <div class="tab-navigation">
-            <div class="tab-item active" data-tab="deposits-list">Deposits List</div>
-            <div class="tab-item" data-tab="new-deposit">New Deposit</div>
-            <div class="tab-item" data-tab="deposit-slip">Deposit Slip</div>
-        </div>
+            <!-- Tab Navigation (Checks) -->
+            <div class="tab-navigation">
+                <div class="tab-item active" data-tab="deposits-list">Deposits List</div>
+                <div class="tab-item" data-tab="new-deposit">New Deposit</div>
+                <div class="tab-item" data-tab="deposit-slip">Deposit Slip</div>
+            </div>
 
-        <!-- Deposits List Tab -->
-        <div id="deposits-list" class="tab-panel active">
+            <!-- Deposits List Tab -->
+            <div id="deposits-list" class="tab-panel active">
             <div class="filter-section">
                 <div class="filter-row">
                     <div class="filter-group">
@@ -146,8 +156,8 @@
             </div>
         </div>
 
-        <!-- New Deposit Tab -->
-        <div id="new-deposit" class="tab-panel">
+            <!-- New Deposit Tab -->
+            <div id="new-deposit" class="tab-panel">
             <div class="deposit-form">
                 <div class="form-section">
                     <h3>Deposit Information</h3>
@@ -243,8 +253,8 @@
             </div>
         </div>
 
-        <!-- Deposit Slip Tab -->
-        <div id="deposit-slip" class="tab-panel">
+            <!-- Deposit Slip Tab -->
+            <div id="deposit-slip" class="tab-panel">
             <div class="deposit-slip-controls">
                 <div class="form-group">
                     <label for="deposit-slip-select">Select Deposit:</label>
@@ -345,6 +355,68 @@
                             <div><strong>Date Prepared:</strong> <span id="slip-prepared-date">--</span></div>
                         </div>
                     </div>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- ================= Batched Panel ================= -->
+        <div id="outer-batched" class="outer-tab-panel">
+            <div class="page-header">
+                <h2>Bank Deposits (Batched)</h2>
+                <div class="page-actions" style="gap:10px;display:flex;align-items:center;">
+                    <input type="file" id="batchedDepositCsvFile" accept=".csv" style="width:auto;">
+                    <button id="importBatchedDepositsBtn" class="btn-secondary">Import CSV</button>
+                    <button id="refresh-batched-deposits-btn" class="action-button">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="tab-navigation">
+                <div class="tab-item active" data-tab="batched-list">Deposits</div>
+                <div class="tab-item" data-tab="batched-import-log">Last Import Log</div>
+            </div>
+
+            <div id="batched-list" class="tab-panel active">
+                <div class="table-container">
+                    <table id="batched-deposits-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Bank Account</th>
+                                <th>Reference</th>
+                                <th>Description</th>
+                                <th>Total Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="empty-row">
+                                <td colspan="7" class="text-center">No deposits yet. Import a CSV to begin.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="batched-import-log" class="tab-panel">
+                <div class="table-container">
+                    <table id="batched-import-log-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Line</th>
+                                <th>Status</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="empty-row">
+                                <td colspan="3" class="text-center">No import run yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -605,5 +677,21 @@
     <script src="src/js/app.js"></script>
     <!-- Bank-Deposits depends on ES-module imports (e.g., app-config.js) -->
     <script type="module" src="src/js/bank-deposits.js"></script>
+    <!-- Batched deposits module -->
+    <script type="module" src="src/js/bank-deposits-batched.js"></script>
+    <!-- Outer tabs switcher (scoped) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const items = document.querySelectorAll('.outer-tab-item');
+            const panels = document.querySelectorAll('.outer-tab-panel');
+            items.forEach((item) => {
+                item.addEventListener('click', () => {
+                    const target = item.getAttribute('data-outer-tab');
+                    items.forEach(i => i.classList.toggle('active', i === item));
+                    panels.forEach(p => p.classList.toggle('active', p.id === target));
+                });
+            });
+        });
+    </script>
 </body>
 </html>
