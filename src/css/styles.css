@@ -58,12 +58,12 @@ body {
 
 .nav-container {
     display: flex;
-    justify-content: flex-start; /* left-align to fit more items */
-    gap: 8px;                    /* tighter gap between tabs */
+    justify-content: flex-start; /* items will stretch via flex on children */
+    gap: 6px;                    /* slightly tighter gap between tabs */
     max-width: 100%;             /* use full width of viewport */
     margin: 0 auto;
     padding: 0 12px;             /* slightly smaller side padding */
-    flex-wrap: wrap;             /* wrap to next line if needed */
+    flex-wrap: nowrap;           /* keep a single row; labels wrap inside each tab */
 }
 
 .nav-item {
@@ -72,16 +72,14 @@ body {
     cursor: pointer;
     font-weight: 500;
     font-size: 13px;             /* smaller font to fit more */
-    /* Force items to wrap within a fixed basis */
-    flex: 0 1 150px;             /* base width 150px, allow shrink, no grow */
-    max-width: 150px;
+    /* Single row of tabs; distribute width evenly */
+    flex: 1 1 0;                 /* equal widths across all tabs */
     min-width: 0;                /* allow flex item to shrink */
     display: block;              /* block to respect width and wrapping */
     white-space: normal;         /* allow wrapping between words */
     line-height: 1.2;
     text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: hidden;            /* hide text beyond 2 lines */
     /* Clamp to two lines without relying on -webkit-line-clamp */
     max-height: calc(1.2em * 2);
 }
