@@ -635,9 +635,9 @@
                         </div>
                         <div class="comparison-details">
                             <ul>
-                                <li>21 focused modules (3,400+ total lines)</li>
+                                <li>26 route modules (~12,965 lines across routes)</li>
                                 <li>Clean separation of concerns</li>
-                                <li>Modular server orchestration (110 lines)</li>
+                                <li>Server orchestration (273 lines)</li>
                                 <li>Domain-specific API route handlers</li>
                                 <li>Shared utilities and middleware</li>
                                 <li>Improved testability and maintainability</li>
@@ -668,7 +668,7 @@
                     <div class="module-card server" data-category="server">
                         <div class="module-header">
                             <span class="module-name">server-modular.js</span>
-                            <span class="module-lines">110 lines</span>
+                            <span class="module-lines">273 lines</span>
                         </div>
                         <div class="module-description">Main Express application orchestration, API route registration, and server startup</div>
                         <div class="module-path">./server-modular.js</div>
@@ -682,7 +682,7 @@
                     <div class="module-card core" data-category="core">
                         <div class="module-header">
                             <span class="module-name">connection.js</span>
-                            <span class="module-lines">108 lines</span>
+                            <span class="module-lines">101 lines</span>
                         </div>
                         <div class="module-description">PostgreSQL database connection pool and initialization using consolidated schema</div>
                         <div class="module-path">./src/database/connection.js</div>
@@ -695,7 +695,7 @@
                     <div class="module-card utils" data-category="utils">
                         <div class="module-header">
                             <span class="module-name">helpers.js</span>
-                            <span class="module-lines">95 lines</span>
+                            <span class="module-lines">102 lines</span>
                         </div>
                         <div class="module-description">Common utility functions and helper methods for API endpoints</div>
                         <div class="module-path">./src/utils/helpers.js</div>
@@ -708,7 +708,7 @@
                     <div class="module-card utils" data-category="utils">
                         <div class="module-header">
                             <span class="module-name">error-handler.js</span>
-                            <span class="module-lines">150 lines</span>
+                            <span class="module-lines">130 lines</span>
                         </div>
                         <div class="module-description">Centralized error handling middleware for API responses</div>
                         <div class="module-path">./src/middleware/error-handler.js</div>
@@ -722,7 +722,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">entities.js</span>
-                            <span class="module-lines">227 lines</span>
+                            <span class="module-lines">254 lines</span>
                         </div>
                         <div class="module-description">Entity hierarchy management API with circular reference detection</div>
                         <div class="module-path">./src/routes/entities.js</div>
@@ -735,7 +735,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">accounts.js</span>
-                            <span class="module-lines">215 lines</span>
+                            <span class="module-lines">688 lines</span>
                         </div>
                         <div class="module-description">Chart of accounts CRUD operations API endpoints</div>
                         <div class="module-path">./src/routes/accounts.js</div>
@@ -748,7 +748,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">funds.js</span>
-                            <span class="module-lines">206 lines</span>
+                            <span class="module-lines">689 lines</span>
                         </div>
                         <div class="module-description">Fund accounting operations and management API</div>
                         <div class="module-path">./src/routes/funds.js</div>
@@ -761,7 +761,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">vendors.js</span>
-                            <span class="module-lines">133 lines</span>
+                            <span class="module-lines">506 lines</span>
                         </div>
                         <div class="module-description">Vendor management and bank account operations API</div>
                         <div class="module-path">./src/routes/vendors.js</div>
@@ -774,7 +774,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">payment-batches.js</span>
-                            <span class="module-lines">409 lines</span>
+                            <span class="module-lines">416 lines</span>
                         </div>
                         <div class="module-description">Payment batch processing and management API endpoints</div>
                         <div class="module-path">./src/routes/payment-batches.js</div>
@@ -787,7 +787,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">nacha-settings.js</span>
-                            <span class="module-lines">205 lines</span>
+                            <span class="module-lines">227 lines</span>
                         </div>
                         <div class="module-description">NACHA configuration for ACH payments API</div>
                         <div class="module-path">./src/routes/nacha-settings.js</div>
@@ -800,7 +800,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">nacha-files.js</span>
-                            <span class="module-lines">185 lines</span>
+                            <span class="module-lines">279 lines</span>
                         </div>
                         <div class="module-description">NACHA file generation and management API</div>
                         <div class="module-path">./src/routes/nacha-files.js</div>
@@ -813,7 +813,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">journal-entries.js</span>
-                            <span class="module-lines">385 lines</span>
+                            <span class="module-lines">909 lines</span>
                         </div>
                         <div class="module-description">Double-entry bookkeeping and transaction management API</div>
                         <div class="module-path">./src/routes/journal-entries.js</div>
@@ -826,7 +826,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">bank-accounts.js</span>
-                            <span class="module-lines">201 lines</span>
+                            <span class="module-lines">399 lines</span>
                         </div>
                         <div class="module-description">Banking operations and account management API</div>
                         <div class="module-path">./src/routes/bank-accounts.js</div>
@@ -839,7 +839,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">users.js</span>
-                            <span class="module-lines">130 lines</span>
+                            <span class="module-lines">259 lines</span>
                         </div>
                         <div class="module-description">User management and authentication API endpoints</div>
                         <div class="module-path">./src/routes/users.js</div>
@@ -852,7 +852,7 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">reports.js</span>
-                            <span class="module-lines">189 lines</span>
+                            <span class="module-lines">494 lines</span>
                         </div>
                         <div class="module-description">Custom report builder API with dynamic queries</div>
                         <div class="module-path">./src/routes/reports.js</div>
@@ -865,13 +865,105 @@
                     <div class="module-card routes" data-category="routes">
                         <div class="module-header">
                             <span class="module-name">import.js</span>
-                            <span class="module-lines">248 lines</span>
+                            <span class="module-lines">345 lines</span>
                         </div>
                         <div class="module-description">Data import functionality API endpoints</div>
                         <div class="module-path">./src/routes/import.js</div>
                         <div class="module-tags">
                             <span class="module-tag">Routes</span>
                             <span class="module-tag">Import</span>
+                        </div>
+                    </div>
+
+                    <!-- Newly added/updated modules -->
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">auth.js</span>
+                            <span class="module-lines">177 lines</span>
+                        </div>
+                        <div class="module-description">Authentication routes: login, logout, session verification</div>
+                        <div class="module-path">./src/routes/auth.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Auth</span>
+                        </div>
+                    </div>
+
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">gl-codes.js</span>
+                            <span class="module-lines">274 lines</span>
+                        </div>
+                        <div class="module-description">GL Codes reference API providing code/name mappings</div>
+                        <div class="module-path">./src/routes/gl-codes.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Core</span>
+                        </div>
+                    </div>
+
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">metrics.js</span>
+                            <span class="module-lines">207 lines</span>
+                        </div>
+                        <div class="module-description">Dashboard metrics API (assets, liabilities, net assets, revenue YTD) with entity scoping</div>
+                        <div class="module-path">./src/routes/metrics.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Metrics</span>
+                        </div>
+                    </div>
+
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">liabilities.js</span>
+                            <span class="module-lines">91 lines</span>
+                        </div>
+                        <div class="module-description">Liabilities summary API for dashboard tiles</div>
+                        <div class="module-path">./src/routes/liabilities.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Metrics</span>
+                        </div>
+                    </div>
+
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">check-formats.js</span>
+                            <span class="module-lines">428 lines</span>
+                        </div>
+                        <div class="module-description">CRUD for check formats; separate from check printing endpoints</div>
+                        <div class="module-path">./src/routes/check-formats.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Checks</span>
+                        </div>
+                    </div>
+
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">bank-reconciliation.js</span>
+                            <span class="module-lines">1563 lines</span>
+                        </div>
+                        <div class="module-description">Full bank reconciliation workflow API (statements, matching, adjustments)</div>
+                        <div class="module-path">./src/routes/bank-reconciliation.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Banking</span>
+                        </div>
+                    </div>
+
+                    <div class="module-card routes" data-category="routes">
+                        <div class="module-header">
+                            <span class="module-name">payments-import.js</span>
+                            <span class="module-lines">951 lines</span>
+                        </div>
+                        <div class="module-description">Unified vendor payments import (analyze/process/status)</div>
+                        <div class="module-path">./src/routes/payments-import.js</div>
+                        <div class="module-tags">
+                            <span class="module-tag">Routes</span>
+                            <span class="module-tag">Payments</span>
                         </div>
                     </div>
                 </div>
@@ -940,20 +1032,20 @@ module.exports = router;</code></pre>
             <div class="section-content">
                 <div class="metrics-container">
                     <div class="metric-card">
-                        <div class="metric-value">15</div>
-                        <div class="metric-label">Focused Modules</div>
+                        <div class="metric-value">26</div>
+                        <div class="metric-label">API Route Modules</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-value">2,900+</div>
-                        <div class="metric-label">Total Lines of Code</div>
+                        <div class="metric-value">12,965+</div>
+                        <div class="metric-label">Routes LOC</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-value">110</div>
+                        <div class="metric-value">273</div>
                         <div class="metric-label">Server Orchestration Lines</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-value">12</div>
-                        <div class="metric-label">API Route Modules</div>
+                        <div class="metric-value">30+</div>
+                        <div class="metric-label">Backend Modules (total)</div>
                     </div>
                 </div>
                 
@@ -1144,7 +1236,7 @@ module.exports = router;</code></pre>
             <p>Mr-Moneybags-v1.x Backend Architecture</p>
             <p>Node.js/Express API server with consolidated database schema</p>
             <div class="footer-links">
-                <a href="database-er-diagram.html">Database Schema</a>
+                <a href="database-er-diagram-core.html">Database Schema</a>
                 <a href="docs/guides/Ubuntu_Deployment_Guide_v1.x.pdf">Deployment Guide</a>
                 <a href="#">Documentation</a>
             </div>
@@ -1326,9 +1418,14 @@ module.exports = ${moduleName.replace('.js', '')};`;
                 
                 if (moduleName === 'server-modular.js') {
                     const routeDeps = [
-                        'entities', 'accounts', 'funds', 'vendors', 
-                        'payment-batches', 'nacha-settings', 'nacha-files', 'journal-entries',
-                        'bank-accounts', 'users', 'reports', 'import'
+                        'auth',
+                        'entities', 'accounts', 'funds', 'gl-codes',
+                        'metrics', 'liabilities',
+                        'vendors', 'payment-batches', 'payments-import',
+                        'nacha-settings', 'nacha-files',
+                        'journal-entries', 'bank-accounts', 'bank-deposits',
+                        'check-printing', 'check-formats',
+                        'users', 'reports', 'import', 'bank-reconciliation'
                     ];
                     
                     routeDeps.forEach(dep => {
