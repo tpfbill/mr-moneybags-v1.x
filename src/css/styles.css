@@ -58,12 +58,12 @@ body {
 
 .nav-container {
     display: flex;
-    justify-content: flex-start; /* left-align to fit more items */
-    gap: 8px;                    /* tighter gap between tabs */
+    justify-content: flex-start; /* items will stretch via flex on children */
+    gap: 6px;                    /* slightly tighter gap between tabs */
     max-width: 100%;             /* use full width of viewport */
     margin: 0 auto;
     padding: 0 12px;             /* slightly smaller side padding */
-    flex-wrap: wrap;             /* wrap to next line if needed */
+    flex-wrap: nowrap;           /* keep a single row; labels wrap inside each tab */
 }
 
 .nav-item {
@@ -72,16 +72,18 @@ body {
     cursor: pointer;
     font-weight: 500;
     font-size: 13px;             /* smaller font to fit more */
-    /* Allow wrapping within a tab and clamp to 2 lines */
-    white-space: normal;
-    line-height: 1.2;
-    text-align: center;
-    max-width: 150px;            /* encourage wrapping for long labels */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
+    /* Single row of tabs; distribute width evenly */
+    flex: 1 1 0;                 /* equal widths across all tabs */
+    min-width: 0;                /* allow flex item to shrink */
+    display: -webkit-box;        /* needed for multi-line clamp */
     -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;       /* allow up to three lines for long labels */
+    white-space: normal;         /* allow wrapping between words */
+    line-height: 1.3;            /* add breathing room to avoid glyph clipping */
+    text-align: center;
+    overflow: hidden;            /* hide text beyond clamp */
+    /* Ensure at least three-line height so all tabs align */
+    min-height: calc(1.3em * 3);
 }
 
 .nav-item:hover {
