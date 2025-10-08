@@ -72,20 +72,18 @@ body {
     cursor: pointer;
     font-weight: 500;
     font-size: 13px;             /* smaller font to fit more */
-    /* Allow wrapping within a tab and clamp to 2 lines */
-    min-width: 0;                /* allow flex item to shrink so text can wrap */
-    white-space: normal;
+    /* Force items to wrap within a fixed basis */
+    flex: 0 1 150px;             /* base width 150px, allow shrink, no grow */
+    max-width: 150px;
+    min-width: 0;                /* allow flex item to shrink */
+    display: block;              /* block to respect width and wrapping */
+    white-space: normal;         /* allow wrapping between words */
     line-height: 1.2;
     text-align: center;
-    max-width: 150px;            /* encourage wrapping for long labels */
     overflow: hidden;
     text-overflow: ellipsis;
-    overflow-wrap: anywhere;     /* break long words if needed */
-    word-break: break-word;      /* fallback for older browsers */
-    hyphens: auto;               /* hyphenate where possible */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    /* Clamp to two lines without relying on -webkit-line-clamp */
+    max-height: calc(1.2em * 2);
 }
 
 .nav-item:hover {
