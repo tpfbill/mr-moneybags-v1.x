@@ -11,7 +11,8 @@ import {
     formatDate, 
     formatPercentage, 
     getRelevantEntityIds, 
-    getRelevantFunds 
+    getRelevantFunds,
+    getRelevantEntityCodes 
 } from './app-config.js';
 
 /**
@@ -187,11 +188,20 @@ export function updateDashboardSummaryCards() {
         0
     );
     const accounts = Array.isArray(appState.accounts) ? appState.accounts : [];
+    // Filter liabilities by selected entity codes
+    const canon = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const codeSet = new Set(getRelevantEntityCodes().map(canon));
     const totalLiabilities = accounts
         .filter(acc => {
             const cls = (acc.classification || '').toLowerCase();
             const gl  = String(acc.gl_code || '').trim();
             return cls.includes('liab') || gl.startsWith('2');
+        })
+        .filter(acc => {
+            // If we have selected codes, keep only accounts whose entity_code matches
+            if (codeSet.size === 0) return true;
+            const accCodeCanon = canon(acc.entity_code);
+            return codeSet.has(accCodeCanon);
         })
         .reduce((sum, acc) => {
             const bal = parseFloat(acc.current_balance ?? 0);

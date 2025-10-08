@@ -139,9 +139,16 @@ export function getRelevantEntityIds() {
  * @returns {Array<Object>} Array of fund objects
  */
 export function getRelevantFunds() {
-    // After funds schema refactor, funds are no longer linked by entity_id.
-    // Return all funds for now; filtering (if needed) will be handled elsewhere.
-    return appState.funds;
+    const funds = Array.isArray(appState.funds) ? appState.funds : [];
+    const codes = getRelevantEntityCodes();
+    if (!codes || codes.length === 0) return funds;
+    // Canonicalize for robust matching (handles 'TPF' vs 'tpf', '1' vs '1 ' etc.)
+    const canon = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const codeSet = new Set(codes.map(canon));
+    return funds.filter(f => {
+        const candidates = [canon(f.entity_code), canon(f.entity_name)];
+        return candidates.some(c => codeSet.has(c));
+    });
 }
 
 /**
