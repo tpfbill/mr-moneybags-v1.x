@@ -96,6 +96,15 @@
 </head>
 <body>
     <div class="container">
+        <!-- Navigation button moved to top -->
+        <div class="navigation">
+            <button id="btn-back-to-main"
+                    class="button secondary"
+                    onclick="window.location.href='/index.html'">
+                &larr; Back to Main Dashboard
+            </button>
+        </div>
+
         <div class="report-header">
             <!-- Organization name will be set dynamically via JS -->
             <div id="organization-name" class="report-title">Loading...</div>
@@ -194,14 +203,7 @@
             </tbody>
         </table>
 
-        <!-- Centered navigation button -->
-        <div class="navigation">
-            <button id="btn-back-to-main"
-                    class="button secondary"
-                    onclick="window.location.href='/index.html'">
-                &larr; Back to Main Dashboard
-            </button>
-        </div>
+        
 
         <div class="actions">
             <div>
