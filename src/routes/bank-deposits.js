@@ -477,22 +477,45 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
             );
             const journal_entry_id = jeRes.rows[0].id;
 
-            // Debit cash per fund
+            // Cash side per fund (net):
+            // - If net > 0: Debit cash = net
+            // - If net < 0: Credit cash = abs(net)
+            // - If net = 0: skip
             for (const [fund_id, amt] of fundTotals.entries()) {
-                await client.query(
-                    `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
-                     VALUES ($1,$2,$3,$4,$5,0)`,
-                    [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash`, amt]
-                );
+                const n = Number(amt) || 0;
+                if (n > 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,$5,0)`,
+                        [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash`, n]
+                    );
+                } else if (n < 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,0,$5)`,
+                        [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash reversal`, Math.abs(n)]
+                    );
+                }
             }
 
-            // Credit revenue items per account/fund
+            // Revenue side per item:
+            // - If amt > 0: Credit revenue = amt
+            // - If amt < 0: Debit revenue = abs(amt) (reversal)
             for (const it of validItems) {
-                await client.query(
-                    `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
-                     VALUES ($1,$2,$3,$4,0,$5)`,
-                    [journal_entry_id, it.account_id, it.fund_id, it.desc || `Deposit ${ref}`, it.amt]
-                );
+                const a = Number(it.amt) || 0;
+                if (a > 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,0,$5)`,
+                        [journal_entry_id, it.account_id, it.fund_id, it.desc || `Deposit ${ref}`, a]
+                    );
+                } else if (a < 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,$5,0)`,
+                        [journal_entry_id, it.account_id, it.fund_id, (it.desc ? `${it.desc} reversal` : `Deposit ${ref} reversal`), Math.abs(a)]
+                    );
+                }
             }
 
             // Link deposit items to the JE
