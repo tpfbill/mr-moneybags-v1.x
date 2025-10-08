@@ -250,24 +250,35 @@ router.get('/gl', asyncHandler(async (req, res) => {
     // ---------------------------------------------------------------------
     const params = [start_date, end_date];
     let idx = 3;            // next placeholder index
+    // Track placeholder indices for reuse in acct_open CTE
+    let entityParamIdx = null;
+    let fundParamIdx = null;
+    let acctFromParamIdx = null;
+    let acctToParamIdx = null;
     const conds = [
         `je.entry_date <= $2`
     ];
 
     if (entity_id) {
+        entityParamIdx = idx;
         conds.push(`je.entity_id = $${idx++}`);
         params.push(entity_id);
     }
     if (fund_id) {
+        fundParamIdx = idx;
         conds.push(`jei.fund_id = $${idx++}`);
         params.push(fund_id);
     }
     if (account_code_from) {
-        conds.push(`COALESCE(a.report_code, a.code) >= $${idx++}`);
+        // Use canonical column present in current schema
+        acctFromParamIdx = idx;
+        conds.push(`a.account_code >= $${idx++}`);
         params.push(account_code_from);
     }
     if (account_code_to) {
-        conds.push(`COALESCE(a.report_code, a.code) <= $${idx++}`);
+        // Use canonical column present in current schema
+        acctToParamIdx = idx;
+        conds.push(`a.account_code <= $${idx++}`);
         params.push(account_code_to);
     }
     if (status && status.trim() !== '') {
@@ -276,6 +287,24 @@ router.get('/gl', asyncHandler(async (req, res) => {
     }
 
     const itemsWhere = conds.join(' AND ');
+
+    // Build WHERE for beginning balances (accounts table alias a2)
+    const acctOpenConds = [
+        `(a2.beginning_balance_date IS NOT NULL AND a2.beginning_balance_date <= $1)`
+    ];
+    if (entityParamIdx) {
+        acctOpenConds.push(`EXISTS (SELECT 1 FROM entities e2 WHERE e2.code = a2.entity_code AND e2.id = $${entityParamIdx})`);
+    }
+    if (fundParamIdx) {
+        acctOpenConds.push(`EXISTS (SELECT 1 FROM funds f2 WHERE f2.fund_number = a2.fund_number AND f2.id = $${fundParamIdx})`);
+    }
+    if (acctFromParamIdx) {
+        acctOpenConds.push(`a2.account_code >= $${acctFromParamIdx}`);
+    }
+    if (acctToParamIdx) {
+        acctOpenConds.push(`a2.account_code <= $${acctToParamIdx}`);
+    }
+    const acctOpenWhere = acctOpenConds.join(' AND ');
 
     // ---------------------------------------------------------------------
     // Detail query
@@ -290,19 +319,19 @@ WITH items AS (
     je.entry_date,
     je.reference_number,
     a.id   AS account_id,
-    COALESCE(a.report_code, a.code) AS account_code,
+    a.account_code AS account_code,
     a.description AS account_name,
-    a.classifications AS acct_class,
+    a.classification AS acct_class,
     f.id   AS fund_id,
-    f.code AS fund_code,
-    f.name AS fund_name
+    f.fund_code AS fund_code,
+    f.fund_name AS fund_name
   FROM journal_entry_items AS jei
   JOIN journal_entries      AS je ON je.id = jei.journal_entry_id
   JOIN accounts             AS a  ON a.id  = jei.account_id
   LEFT JOIN funds           AS f  ON f.id  = jei.fund_id
   WHERE ${itemsWhere}
 ),
-opening AS (
+je_open AS (
   SELECT
     account_id,
     SUM(
@@ -314,6 +343,16 @@ opening AS (
   FROM items
   WHERE entry_date < $1
   GROUP BY account_id
+),
+acct_open AS (
+  SELECT
+    a2.id AS account_id,
+    CASE WHEN a2.classification IN ('Asset','Expense')
+         THEN COALESCE(a2.beginning_balance,0)
+         ELSE COALESCE(-a2.beginning_balance,0)
+    END AS opening_balance
+  FROM accounts a2
+  WHERE ${acctOpenWhere}
 ),
 period AS (
   SELECT
@@ -340,14 +379,15 @@ detail AS (
     p.fund_name,
     p.debit,
     p.credit,
-    COALESCE(o.opening_balance, 0) AS opening_balance,
+    COALESCE(jo.opening_balance, 0) + COALESCE(ao.opening_balance, 0) AS opening_balance,
     SUM(p.signed_amount) OVER (
       PARTITION BY p.account_id
       ORDER BY p.entry_date, p.id
       ROWS UNBOUNDED PRECEDING
-    ) + COALESCE(o.opening_balance, 0) AS running_balance
+    ) + COALESCE(jo.opening_balance, 0) + COALESCE(ao.opening_balance, 0) AS running_balance
   FROM period p
-  LEFT JOIN opening o ON o.account_id = p.account_id
+  LEFT JOIN je_open  jo ON jo.account_id = p.account_id
+  LEFT JOIN acct_open ao ON ao.account_id = p.account_id
 )
 SELECT *
 FROM detail
@@ -365,15 +405,15 @@ WITH items AS (
     jei.credit,
     je.entry_date,
     a.id   AS account_id,
-    COALESCE(a.report_code, a.code) AS account_code,
+    a.account_code AS account_code,
     a.description AS account_name,
-    a.classifications AS acct_class
+    a.classification AS acct_class
   FROM journal_entry_items AS jei
   JOIN journal_entries      AS je ON je.id = jei.journal_entry_id
   JOIN accounts             AS a  ON a.id  = jei.account_id
   WHERE ${itemsWhere}
 ),
-opening AS (
+je_open AS (
   SELECT
     account_id,
     SUM(
@@ -400,19 +440,30 @@ activity AS (
   FROM items
   WHERE entry_date BETWEEN $1 AND $2
   GROUP BY account_id
+),
+acct_open AS (
+  SELECT
+    a2.id AS account_id,
+    CASE WHEN a2.classification IN ('Asset','Expense')
+         THEN COALESCE(a2.beginning_balance,0)
+         ELSE COALESCE(-a2.beginning_balance,0)
+    END AS opening_balance
+  FROM accounts a2
+  WHERE ${acctOpenWhere}
 )
 SELECT
   i.account_id,
   i.account_code,
   i.account_name,
-  COALESCE(o.opening_balance, 0) AS opening_balance,
+  COALESCE(jo.opening_balance, 0) + COALESCE(ao.opening_balance, 0) AS opening_balance,
   COALESCE(a.period_debits, 0)   AS debits,
   COALESCE(a.period_credits, 0)  AS credits,
-  COALESCE(o.opening_balance, 0) + COALESCE(a.period_net, 0) AS ending_balance
+  COALESCE(jo.opening_balance, 0) + COALESCE(ao.opening_balance, 0) + COALESCE(a.period_net, 0) AS ending_balance
 FROM (
   SELECT DISTINCT account_id, account_code, account_name FROM items
 ) i
-LEFT JOIN opening  o ON o.account_id = i.account_id
+LEFT JOIN je_open  jo ON jo.account_id = i.account_id
+LEFT JOIN acct_open ao ON ao.account_id = i.account_id
 LEFT JOIN activity a ON a.account_id = i.account_id
 ORDER BY i.account_code;
 `;
