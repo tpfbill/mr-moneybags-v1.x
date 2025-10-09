@@ -50,7 +50,7 @@
             <!-- Check Printing navigation -->
             <div class="nav-item" onclick="window.location.href='check-printing.html'">Check Printing</div>
             <!-- Bank Reconciliation navigation -->
-            <div class="nav-item" onclick="window.location.href='bank-reconciliation.html'">Bank Reconciliation</div>
+            <div class="nav-item" onclick="window.location.href='bank-reconciliation.html'">Bank Reconcilia&shy;tion</div>
             <!-- Inter-Entity Transfer wizard navigation -->
             <div class="nav-item" onclick="window.location.href='inter-entity-transfer.html'">Inter-Entity Transfer</div>
             <div class="nav-item" data-page="fund-reports">Fund Reports</div>
@@ -855,6 +855,15 @@
 
                     <!-- Line-items container (dynamically populated) -->
                     <h4 style="margin: 20px 0 10px 0;">Journal Entry Line Items</h4>
+                    <!-- Column headers for Debit/Credit -->
+                    <div class="journal-entry-line-headers" style="margin-bottom:6px;">
+                        <div class="form-row">
+                            <div class="form-group col-md-7"></div>
+                            <div class="form-group col-md-2"><label class="form-label">Debit</label></div>
+                            <div class="form-group col-md-2"><label class="form-label">Credit</label></div>
+                            <div class="form-group col-md-1"></div>
+                        </div>
+                    </div>
                     <div id="journal-entry-line-items" class="dynamic-container"></div>
                     <button id="add-line-item-btn" type="button" class="btn-secondary" style="margin-top:10px;">
                         Add Line Item

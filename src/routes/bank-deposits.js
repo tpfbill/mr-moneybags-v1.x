@@ -329,7 +329,10 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
         }
 
         const key = ref;
-        const item = { line: lineNo, ref, dateStr, desc, amt, acctCanon: canon(acct), bankName, depositZid };
+        // Derive entity digit from raw account number (strip non-digits, take first char)
+        const acctDigits = acct.replace(/[^0-9]/g, '');
+        const entityDigit = acctDigits.length > 0 ? acctDigits[0] : null;
+        const item = { line: lineNo, ref, dateStr, desc, amt, acctCanon: canon(acct), bankName, depositZid, entityDigit };
         const arr = groups.get(key) || [];
         arr.push(item);
         groups.set(key, arr);
@@ -397,7 +400,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
             // Build valid items with resolved account and fund
             const validItems = [];
             const fundTotals = new Map(); // fund_id -> sum amount (for cash debits)
-            const entityCodeFreq = new Map(); // canonical entity_code -> total amount
+            const entityDigitFreq = new Map(); // first digit of Account No -> total amount
             for (const it of items) {
                 // Resolve account record
                 const accRes = await client.query(
@@ -426,9 +429,9 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
 
                 validItems.push({ ...it, account_id, fund_id, account_entity_code: entity_code });
                 fundTotals.set(fund_id, (fundTotals.get(fund_id) || 0) + it.amt);
-                // Tally entity_code frequency by amount to choose JE owning entity
-                const key = (entity_code || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (key) entityCodeFreq.set(key, (entityCodeFreq.get(key) || 0) + Math.abs(it.amt));
+                // Tally entity digit (from Account No) by absolute amount to choose JE owning entity
+                const digit = it.entityDigit || ((entity_code || '').toString().replace(/[^0-9]/g, '').charAt(0) || null);
+                if (digit) entityDigitFreq.set(digit, (entityDigitFreq.get(digit) || 0) + Math.abs(it.amt));
             }
 
             if (validItems.length === 0) {
@@ -458,15 +461,14 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                 log.push({ line: it.line, status: 'OK', message: `Added item $${disp}` });
             }
 
-            // Determine JE owning entity: prefer entity derived from deposit Account No (line account_code)
+            // Determine JE owning entity from first digit of Account No
             let jeEntityId = entity_id; // fallback to bank account's entity
-            if (entityCodeFreq.size > 0) {
-                // Choose the entity_code with the highest total amount
-                const sorted = [...entityCodeFreq.entries()].sort((a, b) => b[1] - a[1]);
-                const topEntityCodeCanon = sorted[0][0];
+            if (entityDigitFreq.size > 0) {
+                const sorted = [...entityDigitFreq.entries()].sort((a, b) => b[1] - a[1]);
+                const topDigit = sorted[0][0];
                 const entRes = await client.query(
-                    "SELECT id FROM entities WHERE regexp_replace(lower(code), '[^a-z0-9]', '', 'g') = $1 LIMIT 1",
-                    [topEntityCodeCanon]
+                    'SELECT id FROM entities WHERE code = $1 LIMIT 1',
+                    [topDigit]
                 );
                 if (entRes.rows[0]?.id) jeEntityId = entRes.rows[0].id;
             }
@@ -488,7 +490,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
             );
             const journal_entry_id = jeRes.rows[0].id;
 
-            // Cash side per fund with rounding and sign handling
+            // Cash side per fund (rounded to cents) with sign handling; skip zero
             for (const [fund_id, amt] of fundTotals.entries()) {
                 const n = round2(amt);
                 if (n > 0) {
@@ -507,7 +509,7 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                 // if n == 0, skip
             }
 
-            // Revenue side per item with rounding and reversals
+            // Revenue side per item (rounded to cents) with reversals; skip zero
             for (const it of validItems) {
                 const a = round2(it.amt);
                 if (a > 0) {
