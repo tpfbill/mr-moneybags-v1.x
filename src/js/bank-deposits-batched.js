@@ -108,7 +108,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       const ctype = res.headers.get('content-type') || '';
       const isJson = ctype.includes('application/json');
       const data = isJson ? await res.json() : { error: await res.text() };
-      if (!res.ok) throw new Error(data?.error || `Import failed (${res.status})`);
+      if (!res.ok) {
+        // If server provided a log with row numbers, render it
+        const rows = Array.isArray(data?.log) ? data.log : [];
+        if (rows.length && logTableBody) {
+          logTableBody.innerHTML = rows.map((r) => `
+            <tr>
+              <td>${r.line ?? ''}</td>
+              <td>${r.status || 'Error'}</td>
+              <td>${r.message || ''}</td>
+            </tr>
+          `).join('');
+          // Switch to the log tab so the user sees details immediately
+          switchTabLocal('batched-import-log');
+        }
+        throw new Error(data?.error || `Import failed (${res.status})`);
+      }
 
       // Populate import log
       if (Array.isArray(data.log)) {
