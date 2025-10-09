@@ -1167,17 +1167,47 @@ export async function saveJournalEntry(event) {
             // Auto-derive fund_id from selected account (entity_code + fund_number)
             let fundId = null;
             try {
+                // Canonicaliser for tolerant comparisons
+                const canon = (s) => (s == null ? '' : String(s)).toLowerCase().replace(/[^a-z0-9]/g, '');
+                // Map canonical entity code from accounts (e.g., 'tpf','tpfes','ifcsn') to funds schema variants
+                const mapEntityCanon = (eCanon) => {
+                    switch (eCanon) {
+                        case 'tpf':   return { code: '1', names: ['tpf'] };
+                        case 'tpfes': return { code: '2', names: ['tpfes','tpfes'] };
+                        case 'ifcsn':
+                        case 'nfcsn': return { code: '3', names: ['ifcsn','nfcsn'] };
+                        default:      return { code: eCanon, names: [eCanon] };
+                    }
+                };
+
                 const acc = (appState.accounts || []).find(a => String(a.id) === String(accountSelect.value));
                 if (acc) {
                     const fnum = acc.fund_number;
-                    const ecode = acc.entity_code;
-                    const fund = (appState.funds || []).find(f => String(f.fund_number) === String(fnum) && String(f.entity_code) === String(ecode));
+                    const eCanon = canon(acc.entity_code);
+                    const map = mapEntityCanon(eCanon);
+
+                    // Candidate funds with same fund_number
+                    const candidates = (appState.funds || []).filter(f => String(f.fund_number) === String(fnum));
+
+                    // 1) Prefer exact match on funds.entity_code (often '1'|'2'|'3')
+                    let fund = candidates.find(f => String(f.entity_code) === String(map.code));
+
+                    // 2) Or match on entity_name canonical (e.g., 'TPF','TPFES','NFCSN')
+                    if (!fund) {
+                        fund = candidates.find(f => map.names.includes(canon(f.entity_name)));
+                    }
+
+                    // 3) Or match on funds.entity_code canonical equalling accounts.entity_code canonical (for legacy/text installs)
+                    if (!fund) {
+                        fund = candidates.find(f => canon(f.entity_code) === eCanon);
+                    }
+
                     fundId = fund ? fund.id : null;
                 }
             } catch (_) { /* ignore mapping errors */ }
 
             if (!fundId) {
-                // Try fallback by fund_number only
+                // Fallbacks when entity mapping differs – try by fund_number only
                 try {
                     const acc = (appState.accounts || []).find(a => String(a.id) === String(accountSelect.value));
                     const fund = acc ? (appState.funds || []).find(f => String(f.fund_number) === String(acc.fund_number)) : null;
