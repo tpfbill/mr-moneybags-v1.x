@@ -79,6 +79,7 @@ body {
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;       /* allow up to three lines for long labels */
     white-space: normal;         /* allow wrapping between words */
+    hyphens: manual;             /* honor &shy; soft hyphenation points */
     line-height: 1.3;            /* add breathing room to avoid glyph clipping */
     text-align: center;
     overflow: hidden;            /* hide text beyond clamp */
