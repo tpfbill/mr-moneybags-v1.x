@@ -880,6 +880,10 @@ export async function openJournalEntryModal(id, readOnly = false) {
     form.reset();
     form.dataset.id = id || '';
     form.dataset.readOnly = readOnly ? 'true' : 'false';
+    // Ensure inputs are enabled when not read-only (previous view may have disabled them)
+    if (!readOnly) {
+        try { form.querySelectorAll('input, select, textarea').forEach(el => (el.disabled = false)); } catch (_) {}
+    }
     
     // Set modal title
     title.textContent = id ? (readOnly ? 'View Journal Entry' : 'Edit Journal Entry') : 'Create Journal Entry';
@@ -952,6 +956,8 @@ export async function openJournalEntryModal(id, readOnly = false) {
         
         // Add a blank line item
         addJournalEntryLineItem();
+        // Reset totals display
+        try { updateJournalEntryTotals(); } catch (_) {}
     }
     
     // Show the modal
@@ -1116,13 +1122,20 @@ export async function saveJournalEntry(event) {
         return;
     }
     
+    // Prevent accidental multi-submit
+    if (form.dataset.submitting === 'true') {
+        return;
+    }
+    form.dataset.submitting = 'true';
+    
     // Validate form
-    if (!validateForm(form)) return;
+    if (!validateForm(form)) { form.dataset.submitting = 'false'; return; }
     
     // Check if entry is balanced
     const balanceEl = document.getElementById('journal-entry-balance');
     if (balanceEl.className === 'unbalanced') {
         showToast('Journal entry must be balanced', 'error');
+        form.dataset.submitting = 'false';
         return;
     }
     
@@ -1185,6 +1198,7 @@ export async function saveJournalEntry(event) {
     // Check if there are line items
     if (lineItems.length === 0) {
         showToast('Journal entry must have at least one line item', 'error');
+        form.dataset.submitting = 'false';
         return;
     }
     
@@ -1231,6 +1245,8 @@ export async function saveJournalEntry(event) {
     } catch (error) {
         console.error('Error saving journal entry:', error);
         showToast(error?.message || 'Error saving journal entry', 'error');
+    } finally {
+        form.dataset.submitting = 'false';
     }
 }
 
