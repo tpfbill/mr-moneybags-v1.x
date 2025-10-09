@@ -140,13 +140,15 @@ export function getRelevantEntityIds() {
  */
 export function getRelevantFunds() {
     const funds = Array.isArray(appState.funds) ? appState.funds : [];
-    // If no specific selection, show all
     const codes = getRelevantEntityCodes();
     if (!codes || codes.length === 0) return funds;
-    // Canonicalize codes for robust matching (case/format agnostic)
+    // Canonicalize for robust matching (handles 'TPF' vs 'tpf', '1' vs '1 ' etc.)
     const canon = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const codeSet = new Set(codes.map(canon));
-    return funds.filter(f => codeSet.has(canon(f.entity_code)));
+    return funds.filter(f => {
+        const candidates = [canon(f.entity_code), canon(f.entity_name)];
+        return candidates.some(c => codeSet.has(c));
+    });
 }
 
 /**

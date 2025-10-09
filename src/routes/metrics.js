@@ -67,17 +67,16 @@ router.get('/', asyncHandler(async (req, res) => {
     .map(s => String(s || '').trim())
     .filter(Boolean);
 
-  // Canonicalized versions for robust, case/format-insensitive matching
-  const entityCodesCanon = entityCodes.map(c =>
-    String(c || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-  );
-
   const entityIds = [
     ...toArray(q.entity_id),
     ...toArray(q.entity_ids)
   ]
     .map(s => String(s || '').trim())
     .filter(Boolean);
+
+  // Canonicalized versions for robust, case/format-insensitive matching
+  const canon = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const entityCodesCanon = entityCodes.map(canon);
 
   // Funds balance expression mirrors src/routes/funds.js, summed for assets
   const jei = await getJeiCoreCols(pool);
@@ -104,7 +103,9 @@ router.get('/', asyncHandler(async (req, res) => {
   `;
   const assetsParams = [];
   if (entityCodes.length) {
-    assetsSql += " AND regexp_replace(lower(f.entity_code), '[^a-z0-9]', '', 'g') = ANY($1)";
+    // Match on textual name when available to align with entities.code (e.g., 'TPF', 'TPFES', 'NFCSN')
+    // Fall back to code canonicalization if only codes exist
+    assetsSql += " AND regexp_replace(lower(COALESCE(f.entity_name, f.entity_code)), '[^a-z0-9]', '', 'g') = ANY($1)";
     assetsParams.push(entityCodesCanon);
   }
 
@@ -126,6 +127,7 @@ router.get('/', asyncHandler(async (req, res) => {
   `;
   const liabilitiesParams = [];
   if (entityCodes.length) {
+    // Accounts.entity_code references entities.code (text). Compare canonically.
     liabilitiesSql += " AND regexp_replace(lower(a.entity_code), '[^a-z0-9]', '', 'g') = ANY($1)";
     liabilitiesParams.push(entityCodesCanon);
   }
@@ -189,7 +191,8 @@ router.get('/', asyncHandler(async (req, res) => {
     const jelEntityFromAcctCode = hasJeiAccountCode
       ? "regexp_replace(lower(jel.account_code), '[^a-z0-9]', '', 'g')"
       : "NULL";
-    const entityScopeExpr = `regexp_replace(lower(COALESCE(f.entity_code, a.entity_code)), '[^a-z0-9]', '', 'g')`;
+    // Prefer textual identifiers: accounts.entity_code or funds.entity_name
+    const entityScopeExpr = `regexp_replace(lower(COALESCE(a.entity_code, f.entity_name, f.entity_code)), '[^a-z0-9]', '', 'g')`;
     revenueSql += ` AND COALESCE(${entityScopeExpr}, ${jelEntityFromAcctCode}) = ANY($${revenueParams.length + 1})`;
     revenueParams.push(entityCodesCanon);
   }
