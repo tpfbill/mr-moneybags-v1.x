@@ -984,7 +984,7 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     lineItem.innerHTML = `
         <div class="form-row">
             <div class="form-group col-md-7">
-                <select class="form-control account-select" name="line-item-account-${lineItemIndex}" ${readOnly ? 'disabled' : ''} required>
+                <select class="form-control account-select" name="line-item-account-${lineItemIndex}" ${readOnly ? 'disabled' : ''}>
                     ${accountsOptions}
                 </select>
             </div>
@@ -1119,6 +1119,12 @@ export async function saveJournalEntry(event) {
     // Validate form
     if (!validateForm(form)) return;
     
+    // Ensure totals are up to date before checking balance
+    try { updateJournalEntryTotals(); } catch (_) {}
+
+    // Helper to round to cents consistently
+    const r2 = (n) => Math.round((parseFloat(n || 0) || 0) * 100) / 100;
+
     // Check if entry is balanced
     const balanceEl = document.getElementById('journal-entry-balance');
     if (balanceEl.className === 'unbalanced') {
@@ -1147,6 +1153,17 @@ export async function saveJournalEntry(event) {
         const creditInput = lineItem.querySelector('.credit-input');
         
         if (accountSelect.value && (debitInput.value || creditInput.value)) {
+            // Normalise amounts
+            let d = r2(debitInput.value);
+            let c = r2(creditInput.value);
+            if (d > 0 && c > 0) {
+                // Guard against both filled due to paste/edge cases: prefer the non-zero most likely intended (keep larger and zero the other)
+                if (d >= c) c = 0; else d = 0;
+            }
+            if (d <= 0 && c <= 0) {
+                // skip zero/negative noise
+                return;
+            }
             // Auto-derive fund_id from selected account (entity_code + fund_number)
             let fundId = null;
             try {
@@ -1176,8 +1193,8 @@ export async function saveJournalEntry(event) {
             lineItems.push({
                 account_id: accountSelect.value,
                 fund_id: fundId,
-                debit: debitInput.value || 0,
-                credit: creditInput.value || 0
+                debit: d || 0,
+                credit: c || 0
             });
         }
     });
@@ -1185,6 +1202,15 @@ export async function saveJournalEntry(event) {
     // Check if there are line items
     if (lineItems.length === 0) {
         showToast('Journal entry must have at least one line item', 'error');
+        return;
+    }
+
+    // Final balance check from prepared items (tolerate ±$0.01 rounding)
+    const sumD = r2(lineItems.reduce((s, li) => s + r2(li.debit), 0));
+    const sumC = r2(lineItems.reduce((s, li) => s + r2(li.credit), 0));
+    const diff = r2(sumD - sumC);
+    if (Math.abs(diff) > 0.009) {
+        showToast(`Not balanced by ${formatCurrency(Math.abs(diff))}`, 'error');
         return;
     }
     
@@ -1646,6 +1672,73 @@ export function initializeModalEventListeners() {
     
     // Journal entry modal
     document.getElementById('journal-entry-modal-form')?.addEventListener('submit', saveJournalEntry);
+    // Ensure Save button always triggers the form submit (guards against odd browser states)
+    const jeSaveBtn = document.getElementById('save-journal-entry-btn');
+    if (jeSaveBtn && !jeSaveBtn.__boundSubmitProxy) {
+        jeSaveBtn.__boundSubmitProxy = true;
+        jeSaveBtn.addEventListener('click', (e) => {
+            const form = document.getElementById('journal-entry-modal-form');
+            if (!form) return;
+            e.preventDefault();
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+        });
+    }
+
+    // Defensive: delegate Save Entry clicks at the document level as a safety net.
+    // This ensures the click is handled even if the direct listener fails to bind
+    // due to timing or third-party script interference.
+    if (!document.__jeDelegatedClickBound) {
+        document.__jeDelegatedClickBound = true;
+        document.addEventListener('click', (e) => {
+            const btn = e.target && (e.target.closest ? e.target.closest('#save-journal-entry-btn') : null);
+            if (!btn) return;
+            const form = document.getElementById('journal-entry-modal-form');
+            if (!form) return;
+            e.preventDefault();
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+        }, true); // capture early
+    }
+
+    // Ultra-defensive: capture-phase, rect-based trigger in case an overlay intercepts
+    // clicks so the event target is NOT the button. We detect pointer/touch within
+    // the button's bounding box and force-submit the form.
+    if (!window.__jePointerRectBound) {
+        window.__jePointerRectBound = true;
+        const rectHandler = (e) => {
+            try {
+                const form = document.getElementById('journal-entry-modal-form');
+                const btn  = document.getElementById('save-journal-entry-btn');
+                if (!form || !btn) return;
+                if (form.dataset.readOnly === 'true') return;
+                const cs = window.getComputedStyle(btn);
+                const rect = btn.getBoundingClientRect();
+                if (!rect || rect.width === 0 || rect.height === 0 || cs.display === 'none' || cs.visibility === 'hidden') return;
+                const pt = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+                const x = pt.clientX, y = pt.clientY;
+                if (x == null || y == null) return;
+                const inside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+                if (!inside) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                }
+            } catch (_) { /* ignore */ }
+        };
+        window.addEventListener('pointerdown', rectHandler, true);
+        window.addEventListener('mousedown', rectHandler, true);
+        window.addEventListener('touchstart', rectHandler, true);
+    }
     document.getElementById('journal-entry-modal-close')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('journal-entry-modal-cancel')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('post-journal-entry-btn')?.addEventListener('click', () => {
