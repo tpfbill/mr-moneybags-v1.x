@@ -1687,6 +1687,25 @@ export function initializeModalEventListeners() {
             }
         });
     }
+
+    // Defensive: delegate Save Entry clicks at the document level as a safety net.
+    // This ensures the click is handled even if the direct listener fails to bind
+    // due to timing or third-party script interference.
+    if (!document.__jeDelegatedClickBound) {
+        document.__jeDelegatedClickBound = true;
+        document.addEventListener('click', (e) => {
+            const btn = e.target && (e.target.closest ? e.target.closest('#save-journal-entry-btn') : null);
+            if (!btn) return;
+            const form = document.getElementById('journal-entry-modal-form');
+            if (!form) return;
+            e.preventDefault();
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+        }, true); // capture early
+    }
     document.getElementById('journal-entry-modal-close')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('journal-entry-modal-cancel')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('post-journal-entry-btn')?.addEventListener('click', () => {
