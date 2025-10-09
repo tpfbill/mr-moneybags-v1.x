@@ -876,7 +876,8 @@
 
                     <button type="submit"
                             class="action-button"
-                            id="save-journal-entry-btn">Save Entry</button>
+                            id="save-journal-entry-btn"
+                            onclick="(function(){var f=document.getElementById('journal-entry-modal-form');if(!f)return;try{if(typeof f.requestSubmit==='function'){f.requestSubmit();}else{f.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));}}catch(e){console&&console.error&&console.error(e);}})()">Save Entry</button>
                 </div>
             </form><!-- /form -->
         </div>
