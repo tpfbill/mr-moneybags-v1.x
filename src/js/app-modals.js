@@ -1706,6 +1706,39 @@ export function initializeModalEventListeners() {
             }
         }, true); // capture early
     }
+
+    // Ultra-defensive: capture-phase, rect-based trigger in case an overlay intercepts
+    // clicks so the event target is NOT the button. We detect pointer/touch within
+    // the button's bounding box and force-submit the form.
+    if (!window.__jePointerRectBound) {
+        window.__jePointerRectBound = true;
+        const rectHandler = (e) => {
+            try {
+                const form = document.getElementById('journal-entry-modal-form');
+                const btn  = document.getElementById('save-journal-entry-btn');
+                if (!form || !btn) return;
+                if (form.dataset.readOnly === 'true') return;
+                const cs = window.getComputedStyle(btn);
+                const rect = btn.getBoundingClientRect();
+                if (!rect || rect.width === 0 || rect.height === 0 || cs.display === 'none' || cs.visibility === 'hidden') return;
+                const pt = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+                const x = pt.clientX, y = pt.clientY;
+                if (x == null || y == null) return;
+                const inside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+                if (!inside) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                }
+            } catch (_) { /* ignore */ }
+        };
+        window.addEventListener('pointerdown', rectHandler, true);
+        window.addEventListener('mousedown', rectHandler, true);
+        window.addEventListener('touchstart', rectHandler, true);
+    }
     document.getElementById('journal-entry-modal-close')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('journal-entry-modal-cancel')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('post-journal-entry-btn')?.addEventListener('click', () => {
