@@ -562,6 +562,23 @@ textarea.form-input:focus {
 }
 
 /* ------------------------------------------------------------------
+   Journal Entry modal – align line headers with inputs (Account | Debit | Credit | Actions)
+   Use CSS grid so header labels line up exactly over numeric columns.
+   ------------------------------------------------------------------ */
+#journal-entry-modal .journal-entry-line-headers .form-row,
+#journal-entry-modal .journal-entry-line-item .form-row {
+    display: grid;
+    grid-template-columns: 7fr 2fr 2fr 1fr; /* Account | Debit | Credit | Remove */
+    column-gap: 12px;
+    align-items: center;
+}
+
+#journal-entry-modal .journal-entry-line-item .form-control,
+#journal-entry-modal .journal-entry-line-item .form-input {
+    width: 100%;
+}
+
+/* ------------------------------------------------------------------
    Dashboard Chart Containers
    ------------------------------------------------------------------ */
 
