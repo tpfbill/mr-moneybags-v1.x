@@ -984,7 +984,7 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     lineItem.innerHTML = `
         <div class="form-row">
             <div class="form-group col-md-7">
-                <select class="form-control account-select" name="line-item-account-${lineItemIndex}" ${readOnly ? 'disabled' : ''} required>
+                <select class="form-control account-select" name="line-item-account-${lineItemIndex}" ${readOnly ? 'disabled' : ''}>
                     ${accountsOptions}
                 </select>
             </div>
