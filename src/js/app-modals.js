@@ -880,6 +880,14 @@ export async function openJournalEntryModal(id, readOnly = false) {
     form.reset();
     form.dataset.id = id || '';
     form.dataset.readOnly = readOnly ? 'true' : 'false';
+    // Ensure submit-guard is cleared on open and any watchdog timer removed
+    try {
+        form.dataset.submitting = 'false';
+        if (form.__submitGuardTimer) {
+            clearTimeout(form.__submitGuardTimer);
+            form.__submitGuardTimer = null;
+        }
+    } catch (_) {}
     // Ensure inputs are enabled when not read-only (previous view may have disabled them)
     if (!readOnly) {
         try { form.querySelectorAll('input, select, textarea').forEach(el => (el.disabled = false)); } catch (_) {}
@@ -1127,6 +1135,20 @@ export async function saveJournalEntry(event) {
         return;
     }
     form.dataset.submitting = 'true';
+    // Watchdog: auto-reset submit-guard if nothing clears it within 4s
+    try {
+        if (form.__submitGuardTimer) {
+            clearTimeout(form.__submitGuardTimer);
+        }
+        form.__submitGuardTimer = setTimeout(() => {
+            try {
+                if (form && form.dataset && form.dataset.submitting === 'true') {
+                    console.warn('[JE Submit] Guard auto-reset after 4s watchdog');
+                    form.dataset.submitting = 'false';
+                }
+            } catch (_) { /* ignore */ }
+        }, 4000);
+    } catch (_) { /* ignore */ }
     
     // Validate form
     if (!validateForm(form)) { form.dataset.submitting = 'false'; return; }
@@ -1307,6 +1329,12 @@ export async function saveJournalEntry(event) {
         showToast(error?.message || 'Error saving journal entry', 'error');
     } finally {
         form.dataset.submitting = 'false';
+        try {
+            if (form.__submitGuardTimer) {
+                clearTimeout(form.__submitGuardTimer);
+                form.__submitGuardTimer = null;
+            }
+        } catch (_) { /* ignore */ }
     }
 }
 
@@ -1730,10 +1758,31 @@ export function initializeModalEventListeners() {
             const form = document.getElementById('journal-entry-modal-form');
             if (!form) return;
             e.preventDefault();
+            // Clear any stale submit-guard before attempting submit
+            try { form.dataset.submitting = 'false'; } catch (_) {}
             if (typeof form.requestSubmit === 'function') {
                 form.requestSubmit();
             } else {
                 form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+        });
+    }
+    // Submit on Enter within the JE form (avoid textarea)
+    const jeForm = document.getElementById('journal-entry-modal-form');
+    if (jeForm && !jeForm.__enterToSubmitBound) {
+        jeForm.__enterToSubmitBound = true;
+        jeForm.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+            if (tag === 'textarea') return; // allow multiline inputs if ever present
+            // Avoid interfering with selects opening
+            if (tag === 'select') return;
+            e.preventDefault();
+            try { jeForm.dataset.submitting = 'false'; } catch (_) {}
+            if (typeof jeForm.requestSubmit === 'function') {
+                jeForm.requestSubmit();
+            } else {
+                jeForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
             }
         });
     }
@@ -1749,6 +1798,8 @@ export function initializeModalEventListeners() {
             const form = document.getElementById('journal-entry-modal-form');
             if (!form) return;
             e.preventDefault();
+            // Clear any stale submit-guard before attempting submit
+            try { form.dataset.submitting = 'false'; } catch (_) {}
             if (typeof form.requestSubmit === 'function') {
                 form.requestSubmit();
             } else {
@@ -1778,6 +1829,7 @@ export function initializeModalEventListeners() {
                 if (!inside) return;
                 e.preventDefault();
                 e.stopPropagation();
+                try { form.dataset.submitting = 'false'; } catch (_) {}
                 if (typeof form.requestSubmit === 'function') {
                     form.requestSubmit();
                 } else {
