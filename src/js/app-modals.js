@@ -1230,6 +1230,8 @@ export async function saveJournalEntry(event) {
 
             if (!fundId) {
                 showToast('No matching Fund found for selected account; please verify account setup.', 'error');
+                // Ensure submit-guard is released on validation failure
+                form.dataset.submitting = 'false';
                 return;
             }
 
@@ -1255,6 +1257,8 @@ export async function saveJournalEntry(event) {
     const diff = r2(sumD - sumC);
     if (Math.abs(diff) > 0.009) {
         showToast(`Not balanced by ${formatCurrency(Math.abs(diff))}`, 'error');
+        // Release submit-guard when imbalance blocks save
+        form.dataset.submitting = 'false';
         return;
     }
     
