@@ -609,6 +609,39 @@ textarea.form-input:focus {
 }
 
 /* ------------------------------------------------------------------
+   Toast notifications – ensure above modal overlay and visible
+   ------------------------------------------------------------------ */
+#toast-container.toast-container,
+#toast-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 11000; /* higher than .modal-overlay (10000) */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none; /* clicks pass through by default */
+}
+
+.toast {
+    background: rgba(50, 50, 50, 0.95);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 150ms ease, transform 150ms ease;
+    pointer-events: auto; /* allow hovering if needed */
+}
+
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast-success { background: #2e7d32; }
+.toast-error { background: #c62828; }
+.toast-warning { background: #ff8f00; }
+.toast-info { background: #1565c0; }
+
+/* ------------------------------------------------------------------
    Funds table – Code column styling
    ------------------------------------------------------------------ */
 #funds-table th.fund-code,

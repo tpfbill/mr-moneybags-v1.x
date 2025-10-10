@@ -1110,7 +1110,8 @@ function updateJournalEntryTotals() {
     
     const balance = totalDebit - totalCredit;
     balanceEl.textContent = formatCurrency(Math.abs(balance));
-    balanceEl.className = balance === 0 ? 'balanced' : 'unbalanced';
+    // Tolerate floating point rounding errors when near zero
+    balanceEl.className = Math.abs(balance) < 0.005 ? 'balanced' : 'unbalanced';
 }
 
 /**
@@ -1159,13 +1160,7 @@ export async function saveJournalEntry(event) {
     // Helper to round to cents consistently
     const r2 = (n) => Math.round((parseFloat(n || 0) || 0) * 100) / 100;
 
-    // Check if entry is balanced
-    const balanceEl = document.getElementById('journal-entry-balance');
-    if (balanceEl.className === 'unbalanced') {
-        showToast('Journal entry must be balanced', 'error');
-        form.dataset.submitting = 'false';
-        return;
-    }
+    // Do not rely on UI class; compute using rounded totals below
     
     // Get form data
     const journalEntryData = {
@@ -1279,6 +1274,8 @@ export async function saveJournalEntry(event) {
     const diff = r2(sumD - sumC);
     if (Math.abs(diff) > 0.009) {
         showToast(`Not balanced by ${formatCurrency(Math.abs(diff))}`, 'error');
+        // Temporary diagnostic per request
+        alert(`JE not balanced:\nTotal Debits: ${sumD}\nTotal Credits: ${sumC}\nDiff: ${diff}\nLines counted: ${lineItems.length}`);
         // Release submit-guard when imbalance blocks save
         form.dataset.submitting = 'false';
         return;
