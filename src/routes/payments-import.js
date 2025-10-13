@@ -642,6 +642,8 @@ router.post('/process', asyncHandler(async (req, res) => {
         // Insert items for all rows and record IDs for JE linkage
         const insertedItemIds = [];
         for (const it of group.rows) {
+          // Use a savepoint so one bad row doesn't abort the whole transaction
+          await client.query('SAVEPOINT sp_item');
           try {
             const hasPiStatus = await hasColumn(client, 'payment_items', 'status');
             const hasPiVbaCol = await hasColumn(client, 'payment_items', 'vendor_bank_account_id');
@@ -664,7 +666,10 @@ router.post('/process', asyncHandler(async (req, res) => {
             insertedItemIds.push(ins.rows[0].id);
             job.createdItems += 1;
             job.logs.push({ i: it.i + 1, level: 'ok', msg: `Item added to batch ${batchId} (${it.status})` });
+            await client.query('RELEASE SAVEPOINT sp_item');
           } catch (e) {
+            // Roll back to the savepoint and continue with other rows
+            try { await client.query('ROLLBACK TO SAVEPOINT sp_item'); } catch(_) {}
             job.logs.push({ i: it.i + 1, level: 'error', msg: `Failed to insert item: ${e.message}` });
           }
         }
@@ -737,28 +742,36 @@ router.post('/process', asyncHandler(async (req, res) => {
             continue;
           }
 
-          await client.query(
-            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-             VALUES ($1,$2,$3,$4,0,$5)`,
-            [je1Id, acctId, fundId, it.amount, it.memo || '']
-          );
-          await client.query(
-            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-             VALUES ($1,$2,$3,0,$4,$5)`,
-            [je1Id, apAccountId, fundId, it.amount, it.memo || '']
-          );
+          // Use a savepoint so a bad row's posting doesn't poison the transaction
+          await client.query('SAVEPOINT sp_post');
+          try {
+            await client.query(
+              `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+               VALUES ($1,$2,$3,$4,0,$5)`,
+              [je1Id, acctId, fundId, it.amount, it.memo || '']
+            );
+            await client.query(
+              `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+               VALUES ($1,$2,$3,0,$4,$5)`,
+              [je1Id, apAccountId, fundId, it.amount, it.memo || '']
+            );
 
-          await client.query(
-            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-             VALUES ($1,$2,$3,$4,0,$5)`,
-            [je2Id, apAccountId, fundId, it.amount, it.memo || '']
-          );
-          await client.query(
-            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-             VALUES ($1,$2,$3,0,$4,$5)`,
-            [je2Id, bankGlAccountId2, fundId, it.amount, it.memo || '']
-          );
-          totalAmount += it.amount;
+            await client.query(
+              `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+               VALUES ($1,$2,$3,$4,0,$5)`,
+              [je2Id, apAccountId, fundId, it.amount, it.memo || '']
+            );
+            await client.query(
+              `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+               VALUES ($1,$2,$3,0,$4,$5)`,
+              [je2Id, bankGlAccountId2, fundId, it.amount, it.memo || '']
+            );
+            totalAmount += it.amount;
+            await client.query('RELEASE SAVEPOINT sp_post');
+          } catch (e) {
+            try { await client.query('ROLLBACK TO SAVEPOINT sp_post'); } catch(_) {}
+            job.logs.push({ i: it.i + 1, level: 'error', msg: `Failed to post JE lines for row: ${e.message}` });
+          }
         }
 
         await client.query('UPDATE journal_entries SET total_amount = $1 WHERE id = $2', [totalAmount, je1Id]);

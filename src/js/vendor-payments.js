@@ -118,8 +118,9 @@ function showToast(title, message, isError = false) {
     } else {
         toast.classList.remove('bg-danger', 'text-white');
     }
-    
-    const bsToast = new bootstrap.Toast(toast);
+    // Make error toasts sticky until user closes them; info toasts linger longer
+    const opts = isError ? { autohide: false } : { autohide: true, delay: 7000 };
+    const bsToast = new bootstrap.Toast(toast, opts);
     bsToast.show();
 }
 
@@ -1143,6 +1144,11 @@ async function importPaymentsCsvOneClick(file) {
             const msg = (job.errors && job.errors[0]) || 'Unknown error';
             showToast('Import failed', String(msg), true);
             await loadLastPaymentsImportLog();
+            // Bring the log into view for visibility
+            const logTable = document.getElementById('paymentsImportLogTable');
+            if (logTable && typeof logTable.scrollIntoView === 'function') {
+                logTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         } else {
             showToast('Import', `Unexpected status: ${job.status}`, true);
         }
