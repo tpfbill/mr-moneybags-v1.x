@@ -118,8 +118,16 @@ function showToast(title, message, isError = false) {
     } else {
         toast.classList.remove('bg-danger', 'text-white');
     }
+    // Dispose any existing instance so our options take effect
+    try {
+        const existing = bootstrap.Toast.getInstance(toast);
+        if (existing) existing.dispose();
+    } catch (_) { /* noop */ }
     // Make error toasts sticky until user closes them; info toasts linger longer
     const opts = isError ? { autohide: false } : { autohide: true, delay: 7000 };
+    // Also set dataset for environments that initialize via data attributes
+    toast.setAttribute('data-bs-autohide', isError ? 'false' : 'true');
+    toast.setAttribute('data-bs-delay', isError ? '0' : String(opts.delay));
     const bsToast = new bootstrap.Toast(toast, opts);
     bsToast.show();
 }

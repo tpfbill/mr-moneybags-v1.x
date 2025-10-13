@@ -607,6 +607,9 @@ router.post('/process', asyncHandler(async (req, res) => {
 
       // For each reference group, create one batch and items for ALL rows
       for (const [key, group] of groupsByRef.entries()) {
+        // Group-level savepoint: ensure a failure in this group won't poison the whole import
+        await client.query('SAVEPOINT sp_group');
+        try {
         // Build batch_number from reference; status draft
         const batchNumber = group.reference || `BATCH-${Date.now()}`;
         const hasPbDesc = await hasColumn(client, 'payment_batches', 'description');
@@ -680,7 +683,15 @@ router.post('/process', asyncHandler(async (req, res) => {
           `total_amount = COALESCE((SELECT SUM(amount) FROM payment_items WHERE payment_batch_id = $1),0)`
         ];
         if (hasUpdatedAt) setClauses.push('updated_at = NOW()');
-        await client.query(`UPDATE payment_batches SET ${setClauses.join(', ')} WHERE id = $1`, [batchId]);
+        // Update batch totals in its own savepoint
+        await client.query('SAVEPOINT sp_batch_total');
+        try {
+          await client.query(`UPDATE payment_batches SET ${setClauses.join(', ')} WHERE id = $1`, [batchId]);
+          await client.query('RELEASE SAVEPOINT sp_batch_total');
+        } catch (e) {
+          try { await client.query('ROLLBACK TO SAVEPOINT sp_batch_total'); } catch(_) {}
+          job.logs.push({ level: 'error', msg: `Failed to update batch total (${batchId}): ${e.message}` });
+        }
 
         // Build or reuse two shared JEs by reference for this group
         const ref = group.reference;
@@ -704,6 +715,8 @@ router.post('/process', asyncHandler(async (req, res) => {
         const jeDate = group.effDate || new Date();
 
         if (!je1Id || !je2Id) {
+          await client.query('SAVEPOINT sp_je_create');
+          try {
           const je1Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
           const je1Vals = [group.entityId, jeDate, ref, 'Payments import (Expense/AP)', 0, 'Posted', createdByLabel, jobId];
           if (hasEntryMode) { je1Cols.push('entry_mode'); je1Vals.push('Auto'); }
@@ -720,6 +733,13 @@ router.post('/process', asyncHandler(async (req, res) => {
           const je2 = await client.query(`INSERT INTO journal_entries (${je2Cols.join(',')}) VALUES (${je2Ph}) RETURNING id`, je2Vals);
           je2Id = je2.rows[0].id;
           job.createdJEs.push(je1Id, je2Id);
+          await client.query('RELEASE SAVEPOINT sp_je_create');
+          } catch (e) {
+            try { await client.query('ROLLBACK TO SAVEPOINT sp_je_create'); } catch(_) {}
+            // If JE creation fails, skip postings for this group but continue to next group
+            job.logs.push({ level: 'error', msg: `Failed to create journal entries for ref ${ref}: ${e.message}` });
+            continue;
+          }
         }
 
         // Insert JE lines per item and compute totals
@@ -774,16 +794,39 @@ router.post('/process', asyncHandler(async (req, res) => {
           }
         }
 
-        await client.query('UPDATE journal_entries SET total_amount = $1 WHERE id = $2', [totalAmount, je1Id]);
-        await client.query('UPDATE journal_entries SET total_amount = $1 WHERE id = $2', [totalAmount, je2Id]);
+        // Update JE totals in savepoints to avoid poisoning tx
+        for (const [jeId, label] of [[je1Id,'Expense/AP'], [je2Id,'AP/Bank']]) {
+          await client.query('SAVEPOINT sp_je_total');
+          try {
+            await client.query('UPDATE journal_entries SET total_amount = $1 WHERE id = $2', [totalAmount, jeId]);
+            await client.query('RELEASE SAVEPOINT sp_je_total');
+          } catch (e) {
+            try { await client.query('ROLLBACK TO SAVEPOINT sp_je_total'); } catch(_) {}
+            job.logs.push({ level: 'error', msg: `Failed to update JE total (${label}): ${e.message}` });
+          }
+        }
 
         // Link payment_items to AP/Bank JE when supported
         try {
           const hasPiJe = await hasColumn(client, 'payment_items', 'journal_entry_id');
           if (hasPiJe && insertedItemIds.length) {
-            await client.query(`UPDATE payment_items SET journal_entry_id = $1 WHERE id = ANY($2::int[])`, [je2Id, insertedItemIds]);
+            await client.query('SAVEPOINT sp_link');
+            try {
+              await client.query(`UPDATE payment_items SET journal_entry_id = $1 WHERE id = ANY($2::int[])`, [je2Id, insertedItemIds]);
+              await client.query('RELEASE SAVEPOINT sp_link');
+            } catch (e) {
+              try { await client.query('ROLLBACK TO SAVEPOINT sp_link'); } catch(_) {}
+              job.logs.push({ level: 'error', msg: `Failed to link items to JE: ${e.message}` });
+            }
           }
         } catch(_) {}
+        // End of successful group
+        await client.query('RELEASE SAVEPOINT sp_group');
+        } catch (e) {
+          try { await client.query('ROLLBACK TO SAVEPOINT sp_group'); } catch(_) {}
+          job.logs.push({ level: 'error', msg: `Group processing failed for ref ${group.reference}: ${e.message}` });
+          // continue next group
+        }
       }
 
       // Posting performed per reference-group above
