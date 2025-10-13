@@ -613,8 +613,18 @@ router.post('/process', asyncHandler(async (req, res) => {
         const hasPbStatus = await hasColumn(client, 'payment_batches', 'status');
         const hasPbEffDate = await hasColumn(client, 'payment_batches', 'effective_date');
         const hasPbNacha = await hasColumn(client, 'payment_batches', 'nacha_settings_id');
+        const hasPbFund  = await hasColumn(client, 'payment_batches', 'fund_id');
+
+        // Schema requires fund_id NOT NULL in some installs; pick the first item's fund as representative
+        const batchFundId = group.rows[0]?.fundId || null;
+        if (hasPbFund && !batchFundId) {
+          job.logs.push({ level: 'error', msg: `Unable to determine fund_id for batch ${batchNumber} (reference ${group.reference})` });
+          continue;
+        }
+
         const cols = ['entity_id'];
         const vals = [group.entityId];
+        if (hasPbFund) { cols.push('fund_id'); vals.push(batchFundId); }
         cols.push('batch_number'); vals.push(batchNumber);
         cols.push('batch_date'); vals.push(new Date());
         if (hasPbEffDate) { cols.push('effective_date'); vals.push(group.effDate || new Date()); }
