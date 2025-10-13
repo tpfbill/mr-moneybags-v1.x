@@ -510,11 +510,34 @@ router.post('/process', asyncHandler(async (req, res) => {
     const job = importJobs[jobId];
     try {
       await client.query('BEGIN');
+      // Determine created_by label for JEs
+      async function getImporterName(db, reqUser) {
+        try {
+          const uid = reqUser?.id;
+          if (!uid) return null;
+          const colFirst = await hasColumn(db, 'users', 'first_name');
+          const colLast  = await hasColumn(db, 'users', 'last_name');
+          const colName  = await hasColumn(db, 'users', 'name');
+          if (colFirst || colLast) {
+            const q = await db.query('SELECT first_name, last_name FROM users WHERE id = $1 LIMIT 1', [uid]);
+            const f = q.rows[0]?.first_name || '';
+            const l = q.rows[0]?.last_name || '';
+            const full = `${(f || '').trim()} ${(l || '').trim()}`.trim();
+            if (full) return full;
+          }
+          if (colName) {
+            const q2 = await db.query('SELECT name FROM users WHERE id = $1 LIMIT 1', [uid]);
+            const nm = (q2.rows[0]?.name || '').trim();
+            if (nm) return nm;
+          }
+          return null;
+        } catch { return null; }
+      }
+      const importerName = await getImporterName(client, req.user);
+      const createdByLabel = importerName ? `Payment import - ${importerName}` : 'Payment import';
 
-      // Group pending EFT rows by (nacha_settings_id, fund_id, reference, effective_date)
-      const pendingGroups = new Map();
-      const completedRows = [];
-      const postRows = [];
+      // Group ALL rows by Reference (batch key)
+      const groupsByRef = new Map();
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
@@ -575,45 +598,23 @@ router.post('/process', asyncHandler(async (req, res) => {
           continue;
         }
 
-        const isCompleted = !!paymentId; // per user: Payment ID populated => completed
-
-        // Prepare posting row for ALL rows (completed or pending)
-        postRows.push({ i, row, entityId, amount, memo, entityCode, glCode, fundToken, bankGlAccountId, fundId });
-
-        if (isCompleted) {
-          completedRows.push({ i, row, entityId, amount, memo, vendorId, entityCode, glCode, fundToken });
-          continue;
-        }
-
-        // Pending: only EFT rows are eligible for NACHA/batches
-        if (lower(paymentType) !== 'eft') {
-          job.logs.push({ i: i + 1, level: 'info', msg: 'Skipped non-EFT pending row' });
-          continue;
-        }
-
-        const nachaId = await resolveNachaSettingsId(client, entityId, bank);
-        if (!nachaId) {
-          job.logs.push({ i: i + 1, level: 'error', msg: `Unable to resolve NACHA settings for bank: ${bank}` });
-          continue;
-        }
-
+        const isCompleted = !!paymentId; // Payment ID populated => completed
         const effDate = effectiveDateStr ? (parseDateMDY(effectiveDateStr) || new Date(effectiveDateStr)) : new Date();
-        const key = `${nachaId}||${fundId}||${reference}||${effDate.toISOString().slice(0, 10)}`;
-        if (!pendingGroups.has(key)) pendingGroups.set(key, { nachaId, reference, effDate, entityId, fundId, rows: [] });
-        pendingGroups.get(key).rows.push({ i, vendorId, amount, memo });
+        const key = (reference || '').trim() || (mapping.invoiceNumber ? (row[mapping.invoiceNumber] || '').toString().trim() : '') || (mapping.paymentId ? (row[mapping.paymentId] || '').toString().trim() : '') || `BATCH-${effDate.toISOString().slice(0,10)}`;
+        if (!groupsByRef.has(key)) groupsByRef.set(key, { reference: key, effDate, entityId, bank, bankGlAccountId, rows: [] });
+        groupsByRef.get(key).rows.push({ i, vendorId, amount, memo: memo || '', status: isCompleted ? 'completed' : 'pending', entityId, entityCode, glCode, fundToken, fundId, bankGlAccountId });
       }
 
-      // Create batches/items for pending groups
-      for (const [key, group] of pendingGroups.entries()) {
+      // For each reference group, create one batch and items for ALL rows
+      for (const [key, group] of groupsByRef.entries()) {
         // Build batch_number from reference; status draft
         const batchNumber = group.reference || `BATCH-${Date.now()}`;
         const hasPbDesc = await hasColumn(client, 'payment_batches', 'description');
         const hasPbStatus = await hasColumn(client, 'payment_batches', 'status');
         const hasPbEffDate = await hasColumn(client, 'payment_batches', 'effective_date');
         const hasPbNacha = await hasColumn(client, 'payment_batches', 'nacha_settings_id');
-        const cols = ['entity_id','fund_id'];
-        const vals = [group.entityId, group.fundId];
-        if (hasPbNacha) { cols.push('nacha_settings_id'); vals.push(group.nachaId); }
+        const cols = ['entity_id'];
+        const vals = [group.entityId];
         cols.push('batch_number'); vals.push(batchNumber);
         cols.push('batch_date'); vals.push(new Date());
         if (hasPbEffDate) { cols.push('effective_date'); vals.push(group.effDate || new Date()); }
@@ -628,49 +629,31 @@ router.post('/process', asyncHandler(async (req, res) => {
         const batchId = insBatch.rows[0].id;
         job.createdBatches.push(batchId);
 
-        // Insert items, skip duplicates within this batch on (vendor_id, amount, description/memo if present)
+        // Insert items for all rows and record IDs for JE linkage
+        const insertedItemIds = [];
         for (const it of group.rows) {
-          const vbaId = await resolveVendorBankAccountId(client, it.vendorId);
-          const hasPiDescCol = await hasColumn(client, 'payment_items', 'description');
-          const hasPiMemoCol = await hasColumn(client, 'payment_items', 'memo');
-          const descCol = hasPiDescCol ? 'description' : (hasPiMemoCol ? 'memo' : null);
-          let dupCheck;
-          if (descCol) {
-            dupCheck = await client.query(
-              `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 AND COALESCE(${descCol},'') = COALESCE($4,'') LIMIT 1`,
-              [batchId, it.vendorId, it.amount, it.memo || '']
-            );
-          } else {
-            dupCheck = await client.query(
-              `SELECT 1 FROM payment_items WHERE payment_batch_id = $1 AND vendor_id = $2 AND amount = $3 LIMIT 1`,
-              [batchId, it.vendorId, it.amount]
-            );
-          }
-          if (dupCheck.rows.length) {
-            job.logs.push({ i: it.i + 1, level: 'warn', msg: 'Duplicate in batch skipped' });
-            continue;
-          }
-
-          // Insert item (status pending)
           try {
             const hasPiStatus = await hasColumn(client, 'payment_items', 'status');
             const hasPiVbaCol = await hasColumn(client, 'payment_items', 'vendor_bank_account_id');
-            if (hasPiVbaCol && !vbaId) {
-              job.logs.push({ i: it.i + 1, level: 'error', msg: 'No vendor bank account; payment_items requires vendor_bank_account_id' });
-              continue;
-            }
+            const hasPiDescCol = await hasColumn(client, 'payment_items', 'description');
+            const hasPiMemoCol = await hasColumn(client, 'payment_items', 'memo');
+            const descCol = hasPiDescCol ? 'description' : (hasPiMemoCol ? 'memo' : null);
+            const vbaId = await resolveVendorBankAccountId(client, it.vendorId);
+
             const itemCols = ['payment_batch_id','vendor_id'];
             const itemVals = [batchId, it.vendorId];
             if (hasPiVbaCol && vbaId) { itemCols.push('vendor_bank_account_id'); itemVals.push(vbaId); }
             itemCols.push('amount'); itemVals.push(it.amount);
             if (descCol) { itemCols.push(descCol); itemVals.push(it.memo || ''); }
-            if (hasPiStatus) { itemCols.push('status'); itemVals.push('pending'); }
+            if (hasPiStatus) { itemCols.push('status'); itemVals.push(it.status); }
             const ph = itemVals.map((_,i)=>`$${i+1}`).join(',');
-            await client.query(
-              `INSERT INTO payment_items (${itemCols.join(',')}) VALUES (${ph})`,
+            const ins = await client.query(
+              `INSERT INTO payment_items (${itemCols.join(',')}) VALUES (${ph}) RETURNING id`,
               itemVals
             );
+            insertedItemIds.push(ins.rows[0].id);
             job.createdItems += 1;
+            job.logs.push({ i: it.i + 1, level: 'ok', msg: `Item added to batch ${batchId} (${it.status})` });
           } catch (e) {
             job.logs.push({ i: it.i + 1, level: 'error', msg: `Failed to insert item: ${e.message}` });
           }
@@ -683,118 +666,104 @@ router.post('/process', asyncHandler(async (req, res) => {
         ];
         if (hasUpdatedAt) setClauses.push('updated_at = NOW()');
         await client.query(`UPDATE payment_batches SET ${setClauses.join(', ')} WHERE id = $1`, [batchId]);
-      }
 
-      // Posting flow → create two posted JEs per row (Expense/AP then AP/Bank) for ALL rows
-      for (const pr of postRows) {
-        // Parse account/fund from Account No.
-        const acctId = await resolveAccountId(client, pr.entityId, pr.glCode);
-        const fundId = pr.fundId;
-        if (!acctId || !fundId) {
-          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'Account or Fund not resolvable for row' });
-          continue;
-        }
-
-        // Resolve AP account by fund number classification
-        const apAccountId = await resolveAPAccountId(client, { entityId: pr.entityId, entityCode: pr.entityCode, fundToken: pr.fundToken });
-        if (!apAccountId) {
-          job.logs.push({ i: pr.i + 1, level: 'error', msg: 'AP account (by fund/classification) not found' });
-          continue;
+        // Build or reuse two shared JEs by reference for this group
+        const ref = group.reference;
+        const existing = await client.query('SELECT id, description FROM journal_entries WHERE reference_number = $1 ORDER BY id ASC', [ref]);
+        let je1Id = null;
+        let je2Id = null;
+        if (existing.rows.length >= 2) {
+          const apBank = existing.rows.find(r => /AP\/Bank/i.test(r.description || ''));
+          if (apBank) {
+            je2Id = apBank.id;
+            je1Id = existing.rows.find(r => r.id !== je2Id)?.id || existing.rows[0].id;
+          } else {
+            je1Id = existing.rows[0].id;
+            je2Id = existing.rows[1].id;
+          }
         }
 
-        // Resolve bank GL account from earlier lookup
-        const bankGlAccountId2 = pr.bankGlAccountId;
-        if (!bankGlAccountId2) {
-          const bankVal = (data[pr.i][mapping.bank] || '').toString().trim();
-          job.logs.push({ i: pr.i + 1, level: 'error', msg: bankVal ? `AF Bank not found in bank_accounts: ${bankVal}` : 'AF Bank value missing' });
-          continue;
-        }
-
-        // Idempotency: derive a stable reference
-        const row2 = data[pr.i] || {};
-        let ref = '';
-        // 1) Use mapped Reference value if present
-        if (mapping.reference) ref = (row2[mapping.reference] || '').toString().trim();
-        // 2) Fallback to any header literally named 'Reference' (case-insensitive)
-        if (!ref) {
-          const keyRef = Object.keys(row2).find(k => k && k.trim().toLowerCase() === 'reference');
-          if (keyRef) ref = (row2[keyRef] || '').toString().trim();
-        }
-        // 3) Fallback to invoice/grant no
-        if (!ref && mapping.invoiceNumber) ref = (row2[mapping.invoiceNumber] || '').toString().trim();
-        // 4) Fallback to paymentId
-        if (!ref && mapping.paymentId) ref = (row2[mapping.paymentId] || '').toString().trim();
-        // 5) Last-resort composite (stable enough for idempotency)
-        if (!ref) {
-          const parts = [];
-          if (mapping.vendorZid) parts.push((row2[mapping.vendorZid] || '').toString().trim());
-          if (mapping.vendorName) parts.push((row2[mapping.vendorName] || '').toString().trim());
-          if (mapping.accountNo) parts.push((row2[mapping.accountNo] || '').toString().trim());
-          if (mapping.effectiveDate) parts.push((row2[mapping.effectiveDate] || '').toString().trim());
-          parts.push(String(pr.amount));
-          ref = parts.filter(Boolean).join('|').slice(0, 120);
-        }
-        const dupJe = await client.query('SELECT id FROM journal_entries WHERE reference_number = $1 LIMIT 1', [ref]);
-        if (dupJe.rows.length) {
-          job.logs.push({ i: pr.i + 1, level: 'warn', msg: `Duplicate JEs skipped (ref ${ref})` });
-          continue;
-        }
-
-        // Insert two posted journal entries with entry_mode = 'Auto' when column exists
         const hasEntryMode = await hasColumn(client, 'journal_entries', 'entry_mode');
         const hasTypeCol = await hasColumn(client, 'journal_entries', 'type');
         const hasEntryTypeCol = await hasColumn(client, 'journal_entries', 'entry_type');
+        const jeDate = group.effDate || new Date();
 
-        // JE1: Expense/AP (Debit Expense acctId, Credit AP apAccountId)
-        const je1Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
-        const jeDate = (mapping.effectiveDate && data[pr.i][mapping.effectiveDate])
-          ? (parseDateMDY(data[pr.i][mapping.effectiveDate]) || new Date())
-          : new Date();
-        const je1Vals = [pr.entityId, jeDate, ref, pr.memo || 'Payments import (Expense/AP)', pr.amount, 'Posted', 'Payments Import', jobId];
-        if (hasEntryMode) { je1Cols.push('entry_mode'); je1Vals.push('Auto'); }
-        // Tag JE1 as Expense when schema supports type/entry_type
-        if (hasTypeCol) { je1Cols.push('type'); je1Vals.push('Expense'); }
-        else if (hasEntryTypeCol) { je1Cols.push('entry_type'); je1Vals.push('Expense'); }
-        const je1Ph = je1Vals.map((_,i)=>`$${i+1}`).join(',');
-        const je1 = await client.query(
-          `INSERT INTO journal_entries (${je1Cols.join(',')}) VALUES (${je1Ph}) RETURNING id`,
-          je1Vals
-        );
-        const je1Id = je1.rows[0].id;
-        await client.query(
-          `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-           VALUES ($1,$2,$3,$4,0,$5)`,
-          [je1Id, acctId, fundId, pr.amount, pr.memo || '']
-        );
-        await client.query(
-          `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-           VALUES ($1,$2,$3,0,$4,$5)`,
-          [je1Id, apAccountId, fundId, pr.amount, pr.memo || '']
-        );
-        job.createdJEs.push(je1Id);
+        if (!je1Id || !je2Id) {
+          const je1Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
+          const je1Vals = [group.entityId, jeDate, ref, 'Payments import (Expense/AP)', 0, 'Posted', createdByLabel, jobId];
+          if (hasEntryMode) { je1Cols.push('entry_mode'); je1Vals.push('Auto'); }
+          if (hasTypeCol) { je1Cols.push('type'); je1Vals.push('Expense'); }
+          else if (hasEntryTypeCol) { je1Cols.push('entry_type'); je1Vals.push('Expense'); }
+          const je1Ph = je1Vals.map((_,i)=>`$${i+1}`).join(',');
+          const je1 = await client.query(`INSERT INTO journal_entries (${je1Cols.join(',')}) VALUES (${je1Ph}) RETURNING id`, je1Vals);
+          je1Id = je1.rows[0].id;
 
-        // JE2: AP/Bank (Debit AP, Credit Bank)
-        const je2Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
-        const je2Vals = [pr.entityId, jeDate, ref, pr.memo || 'Payments import (AP/Bank)', pr.amount, 'Posted', 'Payments Import', jobId];
-        if (hasEntryMode) { je2Cols.push('entry_mode'); je2Vals.push('Auto'); }
-        const je2Ph = je2Vals.map((_,i)=>`$${i+1}`).join(',');
-        const je2 = await client.query(
-          `INSERT INTO journal_entries (${je2Cols.join(',')}) VALUES (${je2Ph}) RETURNING id`,
-          je2Vals
-        );
-        const je2Id = je2.rows[0].id;
-        await client.query(
-          `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-           VALUES ($1,$2,$3,$4,0,$5)`,
-          [je2Id, apAccountId, fundId, pr.amount, pr.memo || '']
-        );
-        await client.query(
-          `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-           VALUES ($1,$2,$3,0,$4,$5)`,
-          [je2Id, bankGlAccountId2, fundId, pr.amount, pr.memo || '']
-        );
-        job.createdJEs.push(je2Id);
+          const je2Cols = ['entity_id','entry_date','reference_number','description','total_amount','status','created_by','import_id'];
+          const je2Vals = [group.entityId, jeDate, ref, 'Payments import (AP/Bank)', 0, 'Posted', createdByLabel, jobId];
+          if (hasEntryMode) { je2Cols.push('entry_mode'); je2Vals.push('Auto'); }
+          const je2Ph = je2Vals.map((_,i)=>`$${i+1}`).join(',');
+          const je2 = await client.query(`INSERT INTO journal_entries (${je2Cols.join(',')}) VALUES (${je2Ph}) RETURNING id`, je2Vals);
+          je2Id = je2.rows[0].id;
+          job.createdJEs.push(je1Id, je2Id);
+        }
+
+        // Insert JE lines per item and compute totals
+        let totalAmount = 0;
+        for (const it of group.rows) {
+          const acctId = await resolveAccountId(client, it.entityId, it.glCode);
+          const fundId = it.fundId;
+          if (!acctId || !fundId) {
+            job.logs.push({ i: it.i + 1, level: 'error', msg: 'Account or Fund not resolvable for row (posting)' });
+            continue;
+          }
+          const apAccountId = await resolveAPAccountId(client, { entityId: it.entityId, entityCode: it.entityCode, fundToken: it.fundToken });
+          if (!apAccountId) {
+            job.logs.push({ i: it.i + 1, level: 'error', msg: 'AP account (by fund/classification) not found' });
+            continue;
+          }
+          const bankGlAccountId2 = it.bankGlAccountId;
+          if (!bankGlAccountId2) {
+            job.logs.push({ i: it.i + 1, level: 'error', msg: 'AF Bank GL account mapping missing' });
+            continue;
+          }
+
+          await client.query(
+            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+             VALUES ($1,$2,$3,$4,0,$5)`,
+            [je1Id, acctId, fundId, it.amount, it.memo || '']
+          );
+          await client.query(
+            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+             VALUES ($1,$2,$3,0,$4,$5)`,
+            [je1Id, apAccountId, fundId, it.amount, it.memo || '']
+          );
+
+          await client.query(
+            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+             VALUES ($1,$2,$3,$4,0,$5)`,
+            [je2Id, apAccountId, fundId, it.amount, it.memo || '']
+          );
+          await client.query(
+            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
+             VALUES ($1,$2,$3,0,$4,$5)`,
+            [je2Id, bankGlAccountId2, fundId, it.amount, it.memo || '']
+          );
+          totalAmount += it.amount;
+        }
+
+        await client.query('UPDATE journal_entries SET total_amount = $1 WHERE id = $2', [totalAmount, je1Id]);
+        await client.query('UPDATE journal_entries SET total_amount = $1 WHERE id = $2', [totalAmount, je2Id]);
+
+        // Link payment_items to AP/Bank JE when supported
+        try {
+          const hasPiJe = await hasColumn(client, 'payment_items', 'journal_entry_id');
+          if (hasPiJe && insertedItemIds.length) {
+            await client.query(`UPDATE payment_items SET journal_entry_id = $1 WHERE id = ANY($2::int[])`, [je2Id, insertedItemIds]);
+          }
+        } catch(_) {}
       }
+
+      // Posting performed per reference-group above
 
       await client.query('COMMIT');
       job.status = 'completed';
