@@ -72,6 +72,24 @@ async function hasTable(db, table) {
   return q.rows.length > 0;
 }
 
+// Determine a column's underlying PostgreSQL type (prefer udt_name)
+async function getColumnDataType(db, table, column) {
+  try {
+    const r = await db.query(
+      `SELECT data_type, udt_name
+         FROM information_schema.columns
+        WHERE table_name = $1 AND column_name = $2
+        LIMIT 1`,
+      [table, column]
+    );
+    if (!r.rows.length) return null;
+    const { data_type, udt_name } = r.rows[0];
+    return (udt_name || data_type || '').toString().toLowerCase();
+  } catch (_) {
+    return null;
+  }
+}
+
 // Parse "Account No." shape: "Entity GLCode FundNumber Restriction"
 function parseAccountNo(val) {
   if (!val) return {};
@@ -812,7 +830,23 @@ router.post('/process', asyncHandler(async (req, res) => {
           if (hasPiJe && insertedItemIds.length) {
             await client.query('SAVEPOINT sp_link');
             try {
-              await client.query(`UPDATE payment_items SET journal_entry_id = $1 WHERE id = ANY($2::int[])`, [je2Id, insertedItemIds]);
+              // Determine proper array cast for payment_items.id
+              const idType = await getColumnDataType(client, 'payment_items', 'id');
+              let arrCast = 'int[]';
+              const t = (idType || '').toLowerCase();
+              if (t === 'uuid') arrCast = 'uuid[]';
+              else if (t === 'int8' || t === 'bigint') arrCast = 'bigint[]';
+              else if (t === 'int4' || t === 'integer' || t === 'int') arrCast = 'int[]';
+              else {
+                // Fallback heuristic: detect UUID shape
+                const first = insertedItemIds[0];
+                if (typeof first === 'string' && /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i.test(first)) {
+                  arrCast = 'uuid[]';
+                } else {
+                  arrCast = 'int[]';
+                }
+              }
+              await client.query(`UPDATE payment_items SET journal_entry_id = $1 WHERE id = ANY($2::${arrCast})`, [je2Id, insertedItemIds]);
               await client.query('RELEASE SAVEPOINT sp_link');
             } catch (e) {
               try { await client.query('ROLLBACK TO SAVEPOINT sp_link'); } catch(_) {}
