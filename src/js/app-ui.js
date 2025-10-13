@@ -787,8 +787,14 @@ export function updateJournalEntriesTable() {
         displayEntries = displayEntries.filter(entry => (entry.entry_mode || '').toLowerCase() === entryMode.toLowerCase());
     }
     
-    // Sort entries by date (most recent first)
-    displayEntries.sort((a, b) => new Date(b.entry_date) - new Date(a.entry_date));
+    // Sort entries by date DESC, then by reference for stable ordering
+    displayEntries.sort((a, b) => {
+        const d = new Date(b.entry_date) - new Date(a.entry_date);
+        if (d !== 0) return d;
+        const refA = String(a.reference_number || a.reference || '');
+        const refB = String(b.reference_number || b.reference || '');
+        return refA.localeCompare(refB);
+    });
     
     // Update the journal entries table
     journalEntriesTbody.innerHTML = '';
@@ -820,7 +826,7 @@ export function updateJournalEntriesTable() {
         row.innerHTML = `
             <td>${formatDate(entry.entry_date)}</td>
             <td>${entry.reference_number || 'N/A'}</td>
-            <td>${entry.description || 'N/A'}${appState.isConsolidatedView ? ` (${entityNameHdr})` : ''}</td>
+            <td>${(entry.derived_descriptions || entry.description || 'N/A')}${appState.isConsolidatedView ? ` (${entityNameHdr})` : ''}</td>
             <td>${fundDisplay}</td>
             <td>${entityDisplay}</td>
             <td>${formatCurrency(entry.total_amount)}</td>

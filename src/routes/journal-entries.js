@@ -112,6 +112,8 @@ router.get('/', asyncHandler(async (req, res) => {
     // Introspect optional columns/labels
     const hasJEEntity = await hasColumn(pool, 'journal_entries', 'entity_id');
     const hasJETarget = await hasColumn(pool, 'journal_entries', 'target_entity_id');
+    const hasRefNum   = await hasColumn(pool, 'journal_entries', 'reference_number');
+    const hasRefAlt   = await hasColumn(pool, 'journal_entries', 'reference');
     const hasTypeCol = await hasColumn(pool, 'journal_entries', 'type');
     const hasEntryTypeCol = await hasColumn(pool, 'journal_entries', 'entry_type');
     const entityNameExpr = await getEntityNameExpr(pool, 'e');
@@ -169,8 +171,17 @@ router.get('/', asyncHandler(async (req, res) => {
         LEFT JOIN funds f ON (${fundMatchClause})
         WHERE jel.${jeiCols.jeRef} = je.id
       ) d_funds ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT string_agg(
+                 DISTINCT NULLIF(TRIM(jel.${jeiCols.descCol}::text), ''),
+                 '; '
+               ORDER BY NULLIF(TRIM(jel.${jeiCols.descCol}::text), '')
+               ) AS derived_descriptions
+        FROM journal_entry_items jel
+        WHERE jel.${jeiCols.jeRef} = je.id
+      ) d_desc ON TRUE
     `;
-    selectFields += `, COALESCE(d_entities.derived_entities, '') AS derived_entities, COALESCE(d_funds.derived_funds, '') AS derived_funds`;
+    selectFields += `, COALESCE(d_entities.derived_entities, '') AS derived_entities, COALESCE(d_funds.derived_funds, '') AS derived_funds, COALESCE(d_desc.derived_descriptions, '') AS derived_descriptions`;
 
     let query = `SELECT ${selectFields} FROM journal_entries je${joins} ${derivedJoins} WHERE 1=1`;
     
@@ -216,8 +227,12 @@ router.get('/', asyncHandler(async (req, res) => {
         } catch (_) { /* ignore if introspection fails */ }
     }
     
-    // Order by entry_date then id to avoid relying on optional created_at column
-    query += ` ORDER BY je.entry_date DESC, je.id DESC`;
+    // Order by entry_date DESC, then reference (when available), then id for stability
+    let refOrderExpr = "''";
+    if (hasRefNum && hasRefAlt) refOrderExpr = 'COALESCE(je.reference_number::text, je.reference::text)';
+    else if (hasRefNum) refOrderExpr = 'je.reference_number::text';
+    else if (hasRefAlt) refOrderExpr = 'je.reference::text';
+    query += ` ORDER BY je.entry_date DESC, ${refOrderExpr} ASC, je.id DESC`;
     
     if (limit && !isNaN(parseInt(limit))) {
         query += ` LIMIT $${paramIndex++}`;
