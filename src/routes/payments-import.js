@@ -20,6 +20,10 @@ function parseAccountingAmount(v) {
     if (v == null) return 0;
     let t = String(v).trim();
     if (!t) return 0;
+    // Strip leading/trailing quotes
+    if (t.startsWith('"') && t.endsWith('"')) {
+        t = t.substring(1, t.length - 1).trim();
+    }
     let neg = false;
     if (t.startsWith('(') && t.endsWith(')')) {
         neg = true;
@@ -86,11 +90,11 @@ async function lookupBankGlAccountId(db, bankAccountName) {
 
 async function resolveVendorId(db, { zid, name }) {
     if (zid) {
-        const rz = await db.query('SELECT id FROM vendors WHERE LOWER(zid) = LOWER($1) LIMIT 1', [zid]);
+        const rz = await db.query('SELECT id FROM vendors WHERE LOWER(TRIM(zid)) = LOWER(TRIM($1)) LIMIT 1', [zid]);
         if (rz.rows[0]?.id) return rz.rows[0].id;
     }
     if (name) {
-        const rn = await db.query('SELECT id FROM vendors WHERE LOWER(name) = LOWER($1)', [name]);
+        const rn = await db.query('SELECT id FROM vendors WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))', [name]);
         if (rn.rows.length === 1) return rn.rows[0].id;
     }
     return null;
