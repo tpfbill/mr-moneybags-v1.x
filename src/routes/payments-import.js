@@ -18,7 +18,7 @@ const importJobs = {};
 // --- Helper Functions ---
 
 function parseAccountingAmount(v) {
-    console.log(`[DEBUG] parseAccountingAmount received: '${v}'`);
+    console.error(`--- [FORCED ERROR LOG] PARSING AMOUNT: '${v}' ---`);
     if (v == null) return 0;
     let t = String(v).trim();
     if (!t) return 0;
