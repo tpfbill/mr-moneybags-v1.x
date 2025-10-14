@@ -1,4 +1,3 @@
-console.log('--- [CRITICAL LOG] Loading src/routes/payments-import.js ---');
 // src/routes/payments-import.js
 const express = require('express');
 const router = express.Router();
@@ -18,7 +17,6 @@ const importJobs = {};
 // --- Helper Functions ---
 
 function parseAccountingAmount(v) {
-    console.error(`--- [FORCED ERROR LOG] PARSING AMOUNT: '${v}' ---`);
     if (v == null) return 0;
     let t = String(v).trim();
     if (!t) return 0;
@@ -33,11 +31,7 @@ function parseAccountingAmount(v) {
     }
     t = t.replace(/[,$\s]/g, '');
     const num = parseFloat(t);
-    if (isNaN(num)) {
-        console.log(`[DEBUG] parseAccountingAmount produced NaN for '${v}'`);
-        return 0;
-    }
-    console.log(`[DEBUG] parseAccountingAmount produced: ${neg ? -num : num}`);
+    if (isNaN(num)) return 0;
     return neg ? -num : num;
 }
 
@@ -95,10 +89,8 @@ async function lookupBankGlAccountId(db, bankAccountName) {
 }
 
 async function resolveVendorId(db, { zid, name }) {
-    console.log(`[DEBUG] resolveVendorId received zid: '${zid}'`);
     if (zid) {
         const rz = await db.query('SELECT id FROM vendors WHERE LOWER(TRIM(zid)) = LOWER(TRIM($1)) LIMIT 1', [zid]);
-        console.log('[DEBUG] Vendor query result (rz):', JSON.stringify(rz, null, 2));
         if (rz.rows[0]?.id) return rz.rows[0].id;
     }
     if (name) {
@@ -118,7 +110,8 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
     fs.unlinkSync(filePath);
 
     const rows = parse(content, { columns: true, skip_empty_lines: true });
-    const headers = rows.length ? Object.keys(rows[0]) : [];
+    // Trim headers from the first row to create a clean mapping
+    const headers = rows.length ? Object.keys(rows[0]).map(h => h.trim()) : [];
 
     const suggestedMapping = {};
     headers.forEach(header => {
@@ -127,8 +120,8 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
         else if (h.includes('account') && h.includes('no')) suggestedMapping.accountNo = header;
         else if (h.includes('amount')) suggestedMapping.amount = header;
         else if (h.includes('bank')) suggestedMapping.bankAccountName = header;
+        else if (h.includes('payee_zid') || h === 'zid') suggestedMapping.vendorZid = header; // More specific
         else if (h.includes('payee') || h.includes('vendor')) suggestedMapping.vendorName = header;
-        else if (h.includes('zid')) suggestedMapping.vendorZid = header;
         else if (h.includes('date')) suggestedMapping.effectiveDate = header;
         else if (h.includes('description') || h.includes('memo')) suggestedMapping.memo = header;
         else if (h.includes('invoice')) suggestedMapping.invoiceNumber = header;
@@ -163,7 +156,6 @@ router.post('/process', asyncHandler(async (req, res) => {
                 const logPrefix = `Row ${i + 1}:`;
 
                 try {
-                    console.log(`[DEBUG] Processing row ${i + 1}: amount='${row[mapping.amount]}', zid='${row[mapping.vendorZid]}'`);
                     const amount = parseAccountingAmount(row[mapping.amount]);
                     if (!amount) {
                         job.logs.push({ i: i + 1, level: 'warn', msg: 'Skipped row with zero amount.' });
