@@ -175,8 +175,13 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const vendorId = await resolveVendorId(client, { zid: row[mapping.vendorZid], name: row[mapping.vendorName] });
                     if (!vendorId) throw new Error(`Vendor not found (zid/name): ${row[mapping.vendorZid] || row[mapping.vendorName]}`);
 
-                    const expenseAccountRes = await client.query('SELECT entity_id FROM accounts WHERE id = $1', [expenseAccountId]);
-                    const entityId = expenseAccountRes.rows[0].entity_id;
+                    const expenseAccountRes = await client.query('SELECT entity_code FROM accounts WHERE id = $1', [expenseAccountId]);
+                    if (!expenseAccountRes.rows.length) throw new Error(`Could not find account details for ID ${expenseAccountId}`);
+                    const entityCode = expenseAccountRes.rows[0].entity_code;
+
+                    const entityRes = await client.query('SELECT id FROM entities WHERE code = $1', [entityCode]);
+                    if (!entityRes.rows.length) throw new Error(`Could not find entity with code ${entityCode}`);
+                    const entityId = entityRes.rows[0].id;
 
                     const jeDate = parseDateMDY(row[mapping.effectiveDate]) || new Date();
                     const description = row[mapping.memo] || row[mapping.invoiceNumber] || 'Payment Import';
