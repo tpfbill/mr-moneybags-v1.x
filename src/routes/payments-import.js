@@ -187,14 +187,15 @@ router.post('/process', asyncHandler(async (req, res) => {
                     if (!fundRes.rows.length) throw new Error(`Could not find fund with number ${fundNumber}`);
                     const fundId = fundRes.rows[0].id;
 
-                    const jeDate = parseDateMDY(row[mapping.effectiveDate]) || new Date();
-                    const description = row[mapping.memo] || row[mapping.invoiceNumber] || 'Payment Import';
-                    const reference = row[mapping.reference] || row[mapping.invoiceNumber] || `IMPORT-${jobId}-${i}`;
+                    const baseReference = row[mapping.reference] || row[mapping.invoiceNumber] || 'Payment Import';
+                    const uniqueReference = `${baseReference}-${i}`; // Ensure uniqueness for idempotency check
+
+                    const description = row[mapping.memo] || `${baseReference} - ${row[mapping.invoiceNumber] || 'Payment'}`;
                     
                     // Idempotency Check
-                    const dupJe = await client.query('SELECT id FROM journal_entries WHERE reference_number = $1 LIMIT 1', [reference]);
+                    const dupJe = await client.query('SELECT id FROM journal_entries WHERE reference_number = $1 LIMIT 1', [uniqueReference]);
                     if (dupJe.rows.length) {
-                        job.logs.push({ i: i + 1, level: 'warn', msg: `Duplicate JE skipped (ref: ${reference})` });
+                        job.logs.push({ i: i + 1, level: 'warn', msg: `Duplicate JE skipped (ref: ${uniqueReference})` });
                         continue;
                     }
                     
@@ -202,7 +203,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const je1Res = await client.query(
                         `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
                          VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, reference]
+                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference]
                     );
                     const je1Id = je1Res.rows[0].id;
                     await client.query(
@@ -215,7 +216,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const je2Res = await client.query(
                         `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
                          VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, reference]
+                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference]
                     );
                     const je2Id = je2Res.rows[0].id;
                     await client.query(
