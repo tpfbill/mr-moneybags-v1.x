@@ -13,7 +13,6 @@ const { asyncHandler } = require('../utils/helpers');
 const upload = multer({ dest: 'uploads/' });
 
 // In-memory store for import job status
-// In a production system, this should be a database table
 const importJobs = {};
 
 /**
@@ -172,11 +171,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                 );
             };
 
-            const entityId = importJobs[importId].entityId;
-            const apAccountId = await lookupApAccountId(client, entityId);
             const bankGlAccountId = await getBankGlAccountId(client, importJobs[importId].batchId);
-
-            if (!apAccountId) throw new Error(`No Accounts Payable account found for entity ${entityId}.`);
             if (!bankGlAccountId) throw new Error(`No Bank GL account could be determined for this payment batch.`);
 
             for (const line of data) {
@@ -184,6 +179,12 @@ router.post('/process', asyncHandler(async (req, res) => {
                 try {
                     const paymentStatus = line[paymentId] ? 'completed' : 'pending';
                     const amount = parseFloat(line[debit] || line[credit] || 0);
+
+                    const expenseAccountId = await lookupAccountId(client, line[accountCode]);
+                    if (!expenseAccountId) throw new Error(`Expense account with code '${line[accountCode]}' not found.`);
+
+                    const apAccountId = await lookupFundedApAccountId(client, expenseAccountId);
+                    if (!apAccountId) throw new Error(`Could not find a matching fund-specific AP account for expense account ${line[accountCode]}.`);
 
                     const paymentItemRes = await client.query(
                         `INSERT INTO payment_items (payment_batch_id, vendor_id, amount, description, status)
@@ -198,14 +199,11 @@ router.post('/process', asyncHandler(async (req, res) => {
                     );
                     paymentItemId = paymentItemRes.rows[0].id;
 
-                    const expenseAccountId = await lookupAccountId(client, line[accountCode]);
-                    if (!expenseAccountId) throw new Error(`Expense account with code '${line[accountCode]}' not found.`);
-
                     // JE 1: Expense -> AP
                     const je1Res = await client.query(
                         `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id)
                          VALUES ($1, $2, $3, $4, 'Posted', $5, $6) RETURNING id`,
-                        [entityId, new Date(line[entryDate]), `Expense for ${line[description]}`, amount, createdBy, importId]
+                        [importJobs[importId].entityId, new Date(line[entryDate]), `Expense for ${line[description]}`, amount, createdBy, importId]
                     );
                     const je1Id = je1Res.rows[0].id;
                     await client.query(
@@ -217,7 +215,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const je2Res = await client.query(
                         `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id)
                          VALUES ($1, $2, $3, $4, 'Posted', $5, $6) RETURNING id`,
-                        [entityId, new Date(line[entryDate]), `Payment for ${line[description]}`, amount, createdBy, importId]
+                        [importJobs[importId].entityId, new Date(line[entryDate]), `Payment for ${line[description]}`, amount, createdBy, importId]
                     );
                     const je2Id = je2Res.rows[0].id;
                     await client.query(
@@ -252,29 +250,33 @@ router.post('/process', asyncHandler(async (req, res) => {
     }, 100);
 }));
 
-// Helpers are now outside the main processing function to avoid re-declaration.
+// Helpers
 async function lookupAccountId(db, acCode) {
     if (!acCode) return null;
-    try {
-        const q = `SELECT id
-                   FROM accounts
-                   WHERE LOWER(regexp_replace(account_code,'[^a-z0-9]','','g')) = LOWER(regexp_replace($1,'[^a-z0-9]','','g'))
-                   LIMIT 1`;
-        const r = await db.query(q, [acCode]);
-        if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (err) {
-        // fall through
-    }
-    const r2 = await db.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [acCode]);
+    const r2 = await db.query('SELECT id FROM accounts WHERE account_code = $1 LIMIT 1', [acCode]);
     return r2.rows[0]?.id || null;
 }
 
-async function lookupApAccountId(db, entityId) {
-    const r = await db.query(
-        `SELECT id FROM accounts WHERE entity_id = $1 AND classification = 'Liability' AND description ILIKE '%Accounts Payable%' LIMIT 1`,
-        [entityId]
+async function lookupFundedApAccountId(db, expenseAccountId) {
+    // 1. Get the entity and fund from the expense account
+    const expenseAccountRes = await db.query(
+        `SELECT entity_code, fund_number FROM accounts WHERE id = $1`,
+        [expenseAccountId]
     );
-    return r.rows[0]?.id || null;
+    if (!expenseAccountRes.rows.length) return null;
+    const { entity_code, fund_number } = expenseAccountRes.rows[0];
+
+    // 2. Get the GL code for "Accounts Payable"
+    const apGlCodeRes = await db.query(`SELECT code FROM gl_codes WHERE description ILIKE '%Accounts Payable%' LIMIT 1`);
+    if (!apGlCodeRes.rows.length) return null;
+    const apGlCode = apGlCodeRes.rows[0].code;
+
+    // 3. Find the AP account with the matching entity, fund, and GL code
+    const apAccountRes = await db.query(
+        `SELECT id FROM accounts WHERE entity_code = $1 AND fund_number = $2 AND gl_code = $3`,
+        [entity_code, fund_number, apGlCode]
+    );
+    return apAccountRes.rows[0]?.id || null;
 }
 
 async function getBankGlAccountId(db, paymentBatchId) {
@@ -290,19 +292,6 @@ async function getBankGlAccountId(db, paymentBatchId) {
     if (!bankAccountRes.rows.length) return null;
 
     return bankAccountRes.rows[0].gl_account_id;
-}
-
-async function lookupFundId(db, fCode) {
-    if (!fCode) return null;
-    try {
-        const q = `SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) LIMIT 1`;
-        const r = await db.query(q, [fCode]);
-        if (r.rows[0]?.id) return r.rows[0].id;
-    } catch (err) {
-        // fall through
-    }
-    const r2 = await db.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [fCode]);
-    return r2.rows[0]?.id || null;
 }
 
 async function lookupVendorId(db, vCode) {
