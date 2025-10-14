@@ -258,33 +258,18 @@ async function lookupAccountId(db, acCode) {
 }
 
 async function lookupFundedApAccountId(db, expenseAccountId) {
-    // 1. Get the full account code from the expense account
+    // 1. Get the fund number from the expense account
     const expenseAccountRes = await db.query(
-        `SELECT account_code FROM accounts WHERE id = $1`,
+        `SELECT fund_number FROM accounts WHERE id = $1`,
         [expenseAccountId]
     );
     if (!expenseAccountRes.rows.length) return null;
-    const expenseAccountCode = expenseAccountRes.rows[0].account_code;
+    const fundNumber = expenseAccountRes.rows[0].fund_number;
 
-    // 2. Deconstruct the expense account code (E GGGG FFF RR)
-    const parts = expenseAccountCode.split(' ');
-    if (parts.length < 3) return null; // Invalid format
-    const entityCode = parts[0];
-    const fundNumber = parts[2];
-
-    // 3. Get the GL code for "Accounts Payable"
-    const apGlCodeRes = await db.query(`SELECT code FROM gl_codes WHERE description ILIKE '%Accounts Payable%' LIMIT 1`);
-    if (!apGlCodeRes.rows.length) return null;
-    const apGlCode = apGlCodeRes.rows[0].code;
-
-    // 4. Construct the target AP account code
-    // The AP account for a specific fund typically uses '00' for the restriction part
-    const targetApAccountCode = `${entityCode} ${apGlCode} ${fundNumber} 00`;
-
-    // 5. Find the AP account with the constructed code
+    // 2. Find the AP account with the matching fund number
     const apAccountRes = await db.query(
-        `SELECT id FROM accounts WHERE account_code = $1`,
-        [targetApAccountCode]
+        `SELECT id FROM accounts WHERE classification = 'Liability' AND description ILIKE '%Accounts Payable%' AND fund_number = $1`,
+        [fundNumber]
     );
     return apAccountRes.rows[0]?.id || null;
 }
