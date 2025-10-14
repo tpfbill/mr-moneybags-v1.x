@@ -1,3 +1,4 @@
+console.log('--- [CRITICAL LOG] Loading src/routes/payments-import.js ---');
 // src/routes/payments-import.js
 const express = require('express');
 const router = express.Router();
