@@ -266,7 +266,7 @@ export async function loadFundData() {
  */
 export async function loadJournalEntryData() {
     try {
-        const jeRaw = await fetchData('journal-entries');
+        const jeRaw = await fetchData('journal-entries?sort=entry_date:desc,reference_number:asc');
         const journalEntries = Array.isArray(jeRaw) ? jeRaw : [];
         appState.journalEntries = journalEntries;
         
