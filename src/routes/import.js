@@ -157,44 +157,8 @@ router.post('/process', asyncHandler(async (req, res) => {
     setTimeout(async () => {
         const client = await pool.connect();
         try {
-            await client.query('BEGIN');
-
             const { transactionId, entryDate, debit, credit, accountCode, fundCode, description } = mapping;
 
-            // Helpers: resilient lookups for account and fund across schema shapes
-            async function lookupAccountId(db, acCode) {
-                if (!acCode) return null;
-                // Try canonical account_code (with tolerant canonical comparison)
-                try {
-                    const q = `SELECT id
-                               FROM accounts
-                               WHERE LOWER(regexp_replace(account_code,'[^a-z0-9]','','g')) = LOWER(regexp_replace($1,'[^a-z0-9]','','g'))
-                               LIMIT 1`;
-                    const r = await db.query(q, [acCode]);
-                    if (r.rows[0]?.id) return r.rows[0].id;
-                } catch (err) {
-                    // fall through on undefined column (legacy schema)
-                }
-                // Fallback: legacy accounts.code
-                const r2 = await db.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [acCode]);
-                return r2.rows[0]?.id || null;
-            }
-
-            async function lookupFundId(db, fCode) {
-                if (!fCode) return null;
-                // Try canonical funds.fund_code (case-insensitive)
-                try {
-                    const q = `SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) LIMIT 1`;
-                    const r = await db.query(q, [fCode]);
-                    if (r.rows[0]?.id) return r.rows[0].id;
-                } catch (err) {
-                    // fall through on undefined column (legacy schema)
-                }
-                // Fallback: legacy funds.code
-                const r2 = await db.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [fCode]);
-                return r2.rows[0]?.id || null;
-            }
-            
             // Group data by transaction ID
             const transactions = data.reduce((acc, row) => {
                 const txId = row[transactionId];
@@ -208,28 +172,47 @@ router.post('/process', asyncHandler(async (req, res) => {
             const totalTransactions = Object.keys(transactions).length;
             let processedTransactions = 0;
 
+            // Start a single transaction for the entire import
+            await client.query('BEGIN');
+
             for (const txId in transactions) {
                 const lines = transactions[txId];
                 const firstLine = lines[0];
 
-                // Create Journal Entry
+                // Check for existing journal entry with this reference number
+                let journalEntryId;
+                let defaultEntityId;
+
                 const jeResult = await client.query(
-                    `INSERT INTO journal_entries (reference_number, entry_date, description, total_amount, status, created_by, import_id)
-                     VALUES ($1, $2, $3, $4, 'Posted', 'AccuFund Import', $5) RETURNING id, entity_id`,
-                    [
-                        txId,
-                        new Date(firstLine[entryDate]),
-                        firstLine[description] || 'AccuFund Import',
-                        lines.reduce((sum, l) => sum + parseFloat(l[debit] || 0), 0),
-                        importId
-                    ]
+                    `SELECT id, entity_id FROM journal_entries WHERE reference_number = $1`,
+                    [txId]
                 );
-                const journalEntryId = jeResult.rows[0].id;
-                const defaultEntityId = jeResult.rows[0].entity_id; // Use the default entity of the JE
+
+                if (jeResult.rows.length > 0) {
+                    // Use existing journal entry
+                    journalEntryId = jeResult.rows[0].id;
+                    defaultEntityId = jeResult.rows[0].entity_id;
+                    console.log(`Reusing existing Journal Entry ID: ${journalEntryId} for reference: ${txId}`);
+                } else {
+                    // Create a new journal entry
+                    const newJeResult = await client.query(
+                        `INSERT INTO journal_entries (reference_number, entry_date, description, total_amount, status, created_by, import_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', 'AccuFund Import', $5) RETURNING id, entity_id`,
+                        [
+                            txId,
+                            new Date(firstLine[entryDate]),
+                            firstLine[description] || 'AccuFund Import',
+                            lines.reduce((sum, l) => sum + parseFloat(l[debit] || 0), 0),
+                            importId
+                        ]
+                    );
+                    journalEntryId = newJeResult.rows[0].id;
+                    defaultEntityId = newJeResult.rows[0].entity_id;
+                    console.log(`Created new Journal Entry ID: ${journalEntryId} for reference: ${txId}`);
+                }
 
                 // Create Journal Entry Lines
                 for (const line of lines) {
-                    // Find account and fund IDs (canonical-aware)
                     const account_id = await lookupAccountId(client, line[accountCode]);
                     const fund_id    = await lookupFundId(client, line[fundCode]);
 
@@ -273,6 +256,36 @@ router.post('/process', asyncHandler(async (req, res) => {
         }
     }, 100); // Start after 100ms
 }));
+
+// Helpers are now outside the main processing function to avoid re-declaration.
+async function lookupAccountId(db, acCode) {
+    if (!acCode) return null;
+    try {
+        const q = `SELECT id
+                   FROM accounts
+                   WHERE LOWER(regexp_replace(account_code,'[^a-z0-9]','','g')) = LOWER(regexp_replace($1,'[^a-z0-9]','','g'))
+                   LIMIT 1`;
+        const r = await db.query(q, [acCode]);
+        if (r.rows[0]?.id) return r.rows[0].id;
+    } catch (err) {
+        // fall through
+    }
+    const r2 = await db.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [acCode]);
+    return r2.rows[0]?.id || null;
+}
+
+async function lookupFundId(db, fCode) {
+    if (!fCode) return null;
+    try {
+        const q = `SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) LIMIT 1`;
+        const r = await db.query(q, [fCode]);
+        if (r.rows[0]?.id) return r.rows[0].id;
+    } catch (err) {
+        // fall through
+    }
+    const r2 = await db.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [fCode]);
+    return r2.rows[0]?.id || null;
+}
 
 /**
  * GET /api/import/status/:importId
