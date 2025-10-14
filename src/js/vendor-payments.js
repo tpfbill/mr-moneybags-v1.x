@@ -1044,6 +1044,7 @@ function papaParseCsvFile(file) {
                 Papa.parse(file, {
                     header: true,
                     skipEmptyLines: true,
+                    transformHeader: header => header.trim(),
                     complete: results => resolve(results.data || []),
                     error: err => reject(err)
                 });

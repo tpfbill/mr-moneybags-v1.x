@@ -115,25 +115,24 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
 
     const suggestedMapping = {};
     headers.forEach(header => {
-        const h = header.toLowerCase();
-        if (h.includes('payment') && h.includes('id')) suggestedMapping.paymentId = header;
+        const h = header.toLowerCase().trim();
+        if (h === 'amount') suggestedMapping.amount = header;
+        else if (h.includes('payment') && h.includes('id')) suggestedMapping.paymentId = header;
         else if (h.includes('account') && h.includes('no')) suggestedMapping.accountNo = header;
-        else if (h.includes('amount')) suggestedMapping.amount = header;
         else if (h.includes('bank')) suggestedMapping.bankAccountName = header;
-        else if (h.includes('payee_zid') || h === 'zid') suggestedMapping.vendorZid = header; // More specific
+        else if (h.includes('payee_zid') || h === 'zid') suggestedMapping.vendorZid = header;
         else if (h.includes('payee') || h.includes('vendor')) suggestedMapping.vendorName = header;
         else if (h.includes('date')) suggestedMapping.effectiveDate = header;
         else if (h.includes('description') || h.includes('memo')) suggestedMapping.memo = header;
         else if (h.includes('invoice')) suggestedMapping.invoiceNumber = header;
         else if (h.includes('reference')) suggestedMapping.reference = header;
+        else if (h.includes('amount') && !suggestedMapping.amount) suggestedMapping.amount = header; // Fallback for '... amount ...'
     });
 
     res.json({ headers, suggestedMapping, recordCount: rows.length, sampleData: rows.slice(0, 5) });
 }));
 
 router.post('/process', asyncHandler(async (req, res) => {
-    console.log('--- [CRITICAL LOG] Received /process payload ---');
-    console.log(JSON.stringify(req.body, null, 2));
     const { data, mapping, filename } = req.body || {};
     if (!Array.isArray(data) || !data.length) return res.status(400).json({ error: 'No data provided.' });
     if (!mapping) return res.status(400).json({ error: 'Mapping is required.' });
