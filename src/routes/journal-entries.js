@@ -216,8 +216,40 @@ router.get('/', asyncHandler(async (req, res) => {
         } catch (_) { /* ignore if introspection fails */ }
     }
     
-    // Order by entry_date then id to avoid relying on optional created_at column
-    query += ` ORDER BY je.entry_date DESC, je.id DESC`;
+    // Build ORDER BY clause from sort parameter
+    const { sort } = req.query;
+    let orderByClause = 'ORDER BY je.entry_date DESC, je.id DESC'; // Default sort
+    if (sort) {
+        const allowedSortFields = [
+            'entry_date',
+            'reference_number',
+            'status',
+            'derived_entities',
+            'derived_funds',
+            'total_amount',
+            'line_count'
+        ];
+        const sortFields = sort.split(',').map(field => {
+            const [fieldName, direction] = field.split(':');
+            const sortDirection = direction && direction.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+            
+            // Whitelist fields to prevent SQL injection
+            if (allowedSortFields.includes(fieldName)) {
+                // Map frontend field names to backend column names
+                if (fieldName === 'reference_number') {
+                    return `je.reference_number ${sortDirection}`;
+                }
+                return `je.${fieldName} ${sortDirection}`;
+            }
+            return null;
+        }).filter(Boolean);
+
+        if (sortFields.length > 0) {
+            orderByClause = `ORDER BY ${sortFields.join(', ')}`;
+        }
+    }
+    
+    query += ` ${orderByClause}`;
     
     if (limit && !isNaN(parseInt(limit))) {
         query += ` LIMIT $${paramIndex++}`;
