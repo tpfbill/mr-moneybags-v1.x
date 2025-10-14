@@ -880,6 +880,14 @@ export async function openJournalEntryModal(id, readOnly = false) {
     form.reset();
     form.dataset.id = id || '';
     form.dataset.readOnly = readOnly ? 'true' : 'false';
+    // Ensure submit-guard is cleared on open and any watchdog timer removed
+    try {
+        form.dataset.submitting = 'false';
+        if (form.__submitGuardTimer) {
+            clearTimeout(form.__submitGuardTimer);
+            form.__submitGuardTimer = null;
+        }
+    } catch (_) {}
     // Ensure inputs are enabled when not read-only (previous view may have disabled them)
     if (!readOnly) {
         try { form.querySelectorAll('input, select, textarea').forEach(el => (el.disabled = false)); } catch (_) {}
@@ -1102,7 +1110,8 @@ function updateJournalEntryTotals() {
     
     const balance = totalDebit - totalCredit;
     balanceEl.textContent = formatCurrency(Math.abs(balance));
-    balanceEl.className = balance === 0 ? 'balanced' : 'unbalanced';
+    // Tolerate floating point rounding errors when near zero
+    balanceEl.className = Math.abs(balance) < 0.005 ? 'balanced' : 'unbalanced';
 }
 
 /**
@@ -1127,6 +1136,24 @@ export async function saveJournalEntry(event) {
         return;
     }
     form.dataset.submitting = 'true';
+    // Disable Save button to prevent rapid double-clicks
+    const saveBtnEl = document.getElementById('save-journal-entry-btn');
+    const prevDisabled = saveBtnEl ? saveBtnEl.disabled : undefined;
+    if (saveBtnEl) saveBtnEl.disabled = true;
+    // Watchdog: auto-reset submit-guard if nothing clears it within 4s
+    try {
+        if (form.__submitGuardTimer) {
+            clearTimeout(form.__submitGuardTimer);
+        }
+        form.__submitGuardTimer = setTimeout(() => {
+            try {
+                if (form && form.dataset && form.dataset.submitting === 'true') {
+                    console.warn('[JE Submit] Guard auto-reset after 4s watchdog');
+                    form.dataset.submitting = 'false';
+                }
+            } catch (_) { /* ignore */ }
+        }, 4000);
+    } catch (_) { /* ignore */ }
     
     // Validate form
     if (!validateForm(form)) { form.dataset.submitting = 'false'; return; }
@@ -1137,13 +1164,7 @@ export async function saveJournalEntry(event) {
     // Helper to round to cents consistently
     const r2 = (n) => Math.round((parseFloat(n || 0) || 0) * 100) / 100;
 
-    // Check if entry is balanced
-    const balanceEl = document.getElementById('journal-entry-balance');
-    if (balanceEl.className === 'unbalanced') {
-        showToast('Journal entry must be balanced', 'error');
-        form.dataset.submitting = 'false';
-        return;
-    }
+    // Do not rely on UI class; compute using rounded totals below
     
     // Get form data
     const journalEntryData = {
@@ -1230,6 +1251,8 @@ export async function saveJournalEntry(event) {
 
             if (!fundId) {
                 showToast('No matching Fund found for selected account; please verify account setup.', 'error');
+                // Ensure submit-guard is released on validation failure
+                form.dataset.submitting = 'false';
                 return;
             }
 
@@ -1255,6 +1278,10 @@ export async function saveJournalEntry(event) {
     const diff = r2(sumD - sumC);
     if (Math.abs(diff) > 0.009) {
         showToast(`Not balanced by ${formatCurrency(Math.abs(diff))}`, 'error');
+        // Temporary diagnostic per request
+        alert(`JE not balanced:\nTotal Debits: ${sumD}\nTotal Credits: ${sumC}\nDiff: ${diff}\nLines counted: ${lineItems.length}`);
+        // Release submit-guard when imbalance blocks save
+        form.dataset.submitting = 'false';
         return;
     }
     
@@ -1303,6 +1330,14 @@ export async function saveJournalEntry(event) {
         showToast(error?.message || 'Error saving journal entry', 'error');
     } finally {
         form.dataset.submitting = 'false';
+        try {
+            if (form.__submitGuardTimer) {
+                clearTimeout(form.__submitGuardTimer);
+                form.__submitGuardTimer = null;
+            }
+        } catch (_) { /* ignore */ }
+        // Re-enable Save button
+        try { if (saveBtnEl && prevDisabled !== undefined) saveBtnEl.disabled = prevDisabled; } catch (_) {}
     }
 }
 
@@ -1733,58 +1768,27 @@ export function initializeModalEventListeners() {
             }
         });
     }
-
-    // Defensive: delegate Save Entry clicks at the document level as a safety net.
-    // This ensures the click is handled even if the direct listener fails to bind
-    // due to timing or third-party script interference.
-    if (!document.__jeDelegatedClickBound) {
-        document.__jeDelegatedClickBound = true;
-        document.addEventListener('click', (e) => {
-            const btn = e.target && (e.target.closest ? e.target.closest('#save-journal-entry-btn') : null);
-            if (!btn) return;
-            const form = document.getElementById('journal-entry-modal-form');
-            if (!form) return;
+    // Submit on Enter within the JE form (avoid textarea)
+    const jeForm = document.getElementById('journal-entry-modal-form');
+    if (jeForm && !jeForm.__enterToSubmitBound) {
+        jeForm.__enterToSubmitBound = true;
+        jeForm.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+            if (tag === 'textarea') return; // allow multiline inputs if ever present
+            // Avoid interfering with selects opening
+            if (tag === 'select') return;
             e.preventDefault();
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
+            try { jeForm.dataset.submitting = 'false'; } catch (_) {}
+            if (typeof jeForm.requestSubmit === 'function') {
+                jeForm.requestSubmit();
             } else {
-                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                jeForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
             }
-        }, true); // capture early
+        });
     }
 
-    // Ultra-defensive: capture-phase, rect-based trigger in case an overlay intercepts
-    // clicks so the event target is NOT the button. We detect pointer/touch within
-    // the button's bounding box and force-submit the form.
-    if (!window.__jePointerRectBound) {
-        window.__jePointerRectBound = true;
-        const rectHandler = (e) => {
-            try {
-                const form = document.getElementById('journal-entry-modal-form');
-                const btn  = document.getElementById('save-journal-entry-btn');
-                if (!form || !btn) return;
-                if (form.dataset.readOnly === 'true') return;
-                const cs = window.getComputedStyle(btn);
-                const rect = btn.getBoundingClientRect();
-                if (!rect || rect.width === 0 || rect.height === 0 || cs.display === 'none' || cs.visibility === 'hidden') return;
-                const pt = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
-                const x = pt.clientX, y = pt.clientY;
-                if (x == null || y == null) return;
-                const inside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-                if (!inside) return;
-                e.preventDefault();
-                e.stopPropagation();
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
-                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                }
-            } catch (_) { /* ignore */ }
-        };
-        window.addEventListener('pointerdown', rectHandler, true);
-        window.addEventListener('mousedown', rectHandler, true);
-        window.addEventListener('touchstart', rectHandler, true);
-    }
+    // Removed aggressive delegated and pointer-rect submit proxies to avoid duplicate submissions
     document.getElementById('journal-entry-modal-close')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('journal-entry-modal-cancel')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('post-journal-entry-btn')?.addEventListener('click', () => {
