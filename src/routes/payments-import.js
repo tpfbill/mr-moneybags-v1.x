@@ -116,18 +116,38 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
     const suggestedMapping = {};
     headers.forEach(header => {
         const h = header.toLowerCase().trim();
-        if (h === 'amount') suggestedMapping.amount = header;
-        else if (h.includes('payment') && h.includes('id')) suggestedMapping.paymentId = header;
-        else if (h.includes('account') && h.includes('no')) suggestedMapping.accountNo = header;
-        else if (h.includes('bank')) suggestedMapping.bankAccountName = header;
-        else if (h.includes('payee_zid') || h === 'zid') suggestedMapping.vendorZid = header;
-        else if (h.includes('payee') || h.includes('vendor')) suggestedMapping.vendorName = header;
-        else if (h.includes('date')) suggestedMapping.effectiveDate = header;
-        else if (h.includes('description') || h.includes('memo')) suggestedMapping.memo = header;
-        else if (h.includes('invoice')) suggestedMapping.invoiceNumber = header;
-        else if (h.includes('reference')) suggestedMapping.reference = header;
-        else if (h.includes('amount') && !suggestedMapping.amount) suggestedMapping.amount = header; // Fallback for '... amount ...'
+        if ((h.includes('post') || h.includes('effective')) && h.includes('date')) {
+            suggestedMapping.effectiveDate = header;
+        } else if (h === 'amount') {
+            suggestedMapping.amount = header;
+        } else if (h.includes('payment') && h.includes('id')) {
+            suggestedMapping.paymentId = header;
+        } else if (h.includes('account') && h.includes('no')) {
+            suggestedMapping.accountNo = header;
+        } else if (h.includes('bank')) {
+            suggestedMapping.bankAccountName = header;
+        } else if (h.includes('payee_zid') || h === 'zid') {
+            suggestedMapping.vendorZid = header;
+        } else if (h.includes('payee') || h.includes('vendor')) {
+            suggestedMapping.vendorName = header;
+        } else if (h.includes('description') || h.includes('memo')) {
+            suggestedMapping.memo = header;
+        } else if (h.includes('invoice') && !h.includes('date')) {
+            suggestedMapping.invoiceNumber = header;
+        } else if (h.includes('reference')) {
+            suggestedMapping.reference = header;
+        }
     });
+
+    // Fallbacks for critical fields if they are not yet mapped
+    if (!suggestedMapping.effectiveDate) {
+        const genericDate = headers.find(h => h.toLowerCase().trim().includes('date'));
+        if (genericDate) suggestedMapping.effectiveDate = genericDate;
+    }
+    if (!suggestedMapping.amount) {
+        const genericAmount = headers.find(h => h.toLowerCase().trim().includes('amount'));
+        if (genericAmount) suggestedMapping.amount = genericAmount;
+    }
 
     res.json({ headers, suggestedMapping, recordCount: rows.length, sampleData: rows.slice(0, 5) });
 }));
