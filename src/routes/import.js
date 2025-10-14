@@ -50,6 +50,8 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
             suggestedMapping.fundCode = header;
         } else if (headerLower.includes('desc')) {
             suggestedMapping.description = header;
+        } else if (headerLower.includes('bank')) {
+            suggestedMapping.bankAccountName = header;
         }
     });
 
@@ -73,7 +75,7 @@ router.post('/validate', asyncHandler(async (req, res) => {
     }
     
     if (!mapping || !mapping.transactionId || !mapping.entryDate || 
-        (!mapping.debit && !mapping.credit) || !mapping.accountCode) {
+        (!mapping.debit && !mapping.credit) || !mapping.accountCode || !mapping.bankAccountName) {
         return res.status(400).json({ error: 'Required mapping fields are missing.' });
     }
     
@@ -89,6 +91,9 @@ router.post('/validate', asyncHandler(async (req, res) => {
         }
         if (!row[mapping.accountCode]) {
             issues.push(`Row ${index + 1}: Missing account code.`);
+        }
+        if (!row[mapping.bankAccountName]) {
+            issues.push(`Row ${index + 1}: Missing bank account name.`);
         }
         if ((!row[mapping.debit] || parseFloat(row[mapping.debit]) === 0) && 
             (!row[mapping.credit] || parseFloat(row[mapping.credit]) === 0)) {
@@ -156,7 +161,7 @@ router.post('/process', asyncHandler(async (req, res) => {
     setTimeout(async () => {
         const client = await pool.connect();
         try {
-            const { transactionId, entryDate, debit, credit, accountCode, fundCode, description, paymentId } = mapping;
+            const { transactionId, entryDate, debit, credit, accountCode, fundCode, description, paymentId, bankAccountName } = mapping;
 
             await client.query('BEGIN');
 
@@ -171,9 +176,6 @@ router.post('/process', asyncHandler(async (req, res) => {
                 );
             };
 
-            const bankGlAccountId = await getBankGlAccountId(client, importJobs[importId].batchId);
-            if (!bankGlAccountId) throw new Error(`No Bank GL account could be determined for this payment batch.`);
-
             for (const line of data) {
                 let paymentItemId = null;
                 try {
@@ -185,6 +187,9 @@ router.post('/process', asyncHandler(async (req, res) => {
 
                     const apAccountId = await lookupFundedApAccountId(client, expenseAccountId);
                     if (!apAccountId) throw new Error(`Could not find a matching fund-specific AP account for expense account ${line[accountCode]}.`);
+
+                    const bankGlAccountId = await lookupBankGlAccountId(client, line[bankAccountName]);
+                    if (!bankGlAccountId) throw new Error(`Could not find a bank account named '${line[bankAccountName]}'.`);
 
                     const paymentItemRes = await client.query(
                         `INSERT INTO payment_items (payment_batch_id, vendor_id, amount, description, status)
@@ -253,8 +258,9 @@ router.post('/process', asyncHandler(async (req, res) => {
 // Helpers
 async function lookupAccountId(db, acCode) {
     if (!acCode) return null;
-    const r2 = await db.query('SELECT id FROM accounts WHERE account_code = $1 LIMIT 1', [acCode]);
-    return r2.rows[0]?.id || null;
+    const normalizedCode = acCode.trim();
+    const r = await db.query('SELECT id FROM accounts WHERE account_code = $1 LIMIT 1', [normalizedCode]);
+    return r.rows[0]?.id || null;
 }
 
 async function lookupFundedApAccountId(db, expenseAccountId) {
@@ -274,19 +280,10 @@ async function lookupFundedApAccountId(db, expenseAccountId) {
     return apAccountRes.rows[0]?.id || null;
 }
 
-async function getBankGlAccountId(db, paymentBatchId) {
-    const batchRes = await db.query('SELECT nacha_settings_id FROM payment_batches WHERE id = $1', [paymentBatchId]);
-    if (!batchRes.rows.length) return null;
-
-    const nachaSettingsId = batchRes.rows[0].nacha_settings_id;
-    const settingsRes = await db.query('SELECT settlement_account_id FROM company_nacha_settings WHERE id = $1', [nachaSettingsId]);
-    if (!settingsRes.rows.length) return null;
-
-    const settlementAccountId = settingsRes.rows[0].settlement_account_id;
-    const bankAccountRes = await db.query('SELECT gl_account_id FROM bank_accounts WHERE id = $1', [settlementAccountId]);
-    if (!bankAccountRes.rows.length) return null;
-
-    return bankAccountRes.rows[0].gl_account_id;
+async function lookupBankGlAccountId(db, bankAccountName) {
+    if (!bankAccountName) return null;
+    const r = await db.query('SELECT gl_account_id FROM bank_accounts WHERE account_name = $1 LIMIT 1', [bankAccountName.trim()]);
+    return r.rows[0]?.gl_account_id || null;
 }
 
 async function lookupVendorId(db, vCode) {
