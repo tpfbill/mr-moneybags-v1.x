@@ -157,104 +157,99 @@ router.post('/process', asyncHandler(async (req, res) => {
     setTimeout(async () => {
         const client = await pool.connect();
         try {
-            const { transactionId, entryDate, debit, credit, accountCode, fundCode, description } = mapping;
+            const { transactionId, entryDate, debit, credit, accountCode, fundCode, description, paymentId } = mapping;
 
-            // Group data by transaction ID
-            const transactions = data.reduce((acc, row) => {
-                const txId = row[transactionId];
-                if (!acc[txId]) {
-                    acc[txId] = [];
-                }
-                acc[txId].push(row);
-                return acc;
-            }, {});
-
-            const totalTransactions = Object.keys(transactions).length;
-            let processedTransactions = 0;
-
-            // Start a single transaction for the entire import
             await client.query('BEGIN');
 
-            for (const txId in transactions) {
-                const lines = transactions[txId];
-                const firstLine = lines[0];
+            const userRes = await client.query('SELECT first_name, last_name, id FROM users WHERE id = $1', [req.user.id]);
+            const user = userRes.rows[0] || { first_name: 'System', last_name: 'User', id: null };
+            const createdBy = `Payment import - ${user.first_name} ${user.last_name}`;
 
-                // Check for existing journal entry with this reference number
-                let journalEntryId;
-                let defaultEntityId;
-
-                const jeResult = await client.query(
-                    `SELECT id, entity_id FROM journal_entries WHERE reference_number = $1`,
-                    [txId]
+            const log = async (level, msg, pItemId = null) => {
+                await client.query(
+                    'INSERT INTO batch_payment_log (import_id, payment_item_id, log_level, message) VALUES ($1, $2, $3, $4)',
+                    [importId, pItemId, level, msg]
                 );
+            };
 
-                if (jeResult.rows.length > 0) {
-                    // Use existing journal entry
-                    journalEntryId = jeResult.rows[0].id;
-                    defaultEntityId = jeResult.rows[0].entity_id;
-                    console.log(`Reusing existing Journal Entry ID: ${journalEntryId} for reference: ${txId}`);
-                } else {
-                    // Create a new journal entry
-                    const newJeResult = await client.query(
-                        `INSERT INTO journal_entries (reference_number, entry_date, description, total_amount, status, created_by, import_id)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'AccuFund Import', $5) RETURNING id, entity_id`,
+            const entityId = importJobs[importId].entityId;
+            const apAccountId = await lookupApAccountId(client, entityId);
+            const bankGlAccountId = await getBankGlAccountId(client, importJobs[importId].batchId);
+
+            if (!apAccountId) throw new Error(`No Accounts Payable account found for entity ${entityId}.`);
+            if (!bankGlAccountId) throw new Error(`No Bank GL account could be determined for this payment batch.`);
+
+            for (const line of data) {
+                let paymentItemId = null;
+                try {
+                    const paymentStatus = line[paymentId] ? 'completed' : 'pending';
+                    const amount = parseFloat(line[debit] || line[credit] || 0);
+
+                    const paymentItemRes = await client.query(
+                        `INSERT INTO payment_items (payment_batch_id, vendor_id, amount, description, status)
+                         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
                         [
-                            txId,
-                            new Date(firstLine[entryDate]),
-                            firstLine[description] || 'AccuFund Import',
-                            lines.reduce((sum, l) => sum + parseFloat(l[debit] || 0), 0),
-                            importId
+                            importJobs[importId].batchId,
+                            await lookupVendorId(client, line.vendor_code),
+                            amount,
+                            line[description] || '',
+                            paymentStatus
                         ]
                     );
-                    journalEntryId = newJeResult.rows[0].id;
-                    defaultEntityId = newJeResult.rows[0].entity_id;
-                    console.log(`Created new Journal Entry ID: ${journalEntryId} for reference: ${txId}`);
-                }
+                    paymentItemId = paymentItemRes.rows[0].id;
 
-                // Create Journal Entry Lines
-                for (const line of lines) {
-                    const account_id = await lookupAccountId(client, line[accountCode]);
-                    const fund_id    = await lookupFundId(client, line[fundCode]);
+                    const expenseAccountId = await lookupAccountId(client, line[accountCode]);
+                    if (!expenseAccountId) throw new Error(`Expense account with code '${line[accountCode]}' not found.`);
 
-                    if (!account_id) {
-                        throw new Error(`Account code "${line[accountCode]}" not found for transaction ${txId}.`);
-                    }
-                    if (line[fundCode] && !fund_id) {
-                        throw new Error(`Fund code "${line[fundCode]}" not found for transaction ${txId}.`);
-                    }
-
+                    // JE 1: Expense -> AP
+                    const je1Res = await client.query(
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6) RETURNING id`,
+                        [entityId, new Date(line[entryDate]), `Expense for ${line[description]}`, amount, createdBy, importId]
+                    );
+                    const je1Id = je1Res.rows[0].id;
                     await client.query(
-                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-                         VALUES ($1, $2, $3, $4, $5, $6)`,
-                        [
-                            journalEntryId,
-                            account_id,
-                            fund_id,
-                            parseFloat(line[debit] || 0),
-                            parseFloat(line[credit] || 0),
-                            line[description] || ''
-                        ]
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, debit, credit) VALUES ($1, $2, $3, 0), ($1, $4, 0, $3)`,
+                        [je1Id, expenseAccountId, amount, apAccountId]
                     );
-                }
 
-                processedTransactions++;
-                importJobs[importId].progress = Math.floor((processedTransactions / totalTransactions) * 100);
-                importJobs[importId].processedRecords += lines.length;
+                    // JE 2: AP -> Bank
+                    const je2Res = await client.query(
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6) RETURNING id`,
+                        [entityId, new Date(line[entryDate]), `Payment for ${line[description]}`, amount, createdBy, importId]
+                    );
+                    const je2Id = je2Res.rows[0].id;
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, debit, credit) VALUES ($1, $2, $3, 0), ($1, $4, 0, $3)`,
+                        [je2Id, apAccountId, amount, bankGlAccountId]
+                    );
+
+                    // Back-post the JE ID to the payment item
+                    await client.query('UPDATE payment_items SET journal_entry_id = $1 WHERE id = $2', [je1Id, paymentItemId]);
+
+                    await log('SUCCESS', `Successfully processed payment for ${amount}`, paymentItemId);
+                    importJobs[importId].processedRecords++;
+
+                } catch (lineError) {
+                    await log('ERROR', `Failed to process line: ${lineError.message}`, paymentItemId);
+                    importJobs[importId].errors.push(`Row ${importJobs[importId].processedRecords + 1}: ${lineError.message}`);
+                }
             }
 
             await client.query('COMMIT');
             importJobs[importId].status = 'completed';
-            importJobs[importId].endTime = new Date();
         } catch (error) {
             await client.query('ROLLBACK');
             console.error(`Import ${importId} failed:`, error);
             importJobs[importId].status = 'failed';
             importJobs[importId].errors.push(error.message);
-            importJobs[importId].endTime = new Date();
         } finally {
+            importJobs[importId].progress = 100;
+            importJobs[importId].endTime = new Date();
             client.release();
         }
-    }, 100); // Start after 100ms
+    }, 100);
 }));
 
 // Helpers are now outside the main processing function to avoid re-declaration.
@@ -274,6 +269,29 @@ async function lookupAccountId(db, acCode) {
     return r2.rows[0]?.id || null;
 }
 
+async function lookupApAccountId(db, entityId) {
+    const r = await db.query(
+        `SELECT id FROM accounts WHERE entity_id = $1 AND classification = 'Liability' AND description ILIKE '%Accounts Payable%' LIMIT 1`,
+        [entityId]
+    );
+    return r.rows[0]?.id || null;
+}
+
+async function getBankGlAccountId(db, paymentBatchId) {
+    const batchRes = await db.query('SELECT nacha_settings_id FROM payment_batches WHERE id = $1', [paymentBatchId]);
+    if (!batchRes.rows.length) return null;
+
+    const nachaSettingsId = batchRes.rows[0].nacha_settings_id;
+    const settingsRes = await db.query('SELECT settlement_account_id FROM company_nacha_settings WHERE id = $1', [nachaSettingsId]);
+    if (!settingsRes.rows.length) return null;
+
+    const settlementAccountId = settingsRes.rows[0].settlement_account_id;
+    const bankAccountRes = await db.query('SELECT gl_account_id FROM bank_accounts WHERE id = $1', [settlementAccountId]);
+    if (!bankAccountRes.rows.length) return null;
+
+    return bankAccountRes.rows[0].gl_account_id;
+}
+
 async function lookupFundId(db, fCode) {
     if (!fCode) return null;
     try {
@@ -285,6 +303,12 @@ async function lookupFundId(db, fCode) {
     }
     const r2 = await db.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [fCode]);
     return r2.rows[0]?.id || null;
+}
+
+async function lookupVendorId(db, vCode) {
+    if (!vCode) return null;
+    const r = await db.query('SELECT id FROM vendors WHERE vendor_code = $1 LIMIT 1', [vCode]);
+    return r.rows[0]?.id || null;
 }
 
 /**
