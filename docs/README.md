@@ -79,3 +79,9 @@ The v1.x series introduces a **single consolidated database schema (`database/db
 *Last updated: 06 August 2025*  
 
 For questions or contributions, open an issue or pull request on GitHub.
+
+---
+
+## Session Summaries
+
+- 2025‑10‑09 — Session Summary: [docs/guides/Session_Summary_2025-10-09.md](guides/Session_Summary_2025-10-09.md)
