@@ -17,6 +17,7 @@ const importJobs = {};
 // --- Helper Functions ---
 
 function parseAccountingAmount(v) {
+    console.log(`[DEBUG] parseAccountingAmount received: '${v}'`);
     if (v == null) return 0;
     let t = String(v).trim();
     if (!t) return 0;
@@ -31,7 +32,11 @@ function parseAccountingAmount(v) {
     }
     t = t.replace(/[,$\s]/g, '');
     const num = parseFloat(t);
-    if (isNaN(num)) return 0;
+    if (isNaN(num)) {
+        console.log(`[DEBUG] parseAccountingAmount produced NaN for '${v}'`);
+        return 0;
+    }
+    console.log(`[DEBUG] parseAccountingAmount produced: ${neg ? -num : num}`);
     return neg ? -num : num;
 }
 
@@ -89,8 +94,10 @@ async function lookupBankGlAccountId(db, bankAccountName) {
 }
 
 async function resolveVendorId(db, { zid, name }) {
+    console.log(`[DEBUG] resolveVendorId received zid: '${zid}'`);
     if (zid) {
         const rz = await db.query('SELECT id FROM vendors WHERE LOWER(TRIM(zid)) = LOWER(TRIM($1)) LIMIT 1', [zid]);
+        console.log('[DEBUG] Vendor query result (rz):', JSON.stringify(rz, null, 2));
         if (rz.rows[0]?.id) return rz.rows[0].id;
     }
     if (name) {
@@ -155,6 +162,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                 const logPrefix = `Row ${i + 1}:`;
 
                 try {
+                    console.log(`[DEBUG] Processing row ${i + 1}: amount='${row[mapping.amount]}', zid='${row[mapping.vendorZid]}'`);
                     const amount = parseAccountingAmount(row[mapping.amount]);
                     if (!amount) {
                         job.logs.push({ i: i + 1, level: 'warn', msg: 'Skipped row with zero amount.' });
