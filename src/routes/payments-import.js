@@ -19,11 +19,16 @@ const importJobs = {};
 function parseAccountingAmount(v) {
     if (v == null) return 0;
     let t = String(v).trim();
+    if (!t) return 0;
     let neg = false;
-    if (/^\(.+\)$/.test(t)) { neg = true; t = t.replace(/^\(|\)$/g, ''); }
+    if (t.startsWith('(') && t.endsWith(')')) {
+        neg = true;
+        t = t.substring(1, t.length - 1);
+    }
     t = t.replace(/[,$\s]/g, '');
     const num = parseFloat(t);
-    return isNaN(num) ? 0 : (neg ? -num : num);
+    if (isNaN(num)) return 0;
+    return neg ? -num : num;
 }
 
 function parseDateMDY(input) {
@@ -51,13 +56,34 @@ async function lookupAccountId(db, accountCode) {
 
 async function lookupFundedApAccountId(db, expenseAccountId) {
     if (!expenseAccountId) return null;
-    const expenseAccountRes = await db.query('SELECT fund_number FROM accounts WHERE id = $1', [expenseAccountId]);
-    if (!expenseAccountRes.rows.length) return null;
-    const fundNumber = expenseAccountRes.rows[0].fund_number;
 
+    // 1. Get the full account code from the expense account
+    const expenseAccountRes = await db.query(
+        `SELECT account_code FROM accounts WHERE id = $1`,
+        [expenseAccountId]
+    );
+    if (!expenseAccountRes.rows.length) return null;
+    const expenseAccountCode = expenseAccountRes.rows[0].account_code;
+
+    // 2. Deconstruct the expense account code (E GGGG FFF RR)
+    const parts = expenseAccountCode.split(' ');
+    if (parts.length < 4) return null; // Invalid format
+    const entityCode = parts[0];
+    const fundNumber = parts[2];
+    const restriction = parts[3];
+
+    // 3. Get the GL code for "Accounts Payable"
+    const apGlCodeRes = await db.query(`SELECT code FROM gl_codes WHERE description ILIKE '%Accounts Payable%' LIMIT 1`);
+    if (!apGlCodeRes.rows.length) return null;
+    const apGlCode = apGlCodeRes.rows[0].code;
+
+    // 4. Construct the target AP account code, preserving the original restriction code
+    const targetApAccountCode = `${entityCode} ${apGlCode} ${fundNumber} ${restriction}`;
+
+    // 5. Find the AP account with the constructed code
     const apAccountRes = await db.query(
-        `SELECT id FROM accounts WHERE classification = 'Liability' AND description ILIKE '%Accounts Payable%' AND fund_number = $1`,
-        [fundNumber]
+        `SELECT id FROM accounts WHERE account_code = $1`,
+        [targetApAccountCode]
     );
     return apAccountRes.rows[0]?.id || null;
 }
