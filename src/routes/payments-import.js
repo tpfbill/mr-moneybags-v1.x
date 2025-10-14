@@ -187,6 +187,12 @@ router.post('/process', asyncHandler(async (req, res) => {
                     if (!fundRes.rows.length) throw new Error(`Could not find fund with number ${fundNumber}`);
                     const fundId = fundRes.rows[0].id;
 
+                    let jeDate = parseDateMDY(row[mapping.effectiveDate]);
+                    if (!jeDate) {
+                        job.logs.push({ i: i + 1, level: 'warn', msg: `Invalid or missing date '${row[mapping.effectiveDate]}'. Defaulting to today's date.` });
+                        jeDate = new Date();
+                    }
+
                     const baseReference = row[mapping.reference] || row[mapping.invoiceNumber] || 'Payment Import';
                     const uniqueReference = `${baseReference}-${i}`; // Ensure uniqueness for idempotency check
 
