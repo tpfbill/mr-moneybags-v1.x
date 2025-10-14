@@ -132,6 +132,8 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
 }));
 
 router.post('/process', asyncHandler(async (req, res) => {
+    console.log('--- [CRITICAL LOG] Received /process payload ---');
+    console.log(JSON.stringify(req.body, null, 2));
     const { data, mapping, filename } = req.body || {};
     if (!Array.isArray(data) || !data.length) return res.status(400).json({ error: 'No data provided.' });
     if (!mapping) return res.status(400).json({ error: 'Mapping is required.' });
