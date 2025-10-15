@@ -130,8 +130,10 @@ async function initializeApp() {
     // Load all core data
     await loadAllCoreData();
     
-    // Show initial page (dashboard)
-    showPage('dashboard');
+    // Show initial page (dashboard or from URL query)
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = urlParams.get('page');
+    showPage(page || 'dashboard');
 
     // Start periodic DB connection monitoring (runs once)
     initializeDatabaseConnectionMonitoring();
