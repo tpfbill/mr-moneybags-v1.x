@@ -7,8 +7,58 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="src/css/vendor-payments.css" rel="stylesheet">
+    <link rel="stylesheet" href="src/css/styles.css?v=20251008f">
 </head>
 <body>
+    <div class="header">
+        <div class="header-container">
+            <h1>Mr. MoneyBags v1.x</h1>
+            <div class="header-right-controls">
+                <div class="db-status-container">
+                    <span id="db-status-indicator" class="offline">DB Offline</span>
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                    <select id="entity-selector">
+                        <option value="">Loading Entities...</option>
+                    </select>
+                </div>
+                <div class="user-info"><span>User</span><button class="logout-button" id="btnLogout">Logout</button></div>
+            </div>
+        </div>
+    </div>
+        <!-- (Removed misplaced Documentation section – will be added inside main-content) -->
+
+    <div class="main-nav" id="mainNavContainer"> 
+        <div class="nav-container">
+            <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+            <div class="nav-item" data-page="gl-codes">GL Codes</div>
+            <div class="nav-item" data-page="funds">Funds</div>
+            <div class="nav-item" data-page="journal-entries">Journal Entries</div>
+            <!-- Vendor Payments navigation -->
+            <div class="nav-item" onclick="window.location.href='vendor-payments.html'">Vendor Payments</div>
+            <!-- Bank Deposits navigation (consolidated) -->
+            <div class="nav-item" onclick="window.location.href='bank-deposits.html'">Bank Deposits</div>
+            <!-- Check Printing navigation -->
+            <div class="nav-item" onclick="window.location.href='check-printing.html'">Check Printing</div>
+            <!-- Bank Reconciliation navigation -->
+            <div class="nav-item" onclick="window.location.href='bank-reconciliation.html'">Bank Reconcilia&shy;tion</div>
+            <!-- Inter-Entity Transfer wizard navigation -->
+            <div class="nav-item" onclick="window.location.href='inter-entity-transfer.html'">Inter-Entity Transfer</div>
+            <div class="nav-item" data-page="fund-reports">Fund Reports</div>
+            <!-- Custom Reports Builder navigation -->
+            <div class="nav-item" onclick="window.location.href='custom-reports.html'">Custom Reports</div>
+            <!-- Natural Language Queries navigation -->
+            <div class="nav-item" onclick="window.location.href='ask-questions.html'">Ask Questions</div>
+            <!-- Documentation Library (single-page view) -->
+            <div class="nav-item" data-page="documentation">Guides</div>
+            <!-- Default Reports (separate from Fund Reports) -->
+            <div class="nav-item" onclick="window.location.href='default-reports.html'">Default Reports</div>
+            <div class="nav-item" data-page="settings">Settings</div>
+        </div>
+    </div>
+
     <div class="loading-overlay">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -16,14 +66,6 @@
     </div>
 
     <div class="container-fluid mt-4">
-        <!-- Single centered Back button -->
-        <div class="text-center mb-4">
-            <button
-                class="action-button"
-                onclick="window.location.href='index.html'">
-                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
-            </button>
-        </div>
         
         <div class="row">
             <div class="col-12">
