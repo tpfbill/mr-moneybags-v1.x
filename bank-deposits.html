@@ -28,14 +28,37 @@
         </div>
     </div>
 
-    <div class="main-content">
-        <!-- Back button -->
-        <div class="text-center mb-4">
-            <button class="action-button" onclick="window.location.href='index.html'">
-                Back to Dashboard
-            </button>
+    <div class="main-nav" id="mainNavContainer"> 
+        <div class="nav-container">
+            <div class="nav-item active" data-page="dashboard">Dashboard</div>
+            <div class="nav-item" data-page="chart-of-accounts">Chart of Accounts</div>
+            <div class="nav-item" data-page="gl-codes">GL Codes</div>
+            <div class="nav-item" data-page="funds">Funds</div>
+            <div class="nav-item" data-page="journal-entries">Journal Entries</div>
+            <!-- Vendor Payments navigation -->
+            <div class="nav-item" onclick="window.location.href='vendor-payments.html'">Vendor Payments</div>
+            <!-- Bank Deposits navigation (consolidated) -->
+            <div class="nav-item" onclick="window.location.href='bank-deposits.html'">Bank Deposits</div>
+            <!-- Check Printing navigation -->
+            <div class="nav-item" onclick="window.location.href='check-printing.html'">Check Printing</div>
+            <!-- Bank Reconciliation navigation -->
+            <div class="nav-item" onclick="window.location.href='bank-reconciliation.html'">Bank Reconcilia&shy;tion</div>
+            <!-- Inter-Entity Transfer wizard navigation -->
+            <div class="nav-item" onclick="window.location.href='inter-entity-transfer.html'">Inter-Entity Transfer</div>
+            <div class="nav-item" data-page="fund-reports">Fund Reports</div>
+            <!-- Custom Reports Builder navigation -->
+            <div class="nav-item" onclick="window.location.href='custom-reports.html'">Custom Reports</div>
+            <!-- Natural Language Queries navigation -->
+            <div class="nav-item" onclick="window.location.href='ask-questions.html'">Ask Questions</div>
+            <!-- Documentation Library (single-page view) -->
+            <div class="nav-item" data-page="documentation">Guides</div>
+            <!-- Default Reports (separate from Fund Reports) -->
+            <div class="nav-item" onclick="window.location.href='default-reports.html'">Default Reports</div>
+            <div class="nav-item" data-page="settings">Settings</div>
         </div>
+    </div>
 
+    <div class="main-content">
         <div class="page-header">
             <h2>Bank Deposits</h2>
         </div>
