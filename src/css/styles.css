@@ -222,6 +222,11 @@ a.nav-item:focus {
     background-color: #f5f5f5;
 }
 
+.data-table .badge,
+.data-table .status {
+    font-size: inherit;
+}
+
 /* Tabs */
 .tab-container {
     margin-bottom: 20px;

@@ -13,7 +13,6 @@ const { asyncHandler } = require('../utils/helpers');
 const upload = multer({ dest: 'uploads/' });
 
 // In-memory store for import job status
-// In a production system, this should be a database table
 const importJobs = {};
 
 /**
@@ -51,6 +50,8 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
             suggestedMapping.fundCode = header;
         } else if (headerLower.includes('desc')) {
             suggestedMapping.description = header;
+        } else if (headerLower.includes('bank')) {
+            suggestedMapping.bankAccountName = header;
         }
     });
 
@@ -74,7 +75,7 @@ router.post('/validate', asyncHandler(async (req, res) => {
     }
     
     if (!mapping || !mapping.transactionId || !mapping.entryDate || 
-        (!mapping.debit && !mapping.credit) || !mapping.accountCode) {
+        (!mapping.debit && !mapping.credit) || !mapping.accountCode || !mapping.bankAccountName) {
         return res.status(400).json({ error: 'Required mapping fields are missing.' });
     }
     
@@ -90,6 +91,9 @@ router.post('/validate', asyncHandler(async (req, res) => {
         }
         if (!row[mapping.accountCode]) {
             issues.push(`Row ${index + 1}: Missing account code.`);
+        }
+        if (!row[mapping.bankAccountName]) {
+            issues.push(`Row ${index + 1}: Missing bank account name.`);
         }
         if ((!row[mapping.debit] || parseFloat(row[mapping.debit]) === 0) && 
             (!row[mapping.credit] || parseFloat(row[mapping.credit]) === 0)) {
@@ -157,122 +161,136 @@ router.post('/process', asyncHandler(async (req, res) => {
     setTimeout(async () => {
         const client = await pool.connect();
         try {
+            const { transactionId, entryDate, debit, credit, accountCode, fundCode, description, paymentId, bankAccountName } = mapping;
+
             await client.query('BEGIN');
 
-            const { transactionId, entryDate, debit, credit, accountCode, fundCode, description } = mapping;
+            const userRes = await client.query('SELECT first_name, last_name, id FROM users WHERE id = $1', [req.user.id]);
+            const user = userRes.rows[0] || { first_name: 'System', last_name: 'User', id: null };
+            const createdBy = `Payment import - ${user.first_name} ${user.last_name}`;
 
-            // Helpers: resilient lookups for account and fund across schema shapes
-            async function lookupAccountId(db, acCode) {
-                if (!acCode) return null;
-                // Try canonical account_code (with tolerant canonical comparison)
-                try {
-                    const q = `SELECT id
-                               FROM accounts
-                               WHERE LOWER(regexp_replace(account_code,'[^a-z0-9]','','g')) = LOWER(regexp_replace($1,'[^a-z0-9]','','g'))
-                               LIMIT 1`;
-                    const r = await db.query(q, [acCode]);
-                    if (r.rows[0]?.id) return r.rows[0].id;
-                } catch (err) {
-                    // fall through on undefined column (legacy schema)
-                }
-                // Fallback: legacy accounts.code
-                const r2 = await db.query('SELECT id FROM accounts WHERE code = $1 LIMIT 1', [acCode]);
-                return r2.rows[0]?.id || null;
-            }
-
-            async function lookupFundId(db, fCode) {
-                if (!fCode) return null;
-                // Try canonical funds.fund_code (case-insensitive)
-                try {
-                    const q = `SELECT id FROM funds WHERE LOWER(fund_code) = LOWER($1) LIMIT 1`;
-                    const r = await db.query(q, [fCode]);
-                    if (r.rows[0]?.id) return r.rows[0].id;
-                } catch (err) {
-                    // fall through on undefined column (legacy schema)
-                }
-                // Fallback: legacy funds.code
-                const r2 = await db.query('SELECT id FROM funds WHERE code = $1 LIMIT 1', [fCode]);
-                return r2.rows[0]?.id || null;
-            }
-            
-            // Group data by transaction ID
-            const transactions = data.reduce((acc, row) => {
-                const txId = row[transactionId];
-                if (!acc[txId]) {
-                    acc[txId] = [];
-                }
-                acc[txId].push(row);
-                return acc;
-            }, {});
-
-            const totalTransactions = Object.keys(transactions).length;
-            let processedTransactions = 0;
-
-            for (const txId in transactions) {
-                const lines = transactions[txId];
-                const firstLine = lines[0];
-
-                // Create Journal Entry
-                const jeResult = await client.query(
-                    `INSERT INTO journal_entries (reference_number, entry_date, description, total_amount, status, created_by, import_id)
-                     VALUES ($1, $2, $3, $4, 'Posted', 'AccuFund Import', $5) RETURNING id, entity_id`,
-                    [
-                        txId,
-                        new Date(firstLine[entryDate]),
-                        firstLine[description] || 'AccuFund Import',
-                        lines.reduce((sum, l) => sum + parseFloat(l[debit] || 0), 0),
-                        importId
-                    ]
+            const log = async (level, msg, pItemId = null) => {
+                await client.query(
+                    'INSERT INTO batch_payment_log (import_id, payment_item_id, log_level, message) VALUES ($1, $2, $3, $4)',
+                    [importId, pItemId, level, msg]
                 );
-                const journalEntryId = jeResult.rows[0].id;
-                const defaultEntityId = jeResult.rows[0].entity_id; // Use the default entity of the JE
+            };
 
-                // Create Journal Entry Lines
-                for (const line of lines) {
-                    // Find account and fund IDs (canonical-aware)
-                    const account_id = await lookupAccountId(client, line[accountCode]);
-                    const fund_id    = await lookupFundId(client, line[fundCode]);
+            for (const line of data) {
+                let paymentItemId = null;
+                try {
+                    const paymentStatus = line[paymentId] ? 'completed' : 'pending';
+                    const amount = parseFloat(line[debit] || line[credit] || 0);
 
-                    if (!account_id) {
-                        throw new Error(`Account code "${line[accountCode]}" not found for transaction ${txId}.`);
-                    }
-                    if (line[fundCode] && !fund_id) {
-                        throw new Error(`Fund code "${line[fundCode]}" not found for transaction ${txId}.`);
-                    }
+                    const expenseAccountId = await lookupAccountId(client, line[accountCode]);
+                    if (!expenseAccountId) throw new Error(`Expense account with code '${line[accountCode]}' not found.`);
 
-                    await client.query(
-                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit, description)
-                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                    const apAccountId = await lookupFundedApAccountId(client, expenseAccountId);
+                    if (!apAccountId) throw new Error(`Could not find a matching fund-specific AP account for expense account ${line[accountCode]}.`);
+
+                    const bankGlAccountId = await lookupBankGlAccountId(client, line[bankAccountName]);
+                    if (!bankGlAccountId) throw new Error(`Could not find a bank account named '${line[bankAccountName]}'.`);
+
+                    const paymentItemRes = await client.query(
+                        `INSERT INTO payment_items (payment_batch_id, vendor_id, amount, description, status)
+                         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
                         [
-                            journalEntryId,
-                            account_id,
-                            fund_id,
-                            parseFloat(line[debit] || 0),
-                            parseFloat(line[credit] || 0),
-                            line[description] || ''
+                            importJobs[importId].batchId,
+                            await lookupVendorId(client, line.vendor_code),
+                            amount,
+                            line[description] || '',
+                            paymentStatus
                         ]
                     );
-                }
+                    paymentItemId = paymentItemRes.rows[0].id;
 
-                processedTransactions++;
-                importJobs[importId].progress = Math.floor((processedTransactions / totalTransactions) * 100);
-                importJobs[importId].processedRecords += lines.length;
+                    // JE 1: Expense -> AP
+                    const je1Res = await client.query(
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6) RETURNING id`,
+                        [importJobs[importId].entityId, new Date(line[entryDate]), `Expense for ${line[description]}`, amount, createdBy, importId]
+                    );
+                    const je1Id = je1Res.rows[0].id;
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, debit, credit) VALUES ($1, $2, $3, 0), ($1, $4, 0, $3)`,
+                        [je1Id, expenseAccountId, amount, apAccountId]
+                    );
+
+                    // JE 2: AP -> Bank
+                    const je2Res = await client.query(
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6) RETURNING id`,
+                        [importJobs[importId].entityId, new Date(line[entryDate]), `Payment for ${line[description]}`, amount, createdBy, importId]
+                    );
+                    const je2Id = je2Res.rows[0].id;
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, debit, credit) VALUES ($1, $2, $3, 0), ($1, $4, 0, $3)`,
+                        [je2Id, apAccountId, amount, bankGlAccountId]
+                    );
+
+                    // Back-post the JE ID to the payment item
+                    await client.query('UPDATE payment_items SET journal_entry_id = $1 WHERE id = $2', [je1Id, paymentItemId]);
+
+                    await log('SUCCESS', `Successfully processed payment for ${amount}`, paymentItemId);
+                    importJobs[importId].processedRecords++;
+
+                } catch (lineError) {
+                    await log('ERROR', `Failed to process line: ${lineError.message}`, paymentItemId);
+                    importJobs[importId].errors.push(`Row ${importJobs[importId].processedRecords + 1}: ${lineError.message}`);
+                }
             }
 
             await client.query('COMMIT');
             importJobs[importId].status = 'completed';
-            importJobs[importId].endTime = new Date();
         } catch (error) {
             await client.query('ROLLBACK');
             console.error(`Import ${importId} failed:`, error);
             importJobs[importId].status = 'failed';
             importJobs[importId].errors.push(error.message);
-            importJobs[importId].endTime = new Date();
         } finally {
+            importJobs[importId].progress = 100;
+            importJobs[importId].endTime = new Date();
             client.release();
         }
-    }, 100); // Start after 100ms
+    }, 100);
 }));
+
+// Helpers
+async function lookupAccountId(db, acCode) {
+    if (!acCode) return null;
+    const normalizedCode = acCode.trim();
+    const r = await db.query('SELECT id FROM accounts WHERE account_code = $1 LIMIT 1', [normalizedCode]);
+    return r.rows[0]?.id || null;
+}
+
+async function lookupFundedApAccountId(db, expenseAccountId) {
+    // 1. Get the fund number from the expense account
+    const expenseAccountRes = await db.query(
+        `SELECT fund_number FROM accounts WHERE id = $1`,
+        [expenseAccountId]
+    );
+    if (!expenseAccountRes.rows.length) return null;
+    const fundNumber = expenseAccountRes.rows[0].fund_number;
+
+    // 2. Find the AP account with the matching fund number
+    const apAccountRes = await db.query(
+        `SELECT id FROM accounts WHERE classification = 'Liability' AND description ILIKE '%Accounts Payable%' AND fund_number = $1`,
+        [fundNumber]
+    );
+    return apAccountRes.rows[0]?.id || null;
+}
+
+async function lookupBankGlAccountId(db, bankAccountName) {
+    if (!bankAccountName) return null;
+    const r = await db.query('SELECT gl_account_id FROM bank_accounts WHERE account_name = $1 LIMIT 1', [bankAccountName.trim()]);
+    return r.rows[0]?.gl_account_id || null;
+}
+
+async function lookupVendorId(db, vCode) {
+    if (!vCode) return null;
+    const r = await db.query('SELECT id FROM vendors WHERE vendor_code = $1 LIMIT 1', [vCode]);
+    return r.rows[0]?.id || null;
+}
 
 /**
  * GET /api/import/status/:importId
