@@ -93,31 +93,6 @@
             <!-- PAYMENT BATCHES TAB -->
             <div class="tab-pane fade show active" id="batches" role="tabpanel">
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="batchSearchInput" placeholder="Search batches...">
-                            <button class="btn btn-outline-secondary" type="button" id="batchSearchBtn">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-end">
-                            <select class="form-select me-2" id="batchStatusFilter" style="width: auto;">
-                                <option value="">All Statuses</option>
-                                <option value="draft">Draft</option>
-                                <option value="pending_approval">Pending Approval</option>
-                                <option value="approved">Approved</option>
-                                <option value="processed">Processed</option>
-                            </select>
-                            <button class="btn btn-outline-secondary" id="refreshBatchesBtn">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- ---------------- PAYMENTS CSV IMPORT (one-click) ---------------- -->
                 <div class="card mb-3">
                     <div class="card-body d-flex flex-wrap align-items-center gap-2">
@@ -150,6 +125,31 @@
                                     <tr><td colspan="3" class="text-center">No recent import log</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="batchSearchInput" placeholder="Search batches...">
+                            <button class="btn btn-outline-secondary" type="button" id="batchSearchBtn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-end">
+                            <select class="form-select me-2" id="batchStatusFilter" style="width: auto;">
+                                <option value="">All Statuses</option>
+                                <option value="draft">Draft</option>
+                                <option value="pending_approval">Pending Approval</option>
+                                <option value="approved">Approved</option>
+                                <option value="processed">Processed</option>
+                            </select>
+                            <button class="btn btn-outline-secondary" id="refreshBatchesBtn">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
                         </div>
                     </div>
                 </div>
