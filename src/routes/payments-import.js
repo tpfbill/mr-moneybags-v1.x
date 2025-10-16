@@ -143,6 +143,8 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
             suggestedMapping.vendorName = header;
         } else if (h.includes('description') || h.includes('memo')) {
             suggestedMapping.memo = header;
+        } else if (h.includes('invoice') && h.includes('date')) {
+            suggestedMapping.invoiceDate = header;
         } else if (h.includes('invoice') && !h.includes('date')) {
             suggestedMapping.invoiceNumber = header;
         } else if (h.includes('reference')) {
