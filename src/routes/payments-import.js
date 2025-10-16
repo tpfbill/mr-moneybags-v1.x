@@ -147,6 +147,10 @@ router.post('/analyze', upload.single('file'), asyncHandler(async (req, res) => 
             suggestedMapping.invoiceNumber = header;
         } else if (h.includes('reference')) {
             suggestedMapping.reference = header;
+        } else if (h.includes('payment') && h.includes('type')) {
+            suggestedMapping.paymentType = header;
+        } else if (h.includes('1099')) {
+            suggestedMapping.ten99Amount = header;
         }
     });
 
@@ -287,13 +291,13 @@ router.post('/process', asyncHandler(async (req, res) => {
                             payment_batch_id, vendor_id, amount, status,
                             reference, post_date, payee_zid, invoice_date, invoice_number,
                             account_number, bank_name, payment_type, "1099_amount", payment_id,
-                            entity_code, gl_code, fund_number
-                         ) VALUES ($1, $2, $3, 'processed', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
+                            entity_code, gl_code, fund_number, description
+                         ) VALUES ($1, $2, $3, 'processed', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
                         [
                             batchId, vendorId, amount,
                             row[mapping.reference], jeDate, row[mapping.vendorZid], parseDateMDY(row[mapping.invoiceDate]), row[mapping.invoiceNumber],
-                            row[mapping.accountNo], row[mapping.bankAccountName], row[mapping.paymentType], row[mapping.ten99Amount], row[mapping.paymentId],
-                            entity_code, gl_code, fund_number
+                            row[mapping.accountNo], row[mapping.bankAccountName], row[mapping.paymentType], parseAccountingAmount(row[mapping.ten99Amount]), row[mapping.paymentId],
+                            entity_code, gl_code, fund_number, description
                         ]
                     );
                     const paymentItemId = paymentItemRes.rows[0].id;
