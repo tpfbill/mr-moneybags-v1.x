@@ -1,6 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'http://localhost:3000';
+import { API_BASE } from './app-config.js';
 
+document.addEventListener('DOMContentLoaded', () => {
     const dbStatusIndicator = document.getElementById('db-status-indicator');
     const entitySelector = document.getElementById('entity-selector');
     const logoutBtn = document.getElementById('btnLogout');
