@@ -172,6 +172,15 @@ router.post('/process', asyncHandler(async (req, res) => {
         try {
             await client.query('BEGIN');
 
+            // Create a single payment batch for this job
+            const batchRes = await client.query(
+                `INSERT INTO payment_batches (file_name, import_job_id, status, created_by) 
+                 VALUES ($1, $2, 'processing', 'System') RETURNING id`,
+                [job.filename, jobId]
+            );
+            const batchId = batchRes.rows[0].id;
+            job.createdBatches.push(batchId);
+
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
                 const logPrefix = `Row ${i + 1}:`;
@@ -224,12 +233,28 @@ router.post('/process', asyncHandler(async (req, res) => {
                         job.logs.push({ i: i + 1, level: 'warn', msg: `Duplicate JE skipped (ref: ${uniqueReference})` });
                         continue;
                     }
+
+                    // Create the payment item record
+                    const paymentItemRes = await client.query(
+                        `INSERT INTO payment_items (
+                            batch_id, vendor_id, amount, status,
+                            reference, post_date, payee_zid, invoice_date, invoice_number,
+                            account_number, bank_name, payment_type, "1099_amount", payment_id
+                         ) VALUES ($1, $2, $3, 'processed', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+                        [
+                            batchId, vendorId, amount,
+                            row[mapping.reference], jeDate, row[mapping.vendorZid], parseDateMDY(row[mapping.invoiceDate]), row[mapping.invoiceNumber],
+                            row[mapping.accountNo], row[mapping.bankAccountName], row[mapping.paymentType], row[mapping.ten99Amount], row[mapping.paymentId]
+                        ]
+                    );
+                    const paymentItemId = paymentItemRes.rows[0].id;
+                    job.createdItems++;
                     
                     // JE 1: Expense -> AP
                     const je1Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference]
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number, payment_item_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6, $7) RETURNING id`,
+                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference, paymentItemId]
                     );
                     const je1Id = je1Res.rows[0].id;
                     await client.query(
@@ -240,9 +265,9 @@ router.post('/process', asyncHandler(async (req, res) => {
 
                     // JE 2: AP -> Bank
                     const je2Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference]
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number, payment_item_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6, $7) RETURNING id`,
+                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference, paymentItemId]
                     );
                     const je2Id = je2Res.rows[0].id;
                     await client.query(
