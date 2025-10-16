@@ -184,13 +184,19 @@ router.post('/process', asyncHandler(async (req, res) => {
             await client.query('BEGIN');
 
             // Create a single payment batch for this job
+            // We will create it with dummy data and update it at the end
             const batchRes = await client.query(
-                `INSERT INTO payment_batches (file_name, import_job_id, status, created_by) 
-                 VALUES ($1, $2, 'processing', 'System') RETURNING id`,
-                [job.filename, jobId]
+                `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status, created_by) 
+                 VALUES ($1, $2, NULL, $3, NOW(), NOW(), 0, 'processing', 'System') RETURNING id`,
+                ['d8a08427-d2e8-4483-8a29-23c212b77b9d', 'd8a08427-d2e8-4483-8a29-23c212b77b9d', `IMPORT-${jobId.substring(0, 8)}`]
             );
             const batchId = batchRes.rows[0].id;
             job.createdBatches.push(batchId);
+            let batchTotal = 0;
+            let batchEntityId = null;
+            let batchFundId = null;
+            let batchDate = null;
+            let effectiveDate = null;
 
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
@@ -294,10 +300,32 @@ router.post('/process', asyncHandler(async (req, res) => {
                     
                     job.logs.push({ i: i + 1, level: 'success', msg: `Successfully processed payment for ${amount}` });
 
+                    // Capture batch-level info from the first valid row
+                    if (batchEntityId === null) {
+                        batchEntityId = entityId;
+                        batchFundId = fundId;
+                        batchDate = jeDate;
+                        effectiveDate = jeDate; // Or a different date if available
+                    }
+                    batchTotal += amount;
+
                 } catch (lineError) {
                     job.logs.push({ i: i + 1, level: 'error', msg: `${logPrefix} ${lineError.message}` });
                     job.errors.push(`${logPrefix} ${lineError.message}`);
                 }
+            }
+
+            // Update the payment batch with final numbers
+            if (batchEntityId) {
+                await client.query(
+                    `UPDATE payment_batches 
+                     SET entity_id = $1, fund_id = $2, batch_date = $3, effective_date = $4, total_amount = $5, status = 'processed'
+                     WHERE id = $6`,
+                    [batchEntityId, batchFundId, batchDate, effectiveDate, batchTotal, batchId]
+                );
+            } else {
+                // If no rows were processed, mark batch as failed
+                await client.query(`UPDATE payment_batches SET status = 'failed' WHERE id = $1`, [batchId]);
             }
 
             await client.query('COMMIT');
