@@ -646,6 +646,10 @@ textarea.form-input:focus {
 .toast-warning { background: #ff8f00; }
 .toast-info { background: #1565c0; }
 
+.toast-error-persistent {
+    background: #c62828;
+}
+
 .toast-close-btn {
     position: absolute;
     top: 50%;
