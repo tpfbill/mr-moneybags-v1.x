@@ -125,6 +125,37 @@ export function showToast(message, type = 'info') {
     }
 }
 
+export function showErrorToast(message) {
+    const toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-error-persistent';
+    toast.textContent = message;
+
+    const closeButton = document.createElement('span');
+    closeButton.innerHTML = '&times;';
+    closeButton.className = 'toast-close-btn';
+
+    toast.appendChild(closeButton);
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+
+    const removeToast = () => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (toast.parentNode === toastContainer) {
+                toastContainer.removeChild(toast);
+            }
+        }, 300);
+    };
+
+    closeButton.addEventListener('click', removeToast);
+}
+
 /**
  * Validate form fields
  * @param {HTMLFormElement} form - Form to validate
