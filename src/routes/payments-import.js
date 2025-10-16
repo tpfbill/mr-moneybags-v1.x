@@ -314,7 +314,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const je1Id = je1Res.rows[0].id;
                     await client.query(
                         `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit) VALUES ($1, $2, $3, $4, 0), ($1, $5, $3, 0, $4)`,
-                        [je1Id, expenseAccountId, fundId, amount, apAccountId]
+                        [je1Id, expenseAccountId, fundId, Math.abs(amount), apAccountId]
                     );
                     job.createdJEs.push(je1Id);
 
@@ -328,12 +328,12 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const je2Res = await client.query(
                         `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
                          VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference]
+                        [entityId, jeDate, `Payment: ${description}`, Math.abs(amount), jobId, uniqueReference]
                     );
                     const je2Id = je2Res.rows[0].id;
                     await client.query(
                         `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit) VALUES ($1, $2, $3, $4, 0), ($1, $5, $3, 0, $4)`,
-                        [je2Id, apAccountId, fundId, amount, bankGlAccountId]
+                        [je2Id, apAccountId, fundId, Math.abs(amount), bankGlAccountId]
                     );
                     job.createdJEs.push(je2Id);
                     
