@@ -646,6 +646,25 @@ textarea.form-input:focus {
 .toast-warning { background: #ff8f00; }
 .toast-info { background: #1565c0; }
 
+.toast-close-btn {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+/* Make toast text area smaller to accommodate close button */
+.toast {
+    padding-right: 40px;
+}
+
 /* ------------------------------------------------------------------
    Funds table – Code column styling
    ------------------------------------------------------------------ */

@@ -183,20 +183,47 @@ router.post('/process', asyncHandler(async (req, res) => {
         try {
             await client.query('BEGIN');
 
-            // Create a single payment batch for this job
-            // We will create it with dummy data and update it at the end
+            // --- New: Pre-process first row to get batch-level details ---
+            let firstRow;
+            let firstValidRowIndex = -1;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i] && parseAccountingAmount(data[i][mapping.amount]) !== 0) {
+                    firstRow = data[i];
+                    firstValidRowIndex = i;
+                    break;
+                }
+            }
+
+            if (!firstRow) {
+                throw new Error("No valid data rows found in the input file.");
+            }
+
+            const firstExpenseAccountId = await lookupAccountId(client, firstRow[mapping.accountNo]);
+            if (!firstExpenseAccountId) throw new Error(`Could not find expense account from first valid row: ${firstRow[mapping.accountNo]}`);
+            
+            const firstExpenseAccountRes = await client.query('SELECT entity_code, fund_number FROM accounts WHERE id = $1', [firstExpenseAccountId]);
+            if (!firstExpenseAccountRes.rows.length) throw new Error(`Could not find account details for ID ${firstExpenseAccountId}`);
+            const { entity_code: firstEntityCode, fund_number: firstFundNumber } = firstExpenseAccountRes.rows[0];
+
+            const firstEntityRes = await client.query('SELECT id FROM entities WHERE code = $1', [firstEntityCode]);
+            if (!firstEntityRes.rows.length) throw new Error(`Could not find entity with code ${firstEntityCode}`);
+            const batchEntityId = firstEntityRes.rows[0].id;
+
+            const firstFundRes = await client.query('SELECT id FROM funds WHERE fund_number = $1', [firstFundNumber]);
+            if (!firstFundRes.rows.length) throw new Error(`Could not find fund with number ${firstFundNumber}`);
+            const batchFundId = firstFundRes.rows[0].id;
+
+            let batchDate = parseDateMDY(firstRow[mapping.effectiveDate]) || new Date();
+
+            // Create a single payment batch for this job with correct info
             const batchRes = await client.query(
                 `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status, created_by) 
-                 VALUES ($1, $2, NULL, $3, NOW(), NOW(), 0, 'processing', 'System') RETURNING id`,
-                ['d8a08427-d2e8-4483-8a29-23c212b77b9d', 'd8a08427-d2e8-4483-8a29-23c212b77b9d', `IMPORT-${jobId.substring(0, 8)}`]
+                 VALUES ($1, $2, NULL, $3, $4, $4, 0, 'processing', 'System') RETURNING id`,
+                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate]
             );
             const batchId = batchRes.rows[0].id;
             job.createdBatches.push(batchId);
             let batchTotal = 0;
-            let batchEntityId = null;
-            let batchFundId = null;
-            let batchDate = null;
-            let effectiveDate = null;
 
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
@@ -300,13 +327,6 @@ router.post('/process', asyncHandler(async (req, res) => {
                     
                     job.logs.push({ i: i + 1, level: 'success', msg: `Successfully processed payment for ${amount}` });
 
-                    // Capture batch-level info from the first valid row
-                    if (batchEntityId === null) {
-                        batchEntityId = entityId;
-                        batchFundId = fundId;
-                        batchDate = jeDate;
-                        effectiveDate = jeDate; // Or a different date if available
-                    }
                     batchTotal += amount;
 
                 } catch (lineError) {
@@ -316,12 +336,12 @@ router.post('/process', asyncHandler(async (req, res) => {
             }
 
             // Update the payment batch with final numbers
-            if (batchEntityId) {
+            if (job.createdItems > 0) {
                 await client.query(
                     `UPDATE payment_batches 
-                     SET entity_id = $1, fund_id = $2, batch_date = $3, effective_date = $4, total_amount = $5, status = 'processed'
-                     WHERE id = $6`,
-                    [batchEntityId, batchFundId, batchDate, effectiveDate, batchTotal, batchId]
+                     SET total_amount = $1, status = 'processed'
+                     WHERE id = $2`,
+                    [batchTotal, batchId]
                 );
             } else {
                 // If no rows were processed, mark batch as failed
