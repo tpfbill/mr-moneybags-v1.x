@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function checkDatabaseConnection() {
         try {
-            const response = await fetch(`${API_BASE}/api/status`);
+            const response = await fetch(`/api/status`);
             const data = await response.json();
             if (data.status === 'ok') {
                 dbStatusIndicator.textContent = 'DB Online';
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadEntities() {
         try {
-            const response = await fetch(`${API_BASE}/api/entities`);
+            const response = await fetch(`/api/entities`);
             const entities = await response.json();
             entitySelector.innerHTML = '';
             entities.forEach(entity => {
