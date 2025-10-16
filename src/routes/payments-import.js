@@ -51,6 +51,17 @@ function parseDateMDY(input) {
     return isNaN(dt.getTime()) ? null : dt;
 }
 
+function parseAccountNumber(accountNumber) {
+    if (!accountNumber) return { entity_code: null, gl_code: null, fund_number: null };
+    const parts = String(accountNumber).split(' ');
+    if (parts.length < 3) return { entity_code: null, gl_code: null, fund_number: null };
+    return {
+        entity_code: parts[0],
+        gl_code: parts[1],
+        fund_number: parts[2]
+    };
+}
+
 async function lookupAccountId(db, accountCode) {
     if (!accountCode) return null;
     const normalizedCode = accountCode.trim();
@@ -172,6 +183,21 @@ router.post('/process', asyncHandler(async (req, res) => {
         try {
             await client.query('BEGIN');
 
+            // Create a single payment batch for this job
+            // We will create it with dummy data and update it at the end
+            const batchRes = await client.query(
+                `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status, created_by) 
+                 VALUES ($1, $2, NULL, $3, NOW(), NOW(), 0, 'processing', 'System') RETURNING id`,
+                ['d8a08427-d2e8-4483-8a29-23c212b77b9d', 'd8a08427-d2e8-4483-8a29-23c212b77b9d', `IMPORT-${jobId.substring(0, 8)}`]
+            );
+            const batchId = batchRes.rows[0].id;
+            job.createdBatches.push(batchId);
+            let batchTotal = 0;
+            let batchEntityId = null;
+            let batchFundId = null;
+            let batchDate = null;
+            let effectiveDate = null;
+
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
                 const logPrefix = `Row ${i + 1}:`;
@@ -224,12 +250,33 @@ router.post('/process', asyncHandler(async (req, res) => {
                         job.logs.push({ i: i + 1, level: 'warn', msg: `Duplicate JE skipped (ref: ${uniqueReference})` });
                         continue;
                     }
+
+                    // Parse account number components
+                    const { entity_code, gl_code, fund_number } = parseAccountNumber(row[mapping.accountNo]);
+
+                    // Create the payment item record
+                    const paymentItemRes = await client.query(
+                        `INSERT INTO payment_items (
+                            batch_id, vendor_id, amount, status,
+                            reference, post_date, payee_zid, invoice_date, invoice_number,
+                            account_number, bank_name, payment_type, "1099_amount", payment_id,
+                            entity_code, gl_code, fund_number
+                         ) VALUES ($1, $2, $3, 'processed', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
+                        [
+                            batchId, vendorId, amount,
+                            row[mapping.reference], jeDate, row[mapping.vendorZid], parseDateMDY(row[mapping.invoiceDate]), row[mapping.invoiceNumber],
+                            row[mapping.accountNo], row[mapping.bankAccountName], row[mapping.paymentType], row[mapping.ten99Amount], row[mapping.paymentId],
+                            entity_code, gl_code, fund_number
+                        ]
+                    );
+                    const paymentItemId = paymentItemRes.rows[0].id;
+                    job.createdItems++;
                     
                     // JE 1: Expense -> AP
                     const je1Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference]
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number, payment_item_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6, $7) RETURNING id`,
+                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference, paymentItemId]
                     );
                     const je1Id = je1Res.rows[0].id;
                     await client.query(
@@ -240,9 +287,9 @@ router.post('/process', asyncHandler(async (req, res) => {
 
                     // JE 2: AP -> Bank
                     const je2Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference]
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number, payment_item_id)
+                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6, $7) RETURNING id`,
+                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference, paymentItemId]
                     );
                     const je2Id = je2Res.rows[0].id;
                     await client.query(
@@ -253,10 +300,32 @@ router.post('/process', asyncHandler(async (req, res) => {
                     
                     job.logs.push({ i: i + 1, level: 'success', msg: `Successfully processed payment for ${amount}` });
 
+                    // Capture batch-level info from the first valid row
+                    if (batchEntityId === null) {
+                        batchEntityId = entityId;
+                        batchFundId = fundId;
+                        batchDate = jeDate;
+                        effectiveDate = jeDate; // Or a different date if available
+                    }
+                    batchTotal += amount;
+
                 } catch (lineError) {
                     job.logs.push({ i: i + 1, level: 'error', msg: `${logPrefix} ${lineError.message}` });
                     job.errors.push(`${logPrefix} ${lineError.message}`);
                 }
+            }
+
+            // Update the payment batch with final numbers
+            if (batchEntityId) {
+                await client.query(
+                    `UPDATE payment_batches 
+                     SET entity_id = $1, fund_id = $2, batch_date = $3, effective_date = $4, total_amount = $5, status = 'processed'
+                     WHERE id = $6`,
+                    [batchEntityId, batchFundId, batchDate, effectiveDate, batchTotal, batchId]
+                );
+            } else {
+                // If no rows were processed, mark batch as failed
+                await client.query(`UPDATE payment_batches SET status = 'failed' WHERE id = $1`, [batchId]);
             }
 
             await client.query('COMMIT');

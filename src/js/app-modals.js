@@ -92,23 +92,49 @@ export function hideModal(modalId) {
 export function showToast(message, type = 'info') {
     const toastContainer = document.getElementById('toast-container');
     if (!toastContainer) return;
-    
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
-    
+
     toastContainer.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.classList.add('show');
     }, 10);
-    
-    setTimeout(() => {
+
+    const removeToast = () => {
         toast.classList.remove('show');
         setTimeout(() => {
-            toastContainer.removeChild(toast);
+            // Ensure the toast is still a child before trying to remove it
+            if (toast.parentNode === toastContainer) {
+                toastContainer.removeChild(toast);
+            }
         }, 300);
-    }, 3000);
+    };
+
+    if (type === 'error') {
+        // For errors, require manual dismissal
+        toast.addEventListener('click', removeToast);
+        
+        // Add a close button for better UX
+        const closeButton = document.createElement('span');
+        closeButton.innerHTML = '&times;';
+        closeButton.style.position = 'absolute';
+        closeButton.style.right = '15px';
+        closeButton.style.top = '50%';
+        closeButton.style.transform = 'translateY(-50%)';
+        closeButton.style.cursor = 'pointer';
+        closeButton.style.fontSize = '1.5rem';
+        closeButton.style.lineHeight = '1';
+        toast.appendChild(closeButton);
+        
+        // Adjust padding to make space for the close button
+        toast.style.paddingRight = '40px';
+    } else {
+        // For other types, auto-dismiss after 3 seconds
+        setTimeout(removeToast, 3000);
+    }
 }
 
 /**
