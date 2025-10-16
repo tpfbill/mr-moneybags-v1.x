@@ -284,7 +284,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     // Create the payment item record
                     const paymentItemRes = await client.query(
                         `INSERT INTO payment_items (
-                            batch_id, vendor_id, amount, status,
+                            payment_batch_id, vendor_id, amount, status,
                             reference, post_date, payee_zid, invoice_date, invoice_number,
                             account_number, bank_name, payment_type, "1099_amount", payment_id,
                             entity_code, gl_code, fund_number

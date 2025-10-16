@@ -96,6 +96,7 @@ export function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
+    toast.dataset.toastType = type;
 
     const closeButton = document.createElement('span');
     closeButton.innerHTML = '&times;';
@@ -119,7 +120,7 @@ export function showToast(message, type = 'info') {
 
     closeButton.addEventListener('click', removeToast);
 
-    if (type !== 'error') {
+    if (toast.dataset.toastType !== 'error') {
         setTimeout(removeToast, 3000);
     }
 }
