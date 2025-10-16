@@ -360,7 +360,6 @@ router.post('/process', asyncHandler(async (req, res) => {
             await client.query('ROLLBACK');
             job.status = 'failed';
             job.errors.push(e.message || String(e));
-            showErrorToast(e.message || String(e));
         } finally {
             job.progress = 100;
             job.endTime = new Date();
