@@ -51,6 +51,17 @@ function parseDateMDY(input) {
     return isNaN(dt.getTime()) ? null : dt;
 }
 
+function parseAccountNumber(accountNumber) {
+    if (!accountNumber) return { entity_code: null, gl_code: null, fund_number: null };
+    const parts = String(accountNumber).split(' ');
+    if (parts.length < 3) return { entity_code: null, gl_code: null, fund_number: null };
+    return {
+        entity_code: parts[0],
+        gl_code: parts[1],
+        fund_number: parts[2]
+    };
+}
+
 async function lookupAccountId(db, accountCode) {
     if (!accountCode) return null;
     const normalizedCode = accountCode.trim();
@@ -234,17 +245,22 @@ router.post('/process', asyncHandler(async (req, res) => {
                         continue;
                     }
 
+                    // Parse account number components
+                    const { entity_code, gl_code, fund_number } = parseAccountNumber(row[mapping.accountNo]);
+
                     // Create the payment item record
                     const paymentItemRes = await client.query(
                         `INSERT INTO payment_items (
                             batch_id, vendor_id, amount, status,
                             reference, post_date, payee_zid, invoice_date, invoice_number,
-                            account_number, bank_name, payment_type, "1099_amount", payment_id
-                         ) VALUES ($1, $2, $3, 'processed', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+                            account_number, bank_name, payment_type, "1099_amount", payment_id,
+                            entity_code, gl_code, fund_number
+                         ) VALUES ($1, $2, $3, 'processed', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
                         [
                             batchId, vendorId, amount,
                             row[mapping.reference], jeDate, row[mapping.vendorZid], parseDateMDY(row[mapping.invoiceDate]), row[mapping.invoiceNumber],
-                            row[mapping.accountNo], row[mapping.bankAccountName], row[mapping.paymentType], row[mapping.ten99Amount], row[mapping.paymentId]
+                            row[mapping.accountNo], row[mapping.bankAccountName], row[mapping.paymentType], row[mapping.ten99Amount], row[mapping.paymentId],
+                            entity_code, gl_code, fund_number
                         ]
                     );
                     const paymentItemId = paymentItemRes.rows[0].id;
