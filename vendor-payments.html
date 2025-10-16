@@ -8,6 +8,18 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="src/css/vendor-payments.css" rel="stylesheet">
     <link rel="stylesheet" href="src/css/styles.css?v=20251008f">
+    <script>
+    (function(){
+      const devPorts = ['8080','8081'];
+      let API_BASE;
+      if (devPorts.includes(window.location.port)) {
+        API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+      } else {
+        API_BASE = window.location.origin;
+      }
+      window.API_BASE = API_BASE;
+    })();
+    </script>
 </head>
 <body>
     <div class="header">
@@ -400,7 +412,6 @@
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="src/js/vendor-payments.js"></script>
     <script src="src/js/page-navigation.js"></script>
-    <script type="module" src="src/js/header-init.js"></script>
 
     <!-- ===================================================================== -->
     <!--  VENDOR CRUD MODALS                                                   -->
