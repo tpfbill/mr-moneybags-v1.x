@@ -301,9 +301,9 @@ router.post('/process', asyncHandler(async (req, res) => {
                     
                     // JE 1: Expense -> AP
                     const je1Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number, payment_item_id)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6, $7) RETURNING id`,
-                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference, paymentItemId]
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
+                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
+                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference]
                     );
                     const je1Id = je1Res.rows[0].id;
                     await client.query(
@@ -312,11 +312,17 @@ router.post('/process', asyncHandler(async (req, res) => {
                     );
                     job.createdJEs.push(je1Id);
 
+                    // Link the journal entry back to the payment item
+                    await client.query(
+                        `UPDATE payment_items SET journal_entry_id = $1 WHERE id = $2`,
+                        [je1Id, paymentItemId]
+                    );
+
                     // JE 2: AP -> Bank
                     const je2Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number, payment_item_id)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6, $7) RETURNING id`,
-                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference, paymentItemId]
+                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
+                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
+                        [entityId, jeDate, `Payment: ${description}`, amount, jobId, uniqueReference]
                     );
                     const je2Id = je2Res.rows[0].id;
                     await client.query(
