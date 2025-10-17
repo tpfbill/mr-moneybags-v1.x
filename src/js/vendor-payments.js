@@ -551,7 +551,7 @@ function renderBatchesTable(batches) {
     
     if (!batches || batches.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="7" class="text-center">No payment batches found</td>';
+        row.innerHTML = '<td colspan="8" class="text-center">No payment batches found</td>';
         tableBody.appendChild(row);
         return;
     }

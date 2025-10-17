@@ -14,10 +14,12 @@ router.get('/', asyncHandler(async (req, res) => {
     let query = `
         SELECT pb.*, 
                e.name as entity_name,
-               f.name as fund_name
+               f.name as fund_name,
+               u.name as created_by_name
         FROM payment_batches pb
         LEFT JOIN entities e ON pb.entity_id = e.id
         LEFT JOIN funds f ON pb.fund_id = f.id
+        LEFT JOIN users u ON pb.created_by = u.id
         WHERE 1=1
     `;
     
