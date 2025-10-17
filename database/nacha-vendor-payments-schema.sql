@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS payment_batches (
     bank_name VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
     approved_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

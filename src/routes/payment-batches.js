@@ -164,8 +164,9 @@ router.post('/', asyncHandler(async (req, res) => {
             effective_date,
             status,
             total_amount,
-            bank_name
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            bank_name,
+            created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
     `, [
         entity_id,
@@ -176,7 +177,8 @@ router.post('/', asyncHandler(async (req, res) => {
         effective_date,
         status || 'Draft',
         0,  // Initial total_amount
-        bank_name
+        bank_name,
+        req.user.id
     ]);
     
     res.status(201).json(rows[0]);
@@ -227,8 +229,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
             total_amount = $8,
             description = $9,
             bank_name = $10,
-            updated_at = NOW()
-        WHERE id = $11
+            updated_at = NOW(),
+            updated_by = $11
+        WHERE id = $12
         RETURNING *
     `, [
         entity_id,
@@ -241,6 +244,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
         total_amount,
         description,
         bank_name,
+        req.user.id,
         id
     ]);
     
