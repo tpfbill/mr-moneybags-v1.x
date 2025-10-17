@@ -612,6 +612,10 @@
             toast.addEventListener('animationend', () => toast.remove());
         });
 
+        if (type === 'error') {
+            console.error(`Toast Error: ${message}`);
+        }
+
         // Auto-dismiss for non-error messages
         if (type !== 'error') {
             setTimeout(() => {
