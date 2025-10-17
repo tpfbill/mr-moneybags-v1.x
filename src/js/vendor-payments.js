@@ -521,9 +521,22 @@ async function fetchNachaFiles() {
 }
 
 // Render functions
+function getBatchesTableBody() {
+    let body = document.getElementById('batchesTableBody');
+    if (body) return body;
+    const table = document.getElementById('batchesTable');
+    if (table) {
+        if (table.tBodies && table.tBodies.length) return table.tBodies[0];
+        const tb = document.createElement('tbody');
+        table.appendChild(tb);
+        return tb;
+    }
+    return document.querySelector('#batches table tbody');
+}
+
 function renderBatchesTable(batches) {
     console.log('Rendering batches table with', batches?.length || 0, 'batches');
-    const tableBody = document.getElementById('batchesTableBody');
+    const tableBody = getBatchesTableBody();
     if (!tableBody) return;
     
     // Clear existing rows
@@ -547,11 +560,7 @@ function renderBatchesTable(batches) {
         const entityName = batch.entity_name ?? '';
         const amountFmt  = formatCurrency(parseFloat(batch.total_amount ?? 0));
         const itemsTotal = batch.total_items ?? 0;
-
-        /* status badge */
-        const statusCls  = getStatusBadgeClass(batch.status);
-        const statusBadge = `<span class="badge ${statusCls} text-capitalize">${(batch.status || '')
-                                    .replace('_', ' ')}</span>`;
+        const createdBy  = batch.created_by_name || '';
 
         /* actions buttons */
         const actions = `
@@ -572,7 +581,7 @@ function renderBatchesTable(batches) {
             <td>${bankName}</td>
             <td class="text-end">${itemsTotal}</td>
             <td class="text-end">${amountFmt}</td>
-            <td>${statusBadge}</td>
+            <td>${createdBy}</td>
             <td class="text-center">${actions}</td>
         `;
 
