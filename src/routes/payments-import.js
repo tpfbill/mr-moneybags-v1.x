@@ -223,9 +223,9 @@ router.post('/process', asyncHandler(async (req, res) => {
 
             // Create a single payment batch for this job with correct info
             const batchRes = await client.query(
-                `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status, created_by) 
-                 VALUES ($1, $2, NULL, $3, $4, $4, 0, 'processing', $5) RETURNING id`,
-                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate, req.user.id]
+                `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, description, total_amount, status, created_by) 
+                 VALUES ($1, $2, NULL, $3, $4, $4, $5, 0, 'processing', $6) RETURNING id`,
+                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate, `Imported from ${filename}`, req.user.id]
             );
             const batchId = batchRes.rows[0].id;
             job.createdBatches.push(batchId);
