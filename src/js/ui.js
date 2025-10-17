@@ -603,14 +603,25 @@
 
         const toast = document.createElement('div');
         toast.className = `ui-toast toast-${type}`;
-        toast.textContent = message;
+        toast.innerHTML = `<span>${message}</span><button class="toast-close-btn">&times;</button>`;
         document.body.appendChild(toast);
 
-        // Auto-dismiss after duration
-        setTimeout(() => {
+        // Add close button functionality
+        toast.querySelector('.toast-close-btn').addEventListener('click', () => {
             toast.style.animation = 'uiToastFadeOut .3s forwards';
             toast.addEventListener('animationend', () => toast.remove());
-        }, duration);
+        });
+
+        // Auto-dismiss for non-error messages
+        if (type !== 'error') {
+            setTimeout(() => {
+                // Check if the toast hasn't already been removed by the user
+                if (document.body.contains(toast)) {
+                    toast.style.animation = 'uiToastFadeOut .3s forwards';
+                    toast.addEventListener('animationend', () => toast.remove());
+                }
+            }, duration);
+        }
     }
 
     // --- Public API ---

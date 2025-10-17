@@ -166,8 +166,11 @@ router.post('/process', asyncHandler(async (req, res) => {
             await client.query('BEGIN');
 
             const userRes = await client.query('SELECT first_name, last_name, id FROM users WHERE id = $1', [req.user.id]);
-            const user = userRes.rows[0] || { first_name: 'System', last_name: 'User', id: null };
-            const createdBy = `Payment import - ${user.first_name} ${user.last_name}`;
+            const user = userRes.rows[0];
+            if (!user) {
+                throw new Error('User not found');
+            }
+            const createdBy = user.id;
 
             const log = async (level, msg, pItemId = null) => {
                 await client.query(
