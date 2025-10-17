@@ -356,15 +356,20 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
             status || 'Pending'
         ]);
         
-        // Update the batch totals
+        // Update the batch totals (amount and items count)
         await client.query(`
             UPDATE payment_batches
             SET total_amount = (
-                SELECT COALESCE(SUM(amount), 0)
-                FROM payment_items
-                WHERE payment_batch_id = $1
-            ),
-            updated_at = NOW()
+                    SELECT COALESCE(SUM(amount), 0)
+                    FROM payment_items
+                    WHERE payment_batch_id = $1
+                ),
+                total_items = (
+                    SELECT COUNT(*)
+                    FROM payment_items
+                    WHERE payment_batch_id = $1
+                ),
+                updated_at = NOW()
             WHERE id = $1
         `, [id]);
         
@@ -416,15 +421,20 @@ router.delete('/:batchId/items/:itemId', asyncHandler(async (req, res) => {
         // Delete the payment item
         await client.query('DELETE FROM payment_items WHERE id = $1', [itemId]);
         
-        // Update the batch totals
+        // Update the batch totals (amount and items count)
         await client.query(`
             UPDATE payment_batches
             SET total_amount = (
-                SELECT COALESCE(SUM(amount), 0)
-                FROM payment_items
-                WHERE payment_batch_id = $1
-            ),
-            updated_at = NOW()
+                    SELECT COALESCE(SUM(amount), 0)
+                    FROM payment_items
+                    WHERE payment_batch_id = $1
+                ),
+                total_items = (
+                    SELECT COUNT(*)
+                    FROM payment_items
+                    WHERE payment_batch_id = $1
+                ),
+                updated_at = NOW()
             WHERE id = $1
         `, [batchId]);
         
