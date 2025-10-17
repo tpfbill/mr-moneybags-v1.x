@@ -13,11 +13,13 @@ router.get('/', asyncHandler(async (req, res) => {
     
     let query = `
         SELECT pb.*, 
-               e.name as entity_name,
-               f.name as fund_name
+               e.name AS entity_name,
+               f.name AS fund_name,
+               COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username, '') AS created_by_name
         FROM payment_batches pb
         LEFT JOIN entities e ON pb.entity_id = e.id
         LEFT JOIN funds f ON pb.fund_id = f.id
+        LEFT JOIN users u ON u.id = pb.created_by
         WHERE 1=1
     `;
     
@@ -86,11 +88,13 @@ router.get('/:id', asyncHandler(async (req, res) => {
     // Get the payment batch
     const batchResult = await pool.query(`
         SELECT pb.*, 
-               e.name as entity_name,
-               f.name as fund_name
+               e.name AS entity_name,
+               f.name AS fund_name,
+               COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username, '') AS created_by_name
         FROM payment_batches pb
         LEFT JOIN entities e ON pb.entity_id = e.id
         LEFT JOIN funds f ON pb.fund_id = f.id
+        LEFT JOIN users u ON u.id = pb.created_by
         WHERE pb.id = $1
     `, [id]);
     
@@ -154,6 +158,8 @@ router.post('/', asyncHandler(async (req, res) => {
 
     const bank_name = bankAccount.rows.length > 0 ? bankAccount.rows[0].bank_name : null;
 
+    const created_by = (req.user && req.user.id) || null;
+
     const { rows } = await pool.query(`
         INSERT INTO payment_batches (
             entity_id,
@@ -162,10 +168,13 @@ router.post('/', asyncHandler(async (req, res) => {
             batch_number,
             batch_date,
             effective_date,
+            description,
             status,
             total_amount,
-            bank_name
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            total_items,
+            bank_name,
+            created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
     `, [
         entity_id,
@@ -174,9 +183,12 @@ router.post('/', asyncHandler(async (req, res) => {
         batch_number,
         batch_date || new Date(),
         effective_date,
-        status || 'Draft',
-        0,  // Initial total_amount
-        bank_name
+        description || '',
+        status || 'draft',
+        0,          // Initial total_amount
+        0,          // Initial total_items
+        bank_name,
+        created_by
     ]);
     
     res.status(201).json(rows[0]);
