@@ -592,6 +592,7 @@ function renderBatchesTable(batches) {
             <td>${bankName}</td>
             <td class="text-end">${itemsTotal}</td>
             <td class="text-end">${amountFmt}</td>
+            <td>${batch.created_by_name || ''}</td>
             <td>${statusBadge}</td>
             <td class="text-center">${actions}</td>
         `;
