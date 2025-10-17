@@ -224,8 +224,8 @@ router.post('/process', asyncHandler(async (req, res) => {
             // Create a single payment batch for this job with correct info
             const batchRes = await client.query(
                 `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status, created_by) 
-                 VALUES ($1, $2, NULL, $3, $4, $4, 0, 'processing', 'System') RETURNING id`,
-                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate]
+                 VALUES ($1, $2, NULL, $3, $4, $4, 0, 'processing', $5) RETURNING id`,
+                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate, req.user.id]
             );
             const batchId = batchRes.rows[0].id;
             job.createdBatches.push(batchId);
@@ -308,8 +308,8 @@ router.post('/process', asyncHandler(async (req, res) => {
                     // JE 1: Expense -> AP
                     const je1Res = await client.query(
                         `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Expense: ${description}`, amount, jobId, uniqueReference]
+                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6, $7) RETURNING id`,
+                        [entityId, jeDate, `Expense: ${description}`, amount, req.user.id, jobId, uniqueReference]
                     );
                     const je1Id = je1Res.rows[0].id;
                     await client.query(
@@ -327,8 +327,8 @@ router.post('/process', asyncHandler(async (req, res) => {
                     // JE 2: AP -> Bank
                     const je2Res = await client.query(
                         `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', 'Payments Import', $5, $6) RETURNING id`,
-                        [entityId, jeDate, `Payment: ${description}`, Math.abs(amount), jobId, uniqueReference]
+                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6, $7) RETURNING id`,
+                        [entityId, jeDate, `Payment: ${description}`, Math.abs(amount), req.user.id, jobId, uniqueReference]
                     );
                     const je2Id = je2Res.rows[0].id;
                     await client.query(

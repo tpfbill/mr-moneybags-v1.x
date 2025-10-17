@@ -139,7 +139,7 @@ function showToast(title, message, isError = false) {
         toast.classList.remove('bg-danger', 'text-white');
     }
     
-    const bsToast = new bootstrap.Toast(toast);
+    const bsToast = new bootstrap.Toast(toast, { autohide: !isError });
     bsToast.show();
 }
 
