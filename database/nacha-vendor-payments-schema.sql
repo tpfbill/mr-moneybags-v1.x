@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS payment_batches (
     description VARCHAR(255) NOT NULL,
     total_amount NUMERIC(19, 4) NOT NULL DEFAULT 0,
     total_items INTEGER NOT NULL DEFAULT 0,
+    bank_name VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     approved_by UUID REFERENCES users(id) ON DELETE SET NULL,

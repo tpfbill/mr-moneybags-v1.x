@@ -132,16 +132,28 @@ router.post('/', asyncHandler(async (req, res) => {
         description,
         status
     } = req.body;
-    
+
     // Validate required fields
     if (!entity_id) {
         return res.status(400).json({ error: 'Entity ID is required' });
     }
-    
+
     if (!batch_number) {
         return res.status(400).json({ error: 'Batch number is required' });
     }
-    
+
+    if (!nacha_settings_id) {
+        return res.status(400).json({ error: 'NACHA settings ID is required' });
+    }
+
+    // Get bank_name from bank_accounts table
+    const bankAccount = await pool.query(
+        'SELECT ba.bank_name FROM bank_accounts ba JOIN company_nacha_settings cns ON ba.id = cns.settlement_account_id WHERE cns.id = $1',
+        [nacha_settings_id]
+    );
+
+    const bank_name = bankAccount.rows.length > 0 ? bankAccount.rows[0].bank_name : null;
+
     const { rows } = await pool.query(`
         INSERT INTO payment_batches (
             entity_id,
@@ -151,8 +163,9 @@ router.post('/', asyncHandler(async (req, res) => {
             batch_date,
             effective_date,
             status,
-            total_amount
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            total_amount,
+            bank_name
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
     `, [
         entity_id,
@@ -162,7 +175,8 @@ router.post('/', asyncHandler(async (req, res) => {
         batch_date || new Date(),
         effective_date,
         status || 'Draft',
-        0  // Initial total_amount
+        0,  // Initial total_amount
+        bank_name
     ]);
     
     res.status(201).json(rows[0]);
@@ -178,20 +192,28 @@ router.put('/:id', asyncHandler(async (req, res) => {
         entity_id,
         fund_id,
         nacha_settings_id,
-        batch_name,
+        batch_number,
         batch_date,
         effective_date,
         description,
         status,
         total_amount
     } = req.body;
-    
+
     // Validate batch exists
     const batchCheck = await pool.query('SELECT id FROM payment_batches WHERE id = $1', [id]);
     if (batchCheck.rows.length === 0) {
         return res.status(404).json({ error: 'Payment batch not found' });
     }
-    
+
+    // Get bank_name from bank_accounts table
+    const bankAccount = await pool.query(
+        'SELECT ba.bank_name FROM bank_accounts ba JOIN company_nacha_settings cns ON ba.id = cns.settlement_account_id WHERE cns.id = $1',
+        [nacha_settings_id]
+    );
+
+    const bank_name = bankAccount.rows.length > 0 ? bankAccount.rows[0].bank_name : null;
+
     // Update the batch
     const { rows } = await pool.query(`
         UPDATE payment_batches
@@ -203,18 +225,22 @@ router.put('/:id', asyncHandler(async (req, res) => {
             effective_date = $6,
             status = $7,
             total_amount = $8,
+            description = $9,
+            bank_name = $10,
             updated_at = NOW()
-        WHERE id = $9
+        WHERE id = $11
         RETURNING *
     `, [
         entity_id,
         fund_id,
         nacha_settings_id,
-        batch_name, // still taken from body but mapped to batch_number
+        batch_number,
         batch_date,
         effective_date,
         status,
         total_amount,
+        description,
+        bank_name,
         id
     ]);
     
