@@ -57,6 +57,11 @@ router.get('/', asyncHandler(async (req, res) => {
      * ----------------------------------------------------------------*/
     try {
         const { rows } = await pool.query(query, params);
+        console.log('--- Droid Diagnosis: /api/payment-batches ---');
+        console.log('Query:', query.trim());
+        console.log('Params:', params);
+        console.log('Row Count:', rows.length);
+        console.log('--- End Diagnosis ---');
         res.json(rows);
     } catch (err) {
         const undefTable =
