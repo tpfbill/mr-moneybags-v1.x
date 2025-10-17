@@ -25,6 +25,26 @@ let nachaSettings = [];
 // ---------------------------------------------------------------------------
 let isAdminUser = false;
 
+async function fetchCurrentUser() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/user`, {
+            credentials: 'include'
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        if (data.authenticated && data.user) {
+            return data.user;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error fetching current user:', error);
+        return null;
+    }
+}
+
+
 /* ---------------------------------------------------------------------------
  * Filtering helpers (Vendor search)
  * -------------------------------------------------------------------------*/
@@ -1554,6 +1574,8 @@ async function deletePaymentBatch(batchId) {
 }
 
 // Page initialization
+let currentUserId = null;
+
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Initializing Vendor Payments page...');
     
@@ -1562,6 +1584,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Check if user is admin
         await fetchCurrentUserRole();
+
+        const currentUser = await fetchCurrentUser();
+        if (currentUser) {
+            currentUserId = currentUser.id;
+        }
         
         console.log('📡 Starting API initialization...');
         
@@ -1727,7 +1754,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     effective_date: effectiveInput,
                     description,
                     status: 'draft',
-                    total_items: 0
+                    total_items: 0,
+                    created_by: currentUserId
                 };
 
                 try {
