@@ -224,7 +224,7 @@ router.post('/process', asyncHandler(async (req, res) => {
             // Create a single payment batch for this job with correct info
             const batchRes = await client.query(
                 `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, description, total_amount, status, created_by) 
-                 VALUES ($1, $2, NULL, $3, $4, $4, $5, 0, 'processing', $6) RETURNING id`,
+                 VALUES ($1, $2, NULL, $3, $4, $4, $5, 0, 'draft', $6) RETURNING id`,
                 [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate, `Imported from ${filename}`, req.user.id]
             );
             const batchId = batchRes.rows[0].id;
@@ -351,13 +351,13 @@ router.post('/process', asyncHandler(async (req, res) => {
             if (job.createdItems > 0) {
                 await client.query(
                     `UPDATE payment_batches 
-                     SET total_amount = $1, status = 'processed'
+                     SET total_amount = $1, status = 'approved'
                      WHERE id = $2`,
                     [batchTotal, batchId]
                 );
             } else {
-                // If no rows were processed, mark batch as failed
-                await client.query(`UPDATE payment_batches SET status = 'failed' WHERE id = $1`, [batchId]);
+                // If no rows were processed, mark batch as error
+                await client.query(`UPDATE payment_batches SET status = 'error' WHERE id = $1`, [batchId]);
             }
 
             await client.query('COMMIT');
@@ -366,6 +366,18 @@ router.post('/process', asyncHandler(async (req, res) => {
             await client.query('ROLLBACK');
             job.status = 'failed';
             job.errors.push(e.message || String(e));
+            // Also update the batch status to 'error' in the DB
+            if (job.createdBatches.length > 0) {
+                const batchId = job.createdBatches[0];
+                try {
+                    await client.query('BEGIN'); // Start a new small transaction
+                    await client.query(`UPDATE payment_batches SET status = 'error' WHERE id = $1`, [batchId]);
+                    await client.query('COMMIT');
+                } catch (dbError) {
+                    await client.query('ROLLBACK');
+                    console.error('Failed to update batch status to error after main transaction failed:', dbError);
+                }
+            }
         } finally {
             job.progress = 100;
             job.endTime = new Date();
