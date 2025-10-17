@@ -531,7 +531,7 @@ function renderBatchesTable(batches) {
     
     if (!batches || batches.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="8" class="text-center">No payment batches found</td>';
+        row.innerHTML = '<td colspan="7" class="text-center">No payment batches found</td>';
         tableBody.appendChild(row);
         return;
     }
@@ -543,7 +543,7 @@ function renderBatchesTable(batches) {
         /* ----------- prepare values with graceful fall-backs ----------- */
         const batchNo    = batch.batch_number ?? '(n/a)';
         const batchDate  = formatDate(batch.batch_date);
-        const description = batch.description ?? '';
+        const bankName = batch.bank_name ?? '';
         const entityName = batch.entity_name ?? '';
         const amountFmt  = formatCurrency(parseFloat(batch.total_amount ?? 0));
         const itemsTotal = batch.total_items ?? 0;
@@ -569,10 +569,9 @@ function renderBatchesTable(batches) {
         row.innerHTML = `
             <td>${batchNo}</td>
             <td>${batchDate}</td>
-            <td>${description}</td>
-            <td>${entityName}</td>
-            <td class="text-end">${amountFmt}</td>
+            <td>${bankName}</td>
             <td class="text-end">${itemsTotal}</td>
+            <td class="text-end">${amountFmt}</td>
             <td>${statusBadge}</td>
             <td class="text-center">${actions}</td>
         `;
