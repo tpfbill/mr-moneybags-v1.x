@@ -50,6 +50,9 @@ const registerInterEntityTransferRoutes = require('./src/js/inter-entity-transfe
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Disable ETag generation to avoid 304 Not Modified on API JSON
+app.set('etag', false);
+
 // ---------------------------------------------------------------------------
 // Global process error handlers (keep server alive in development)
 // ---------------------------------------------------------------------------
@@ -136,6 +139,17 @@ app.use(
 
 app.use(express.json({ limit: '50mb' })); // Increase limit for large data uploads
 app.use(requestLogger); // Log all requests
+
+// Prevent caching for API responses to ensure clients always get fresh JSON
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+  }
+  next();
+});
 
 // ---------------------------------------------------------------------------
 // Session configuration (24-hour expiry, PostgreSQL store)
