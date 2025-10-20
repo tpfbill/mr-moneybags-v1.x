@@ -19,7 +19,8 @@ router.get('/', asyncHandler(async (req, res) => {
     if (status)    { where += ` AND pb.status    = $${i++}`; params.push(status); }
     if (from_date) { where += ` AND pb.batch_date >= $${i++}`; params.push(from_date); }
     if (to_date)   { where += ` AND pb.batch_date <= $${i++}`; params.push(to_date); }
-
+   
+    console.log("WEL: "+where);
     const orderBy = ' ORDER BY pb.batch_date DESC, pb.created_at DESC';
 
     // Primary query (includes created_by_name via users join)
@@ -36,14 +37,20 @@ router.get('/', asyncHandler(async (req, res) => {
           ${orderBy}
     `;
 
-    // Fallback query (omits users join and created_by_name if columns are missing)
+    // Fallback query (omit users join and avoid referencing columns that may not exist)
     const fallbackQuery = `
         SELECT pb.*,
-               e.name AS entity_name,
-               f.name AS fund_name
+               e.name AS entity_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
-     LEFT JOIN funds    f ON pb.fund_id = f.id
+          ${where}
+          ${orderBy}
+    `;
+
+    // Minimal fallback (no joins at all) ensures we can return rows from payment_batches
+    const minimalQuery = `
+        SELECT pb.*
+          FROM payment_batches pb
           ${where}
           ${orderBy}
     `;
@@ -60,12 +67,22 @@ router.get('/', asyncHandler(async (req, res) => {
         if (joinProblemLikely) {
             try {
                 const { rows } = await pool.query(fallbackQuery, params);
-                // Provide empty created_by_name to preserve shape expectation
                 rows.forEach(r => { if (r.created_by_name === undefined) r.created_by_name = ''; });
                 return res.json(rows);
             } catch (fallbackErr) {
-                // Fall through to graceful empty list
-                console.warn('[payment-batches] Fallback query failed:', fallbackErr.code || 'no-code', '-', fallbackErr.message);
+                const undefinedTable2  = fallbackErr?.code === '42P01' || /relation .* does not exist/i.test(fallbackErr?.message || '');
+                const undefinedColumn2 = fallbackErr?.code === '42703' || /column .* does not exist/i.test(fallbackErr?.message || '');
+                if (undefinedTable2 || undefinedColumn2) {
+                    try {
+                        const { rows } = await pool.query(minimalQuery, params);
+                        rows.forEach(r => { if (r.created_by_name === undefined) r.created_by_name = ''; });
+                        return res.json(rows);
+                    } catch (minimalErr) {
+                        console.warn('[payment-batches] Minimal fallback failed:', minimalErr.code || 'no-code', '-', minimalErr.message);
+                    }
+                } else {
+                    console.warn('[payment-batches] Fallback query failed:', fallbackErr.code || 'no-code', '-', fallbackErr.message);
+                }
             }
         }
 
@@ -97,11 +114,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
     `;
     const fallback = `
         SELECT pb.*,
-               e.name AS entity_name,
-               f.name AS fund_name
+               e.name AS entity_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
-     LEFT JOIN funds    f ON pb.fund_id = f.id
+         WHERE pb.id = $1
+    `;
+
+    const minimal = `
+        SELECT pb.*
+          FROM payment_batches pb
          WHERE pb.id = $1
     `;
 
@@ -113,9 +134,21 @@ router.get('/:id', asyncHandler(async (req, res) => {
         const undefinedTable  = err?.code === '42P01' || /relation .* does not exist/i.test(err?.message || '');
         const undefinedColumn = err?.code === '42703' || /column .* does not exist/i.test(err?.message || '');
         if (undefinedTable || undefinedColumn) {
-            const r = await pool.query(fallback, [id]);
-            batchRow = r.rows[0];
-            if (batchRow && batchRow.created_by_name === undefined) batchRow.created_by_name = '';
+            try {
+                const r = await pool.query(fallback, [id]);
+                batchRow = r.rows[0];
+                if (batchRow && batchRow.created_by_name === undefined) batchRow.created_by_name = '';
+            } catch (fallbackErr) {
+                const undefinedTable2  = fallbackErr?.code === '42P01' || /relation .* does not exist/i.test(fallbackErr?.message || '');
+                const undefinedColumn2 = fallbackErr?.code === '42703' || /column .* does not exist/i.test(fallbackErr?.message || '');
+                if (undefinedTable2 || undefinedColumn2) {
+                    const r2 = await pool.query(minimal, [id]);
+                    batchRow = r2.rows[0];
+                    if (batchRow && batchRow.created_by_name === undefined) batchRow.created_by_name = '';
+                } else {
+                    throw fallbackErr;
+                }
+            }
         } else {
             throw err;
         }
