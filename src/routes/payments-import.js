@@ -174,6 +174,9 @@ router.post('/process', asyncHandler(async (req, res) => {
     if (!Array.isArray(data) || !data.length) return res.status(400).json({ error: 'No data provided.' });
     if (!mapping) return res.status(400).json({ error: 'Mapping is required.' });
 
+    // Capture current user id for audit fields (may be null)
+    const currentUserId = (req.user && req.user.id) || null;
+
     const jobId = crypto.randomUUID();
     importJobs[jobId] = {
         id: jobId, status: 'processing', progress: 0, totalRecords: data.length, processedRecords: 0,
@@ -223,9 +226,19 @@ router.post('/process', asyncHandler(async (req, res) => {
 
             // Create a single payment batch for this job with correct info
             const batchRes = await client.query(
-                `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status, created_by) 
-                 VALUES ($1, $2, NULL, $3, $4, $4, 0, 'processing', 'System') RETURNING id`,
-                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate]
+                `INSERT INTO payment_batches (
+                    entity_id,
+                    fund_id,
+                    nacha_settings_id,
+                    batch_number,
+                    batch_date,
+                    effective_date,
+                    total_amount,
+                    status,
+                    created_by
+                 ) VALUES ($1, $2, NULL, $3, $4, $4, 0, 'draft', $5)
+                 RETURNING id`,
+                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate, currentUserId]
             );
             const batchId = batchRes.rows[0].id;
             job.createdBatches.push(batchId);
@@ -357,7 +370,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                 );
             } else {
                 // If no rows were processed, mark batch as failed
-                await client.query(`UPDATE payment_batches SET status = 'failed' WHERE id = $1`, [batchId]);
+                await client.query(`UPDATE payment_batches SET status = 'error' WHERE id = $1`, [batchId]);
             }
 
             await client.query('COMMIT');
