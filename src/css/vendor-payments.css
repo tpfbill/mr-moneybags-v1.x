@@ -125,3 +125,11 @@ th.sticky-col-2, td.sticky-col-2 {
 #vendorsTable tbody tr:nth-child(odd) td.sticky-col-2 {
     background-color: #f2f2f2;
 }
+
+/* ------------------------------------------------------------
+   Batch Items Modal — widen ~50% to improve readability
+   Bootstrap's modal-lg is ~800px; set width to ~1200px here
+------------------------------------------------------------- */
+#batchItemsModal .modal-dialog {
+    --bs-modal-width: 1200px;
+}
