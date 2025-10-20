@@ -351,19 +351,32 @@ router.delete('/:id', asyncHandler(async (req, res) => {
  */
 router.get('/:id/items', asyncHandler(async (req, res) => {
     const { id } = req.params;
-    
-    const { rows } = await pool.query(`
+
+    const baseSelect = `
         SELECT pi.*, 
-               v.name               AS vendor_name,
+               v.name AS vendor_name,
                v.bank_account_number,
                v.bank_account_type
-        FROM payment_items pi
-        LEFT JOIN vendors v ON pi.vendor_id = v.id
-        WHERE pi.payment_batch_id = $1
-        ORDER BY pi.created_at
-    `, [id]);
-    
-    res.json(rows);
+          FROM payment_items pi
+     LEFT JOIN vendors v ON pi.vendor_id = v.id
+         WHERE pi.payment_batch_id = $1
+    `;
+
+    // Prefer ordering by reference as requested; fallback to created_at if column missing
+    const preferredOrder = `${baseSelect} ORDER BY pi.reference ASC, pi.created_at`;
+    const fallbackOrder  = `${baseSelect} ORDER BY pi.created_at`;
+
+    try {
+        const { rows } = await pool.query(preferredOrder, [id]);
+        return res.json(rows);
+    } catch (err) {
+        const undefinedColumn = err?.code === '42703' || /column .* does not exist/i.test(err?.message || '');
+        if (undefinedColumn) {
+            const { rows } = await pool.query(fallbackOrder, [id]);
+            return res.json(rows);
+        }
+        throw err;
+    }
 }));
 
 /**
