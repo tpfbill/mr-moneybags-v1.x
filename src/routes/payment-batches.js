@@ -10,66 +10,65 @@ const { asyncHandler } = require('../utils/helpers');
  */
 router.get('/', asyncHandler(async (req, res) => {
     const { entity_id, status, from_date, to_date } = req.query;
-    
-    let query = `
-        SELECT pb.*, 
+
+    // Base filter construction shared by primary and fallback queries
+    const params = [];
+    let where = 'WHERE 1=1';
+    let i = 1;
+    if (entity_id) { where += ` AND pb.entity_id = $${i++}`; params.push(entity_id); }
+    if (status)    { where += ` AND pb.status    = $${i++}`; params.push(status); }
+    if (from_date) { where += ` AND pb.batch_date >= $${i++}`; params.push(from_date); }
+    if (to_date)   { where += ` AND pb.batch_date <= $${i++}`; params.push(to_date); }
+
+    const orderBy = ' ORDER BY pb.batch_date DESC, pb.created_at DESC';
+
+    // Primary query (includes created_by_name via users join)
+    const primaryQuery = `
+        SELECT pb.*,
                e.name AS entity_name,
                f.name AS fund_name,
                COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username, '') AS created_by_name
-        FROM payment_batches pb
-        LEFT JOIN entities e ON pb.entity_id = e.id
-        LEFT JOIN funds f ON pb.fund_id = f.id
-        LEFT JOIN users u ON u.id = pb.created_by
-        WHERE 1=1
+          FROM payment_batches pb
+     LEFT JOIN entities e ON pb.entity_id = e.id
+     LEFT JOIN funds    f ON pb.fund_id = f.id
+     LEFT JOIN users    u ON u.id = pb.created_by
+          ${where}
+          ${orderBy}
     `;
-    
-    const params = [];
-    let paramIndex = 1;
-    
-    if (entity_id) {
-        query += ` AND pb.entity_id = $${paramIndex++}`;
-        params.push(entity_id);
-    }
-    
-    if (status) {
-        query += ` AND pb.status = $${paramIndex++}`;
-        params.push(status);
-    }
-    
-    if (from_date) {
-        query += ` AND pb.batch_date >= $${paramIndex++}`;
-        params.push(from_date);
-    }
-    
-    if (to_date) {
-        query += ` AND pb.batch_date <= $${paramIndex++}`;
-        params.push(to_date);
-    }
-    
-    query += ` ORDER BY pb.batch_date DESC, pb.created_at DESC`;
-    
-    /* ------------------------------------------------------------------ 
-     * Execute query with defensive handling for missing tables
-     *   • PG error code 42P01  → undefined_table
-     *   • Some drivers return text “does not exist”
-     * If tables have not been created yet, respond with an empty array
-     * instead of propagating a 500 so the UI can still load gracefully.
-     * ----------------------------------------------------------------*/
-    try {
-        const { rows } = await pool.query(query, params);
-        res.json(rows);
-    } catch (err) {
-        const undefTable =
-            err?.code === '42P01' ||
-            /does not exist/i.test(err?.message || '');
 
-        if (undefTable) {
-            // Tables not present yet – treat as no data rather than error
-            return res.json([]);
+    // Fallback query (omits users join and created_by_name if columns are missing)
+    const fallbackQuery = `
+        SELECT pb.*,
+               e.name AS entity_name,
+               f.name AS fund_name
+          FROM payment_batches pb
+     LEFT JOIN entities e ON pb.entity_id = e.id
+     LEFT JOIN funds    f ON pb.fund_id = f.id
+          ${where}
+          ${orderBy}
+    `;
+
+    try {
+        const { rows } = await pool.query(primaryQuery, params);
+        return res.json(rows);
+    } catch (err) {
+        // If undefined table/column, attempt a simpler fallback before giving up
+        const undefinedTable   = err?.code === '42P01' || /relation .* does not exist/i.test(err?.message || '');
+        const undefinedColumn  = err?.code === '42703' || /column .* does not exist/i.test(err?.message || '');
+        const joinProblemLikely = undefinedTable || undefinedColumn;
+
+        if (joinProblemLikely) {
+            try {
+                const { rows } = await pool.query(fallbackQuery, params);
+                // Provide empty created_by_name to preserve shape expectation
+                rows.forEach(r => { if (r.created_by_name === undefined) r.created_by_name = ''; });
+                return res.json(rows);
+            } catch (fallbackErr) {
+                // Fall through to graceful empty list
+                console.warn('[payment-batches] Fallback query failed:', fallbackErr.code || 'no-code', '-', fallbackErr.message);
+            }
         }
-        /* ----------------------------------------------------------------
-         * Any unexpected error: log & degrade gracefully
-         * -------------------------------------------------------------- */
+
         console.warn(
             '[payment-batches] Failed to query batches – returning empty list:',
             `${err.code || 'no-code'} – ${err.message}`
@@ -84,41 +83,62 @@ router.get('/', asyncHandler(async (req, res) => {
  */
 router.get('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
-    
-    // Get the payment batch
-    const batchResult = await pool.query(`
-        SELECT pb.*, 
+
+    const primary = `
+        SELECT pb.*,
                e.name AS entity_name,
                f.name AS fund_name,
                COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username, '') AS created_by_name
-        FROM payment_batches pb
-        LEFT JOIN entities e ON pb.entity_id = e.id
-        LEFT JOIN funds f ON pb.fund_id = f.id
-        LEFT JOIN users u ON u.id = pb.created_by
-        WHERE pb.id = $1
-    `, [id]);
-    
-    if (batchResult.rows.length === 0) {
+          FROM payment_batches pb
+     LEFT JOIN entities e ON pb.entity_id = e.id
+     LEFT JOIN funds    f ON pb.fund_id = f.id
+     LEFT JOIN users    u ON u.id = pb.created_by
+         WHERE pb.id = $1
+    `;
+    const fallback = `
+        SELECT pb.*,
+               e.name AS entity_name,
+               f.name AS fund_name
+          FROM payment_batches pb
+     LEFT JOIN entities e ON pb.entity_id = e.id
+     LEFT JOIN funds    f ON pb.fund_id = f.id
+         WHERE pb.id = $1
+    `;
+
+    let batchRow;
+    try {
+        const r = await pool.query(primary, [id]);
+        batchRow = r.rows[0];
+    } catch (err) {
+        const undefinedTable  = err?.code === '42P01' || /relation .* does not exist/i.test(err?.message || '');
+        const undefinedColumn = err?.code === '42703' || /column .* does not exist/i.test(err?.message || '');
+        if (undefinedTable || undefinedColumn) {
+            const r = await pool.query(fallback, [id]);
+            batchRow = r.rows[0];
+            if (batchRow && batchRow.created_by_name === undefined) batchRow.created_by_name = '';
+        } else {
+            throw err;
+        }
+    }
+
+    if (!batchRow) {
         return res.status(404).json({ error: 'Payment batch not found' });
     }
-    
-    // Get the payment items for this batch
+
     const itemsResult = await pool.query(`
         SELECT pi.*, 
                v.name               AS vendor_name,
                v.bank_account_number,
                v.bank_account_type
-        FROM payment_items pi
-        LEFT JOIN vendors v ON pi.vendor_id = v.id
-        WHERE pi.payment_batch_id = $1
-        ORDER BY pi.created_at
+          FROM payment_items pi
+     LEFT JOIN vendors v ON pi.vendor_id = v.id
+         WHERE pi.payment_batch_id = $1
+      ORDER BY pi.created_at
     `, [id]);
-    
-    // Combine batch with its items
-    const batch = batchResult.rows[0];
+
+    const batch = batchRow;
     batch.items = itemsResult.rows;
-    
-    res.json(batch);
+    return res.json(batch);
 }));
 
 /**
