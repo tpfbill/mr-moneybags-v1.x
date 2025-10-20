@@ -576,7 +576,7 @@ function renderBatchesTable(batches) {
 
         /* ----------- build row html ----------- */
         row.innerHTML = `
-            <td>${batchNo}</td>
+            <td><a href="#" class="link-batch-items" data-id="${batch.id}" data-batch="${batchNo}">${batchNo}</a></td>
             <td>${batchDate}</td>
             <td>${bankName}</td>
             <td class="text-end">${itemsTotal}</td>
@@ -595,6 +595,14 @@ function renderBatchesTable(batches) {
 
     document.querySelectorAll('.btn-delete-batch').forEach(btn => {
         btn.addEventListener('click', () => deletePaymentBatch(btn.dataset.id));
+    });
+
+    // Batch number link → open items modal
+    document.querySelectorAll('.link-batch-items').forEach(a => {
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            openBatchItemsModal(a.dataset.id, a.dataset.batch);
+        });
     });
 }
 
@@ -1559,6 +1567,51 @@ async function deletePaymentBatch(batchId) {
         showToast('Error', 'Failed to delete batch: ' + err.message, true);
     } finally {
         hideLoading();
+    }
+}
+
+// Open modal listing items for a batch
+async function openBatchItemsModal(batchId, batchNumber) {
+    try {
+        // Set title and show modal immediately with loading row
+        const titleEl = document.getElementById('batchItemsTitle');
+        if (titleEl) titleEl.textContent = batchNumber ? `#${batchNumber}` : '';
+
+        const tbody = document.getElementById('batchItemsTableBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Loading…</td></tr>';
+
+        const modalEl = document.getElementById('batchItemsModal');
+        if (modalEl) new bootstrap.Modal(modalEl).show();
+
+        // Fetch items
+        const res = await fetch(`${API_BASE_URL}/api/payment-batches/${batchId}/items`, { credentials: 'include' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const items = await res.json();
+
+        if (!tbody) return;
+        if (!Array.isArray(items) || items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No items</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => {
+            const vendor = item.vendor_name || '—';
+            const desc   = item.description || '';
+            const amt    = formatCurrency(parseFloat(item.amount ?? 0));
+            const status = (item.status || '').toString();
+            const badge  = `<span class="badge ${getStatusBadgeClass(status.toLowerCase())} text-capitalize">${status.replace('_',' ')}</span>`;
+            return `
+                <tr>
+                    <td>${vendor}</td>
+                    <td>${desc}</td>
+                    <td class="text-end">${amt}</td>
+                    <td>${badge}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('[openBatchItemsModal] Error:', err);
+        showToast('Error', 'Failed to load batch items: ' + err.message, true);
     }
 }
 
