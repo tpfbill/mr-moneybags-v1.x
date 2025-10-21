@@ -53,7 +53,7 @@ router.get('/', asyncHandler(async (req, res) => {
     const fallbackQuery = `
         SELECT pb.*,
                e.name AS entity_name,
-               COALESCE(pb.created_by, '') AS created_by_name
+               '' AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
           ${where}
@@ -63,7 +63,7 @@ router.get('/', asyncHandler(async (req, res) => {
     // Minimal fallback (no joins at all) ensures we can return rows from payment_batches
     const minimalQuery = `
         SELECT pb.*,
-               COALESCE(pb.created_by, '') AS created_by_name
+               '' AS created_by_name
           FROM payment_batches pb
           ${where}
           ${orderBy}
@@ -140,7 +140,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const fallback = `
         SELECT pb.*,
                e.name AS entity_name,
-               COALESCE(pb.created_by, '') AS created_by_name
+               '' AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
          WHERE pb.id = $1
@@ -148,7 +148,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
     const minimal = `
         SELECT pb.*,
-               COALESCE(pb.created_by, '') AS created_by_name
+               '' AS created_by_name
           FROM payment_batches pb
          WHERE pb.id = $1
     `;
