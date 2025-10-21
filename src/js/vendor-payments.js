@@ -1622,9 +1622,33 @@ function applyBatchItemsFilter() {
         : currentBatchItems.filter(it => normalizePaymentType(it.payment_type) === val);
     if (!filtered.length) {
         tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No items</td></tr>';
+        // reset header state when nothing to show
+        const hdr = document.getElementById('selectAllItemsCheckbox');
+        if (hdr) { hdr.checked = false; hdr.indeterminate = false; }
         return;
     }
     tbody.innerHTML = renderBatchItemsRows(filtered);
+    // If header is checked, keep new rows selected
+    const hdr = document.getElementById('selectAllItemsCheckbox');
+    const rowCbs = tbody.querySelectorAll('.item-select');
+    if (hdr && hdr.checked) {
+        rowCbs.forEach(cb => { cb.checked = true; });
+    }
+    // Wire change handlers to keep header state in sync
+    rowCbs.forEach(cb => cb.addEventListener('change', updateSelectAllState));
+    updateSelectAllState();
+}
+
+function updateSelectAllState() {
+    const tbody = document.getElementById('batchItemsTableBody');
+    const hdr = document.getElementById('selectAllItemsCheckbox');
+    if (!tbody || !hdr) return;
+    const cbs = tbody.querySelectorAll('.item-select');
+    if (!cbs.length) { hdr.checked = false; hdr.indeterminate = false; return; }
+    let checked = 0;
+    cbs.forEach(cb => { if (cb.checked) checked++; });
+    hdr.checked = checked === cbs.length;
+    hdr.indeterminate = checked > 0 && checked < cbs.length;
 }
 
 // Open modal listing items for a batch
@@ -1753,6 +1777,18 @@ document.addEventListener('DOMContentLoaded', async function() {
                 console.log('[Pay Selected Items] IDs:', ids);
                 showToast('Payment', `Preparing to pay ${ids.length} selected item(s)…`);
                 // TODO: Implement backend call to process payments when endpoint is available
+            });
+        }
+
+        // Select-all header checkbox
+        const selectAll = document.getElementById('selectAllItemsCheckbox');
+        if (selectAll) {
+            selectAll.addEventListener('change', () => {
+                const tbody = document.getElementById('batchItemsTableBody');
+                if (!tbody) return;
+                const cbs = tbody.querySelectorAll('.item-select');
+                cbs.forEach(cb => { cb.checked = selectAll.checked; });
+                updateSelectAllState();
             });
         }
 
