@@ -352,8 +352,22 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 router.get('/:id/items', asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    const baseSelect = `
-        SELECT pi.*, 
+    // Prefer including batch bank_name via join to payment_batches
+    const baseWithBatch = `
+        SELECT pi.*,
+               v.name AS vendor_name,
+               v.bank_account_number,
+               v.bank_account_type,
+               pb.bank_name AS bank_name
+          FROM payment_items pi
+     LEFT JOIN vendors v ON pi.vendor_id = v.id
+     LEFT JOIN payment_batches pb ON pb.id = pi.payment_batch_id
+         WHERE pi.payment_batch_id = $1
+    `;
+
+    // Fallback without referencing payment_batches (for older schemas)
+    const baseNoBatch = `
+        SELECT pi.*,
                v.name AS vendor_name,
                v.bank_account_number,
                v.bank_account_type
@@ -362,20 +376,27 @@ router.get('/:id/items', asyncHandler(async (req, res) => {
          WHERE pi.payment_batch_id = $1
     `;
 
-    // Prefer ordering by reference as requested; fallback to created_at if column missing
-    const preferredOrder = `${baseSelect} ORDER BY pi.reference ASC, pi.created_at`;
-    const fallbackOrder  = `${baseSelect} ORDER BY pi.created_at`;
+    const orderByRef_withBatch   = `${baseWithBatch} ORDER BY pi.reference ASC, pi.created_at`;
+    const orderByDate_withBatch  = `${baseWithBatch} ORDER BY pi.created_at`;
+    const orderByDate_noBatch    = `${baseNoBatch} ORDER BY pi.created_at`;
 
     try {
-        const { rows } = await pool.query(preferredOrder, [id]);
+        const { rows } = await pool.query(orderByRef_withBatch, [id]);
         return res.json(rows);
     } catch (err) {
         const undefinedColumn = err?.code === '42703' || /column .* does not exist/i.test(err?.message || '');
-        if (undefinedColumn) {
-            const { rows } = await pool.query(fallbackOrder, [id]);
+        if (!undefinedColumn) throw err;
+        // Retry with created_at ordering (covers missing reference column)
+        try {
+            const { rows } = await pool.query(orderByDate_withBatch, [id]);
+            return res.json(rows);
+        } catch (err2) {
+            const undefinedColumn2 = err2?.code === '42703' || /column .* does not exist/i.test(err2?.message || '');
+            if (!undefinedColumn2) throw err2;
+            // Final fallback: no payment_batches join
+            const { rows } = await pool.query(orderByDate_noBatch, [id]);
             return res.json(rows);
         }
-        throw err;
     }
 }));
 

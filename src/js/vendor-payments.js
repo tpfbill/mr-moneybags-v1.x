@@ -1578,7 +1578,7 @@ async function openBatchItemsModal(batchId, batchNumber) {
         if (titleEl) titleEl.textContent = batchNumber ? `#${batchNumber}` : '';
 
         const tbody = document.getElementById('batchItemsTableBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Loading…</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Loading…</td></tr>';
 
         const modalEl = document.getElementById('batchItemsModal');
         if (modalEl) new bootstrap.Modal(modalEl).show();
@@ -1590,28 +1590,32 @@ async function openBatchItemsModal(batchId, batchNumber) {
 
         if (!tbody) return;
         if (!Array.isArray(items) || items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No items</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No items</td></tr>';
             return;
         }
 
         tbody.innerHTML = items.map(item => {
+            const id        = item.id;
             const reference = item.reference || item.invoice_number || '—';
             const vendor    = item.vendor_name || '—';
             const desc      = item.description || '';
             const amt       = formatCurrency(parseFloat(item.amount ?? 0));
             const postDate  = item.post_date ? formatDate(item.post_date) : (item.invoice_date ? formatDate(item.invoice_date) : '');
             const acctNo    = item.account_number || '—';
+            const bankName  = item.bank_name || '—';
             const payType   = item.payment_type || '—';
             const status    = (item.status || '').toString();
             const badge     = `<span class="badge ${getStatusBadgeClass(status.toLowerCase())} text-capitalize">${status.replace('_',' ')}</span>`;
             return `
                 <tr>
+                    <td><input type="checkbox" class="form-check-input item-select" data-id="${id}"></td>
                     <td>${reference}</td>
                     <td>${vendor}</td>
                     <td>${desc}</td>
                     <td class="text-end">${amt}</td>
                     <td>${postDate}</td>
                     <td>${acctNo}</td>
+                    <td>${bankName}</td>
                     <td>${payType}</td>
                     <td>${badge}</td>
                 </tr>

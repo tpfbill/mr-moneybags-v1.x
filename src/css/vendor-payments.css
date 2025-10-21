@@ -131,6 +131,6 @@ th.sticky-col-2, td.sticky-col-2 {
    Bootstrap's modal-lg is ~800px; set width to ~1200px here
 ------------------------------------------------------------- */
 #batchItemsModal .modal-dialog {
-    --bs-modal-width: 1200px;
-    max-width: 1200px; /* fallback for environments not using CSS var */
+    --bs-modal-width: 1400px;
+    max-width: 1400px; /* fallback for environments not using CSS var */
 }
