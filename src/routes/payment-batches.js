@@ -16,13 +16,13 @@ router.get('/', asyncHandler(async (req, res) => {
     let where = 'WHERE 1=1';
     let i = 1;
     if (entity_id) { where += ` AND pb.entity_id = $${i++}`; params.push(entity_id); }
-    if (status)    { where += ` AND pb.status    = $${i++}`; params.push(status); }
+    if (status)    { where += ` AND LOWER(pb.status) = LOWER($${i++})`; params.push(status); }
     if (from_date) { where += ` AND pb.batch_date >= $${i++}`; params.push(from_date); }
     if (to_date)   { where += ` AND pb.batch_date <= $${i++}`; params.push(to_date); }
    
-    console.log("WEL: "+where);
-    // Order by known-safe columns only. Some databases may lack created_at.
-    const orderBy = ' ORDER BY pb.batch_date DESC, pb.id DESC';
+    console.log("[payment-batches] where:", where, params);
+    // Order by known-safe columns only (avoid columns that may not exist)
+    const orderBy = ' ORDER BY pb.id DESC';
 
     // Primary query (includes created_by_name via users join)
     const primaryQuery = `
