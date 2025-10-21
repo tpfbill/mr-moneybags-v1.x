@@ -222,12 +222,27 @@ router.post('/process', asyncHandler(async (req, res) => {
             const batchFundId = firstFundRes.rows[0].id;
 
             let batchDate = parseDateMDY(firstRow[mapping.effectiveDate]) || new Date();
+            const batchDescription = `Payments Import${filename ? ` - ${filename}` : ''}`;
+            const batchBankName = (firstRow && mapping.bankAccountName) ? (firstRow[mapping.bankAccountName] || null) : null;
 
-            // Create a single payment batch for this job with correct info
+            // Create a single payment batch for this job with required fields
             const batchRes = await client.query(
-                `INSERT INTO payment_batches (entity_id, fund_id, nacha_settings_id, batch_number, batch_date, effective_date, total_amount, status, created_by) 
-                 VALUES ($1, $2, NULL, $3, $4, $4, 0, 'processing', $5) RETURNING id`,
-                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate, currentUserId]
+                `INSERT INTO payment_batches (
+                    entity_id,
+                    fund_id,
+                    nacha_settings_id,
+                    batch_number,
+                    batch_date,
+                    effective_date,
+                    description,
+                    total_amount,
+                    total_items,
+                    bank_name,
+                    status,
+                    created_by
+                 ) VALUES ($1, $2, NULL, $3, $4, $4, $5, 0, 0, $6, 'draft', $7)
+                 RETURNING id`,
+                [batchEntityId, batchFundId, `IMPORT-${jobId.substring(0, 8)}`, batchDate, batchDescription, batchBankName, currentUserId]
             );
             const batchId = batchRes.rows[0].id;
             job.createdBatches.push(batchId);
@@ -353,13 +368,13 @@ router.post('/process', asyncHandler(async (req, res) => {
             if (job.createdItems > 0) {
                 await client.query(
                     `UPDATE payment_batches 
-                     SET total_amount = $1, status = 'processed'
-                     WHERE id = $2`,
-                    [batchTotal, batchId]
+                     SET total_amount = $1, total_items = $2, status = 'processed'
+                     WHERE id = $3`,
+                    [batchTotal, job.createdItems, batchId]
                 );
             } else {
                 // If no rows were processed, mark batch as failed
-                await client.query(`UPDATE payment_batches SET status = 'failed' WHERE id = $1`, [batchId]);
+                await client.query(`UPDATE payment_batches SET status = 'error' WHERE id = $1`, [batchId]);
             }
 
             await client.query('COMMIT');
