@@ -28,11 +28,22 @@ router.get('/', asyncHandler(async (req, res) => {
         SELECT pb.*,
                e.name AS entity_name,
                f.name AS fund_name,
-               COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username, '') AS created_by_name
+               COALESCE(
+                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
+                   u.username,
+                   pb.created_by,
+                   ''
+               ) AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
-     LEFT JOIN users    u ON u.id = pb.created_by
+     LEFT JOIN users    u ON (
+           pb.created_by IS NOT NULL AND (
+               u.id::text = pb.created_by::text
+            OR LOWER(u.username) = LOWER(pb.created_by)
+            OR LOWER(u.email)    = LOWER(pb.created_by)
+           )
+        )
           ${where}
           ${orderBy}
     `;
@@ -40,7 +51,8 @@ router.get('/', asyncHandler(async (req, res) => {
     // Fallback query (omit users join and avoid referencing columns that may not exist)
     const fallbackQuery = `
         SELECT pb.*,
-               e.name AS entity_name
+               e.name AS entity_name,
+               COALESCE(pb.created_by, '') AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
           ${where}
@@ -49,7 +61,8 @@ router.get('/', asyncHandler(async (req, res) => {
 
     // Minimal fallback (no joins at all) ensures we can return rows from payment_batches
     const minimalQuery = `
-        SELECT pb.*
+        SELECT pb.*,
+               COALESCE(pb.created_by, '') AS created_by_name
           FROM payment_batches pb
           ${where}
           ${orderBy}
@@ -105,23 +118,36 @@ router.get('/:id', asyncHandler(async (req, res) => {
         SELECT pb.*,
                e.name AS entity_name,
                f.name AS fund_name,
-               COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username, '') AS created_by_name
+               COALESCE(
+                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
+                   u.username,
+                   pb.created_by,
+                   ''
+               ) AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
-     LEFT JOIN users    u ON u.id = pb.created_by
+     LEFT JOIN users    u ON (
+           pb.created_by IS NOT NULL AND (
+               u.id::text = pb.created_by::text
+            OR LOWER(u.username) = LOWER(pb.created_by)
+            OR LOWER(u.email)    = LOWER(pb.created_by)
+           )
+        )
          WHERE pb.id = $1
     `;
     const fallback = `
         SELECT pb.*,
-               e.name AS entity_name
+               e.name AS entity_name,
+               COALESCE(pb.created_by, '') AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
          WHERE pb.id = $1
     `;
 
     const minimal = `
-        SELECT pb.*
+        SELECT pb.*,
+               COALESCE(pb.created_by, '') AS created_by_name
           FROM payment_batches pb
          WHERE pb.id = $1
     `;
