@@ -21,7 +21,8 @@ router.get('/', asyncHandler(async (req, res) => {
     if (to_date)   { where += ` AND pb.batch_date <= $${i++}`; params.push(to_date); }
    
     console.log("WEL: "+where);
-    const orderBy = ' ORDER BY pb.batch_date DESC, pb.created_at DESC';
+    // Order by known-safe columns only. Some databases may lack created_at.
+    const orderBy = ' ORDER BY pb.batch_date DESC, pb.id DESC';
 
     // Primary query (includes created_by_name via users join)
     const primaryQuery = `
