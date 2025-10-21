@@ -39,11 +39,7 @@ router.get('/', asyncHandler(async (req, res) => {
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
      LEFT JOIN users    u ON (
-           pb.created_by IS NOT NULL AND (
-               u.id::text = pb.created_by::text
-            OR LOWER(u.username) = LOWER(pb.created_by)
-            OR LOWER(u.email)    = LOWER(pb.created_by)
-           )
+           pb.created_by IS NOT NULL AND u.id::text = pb.created_by::text
         )
           ${where}
           ${orderBy}
@@ -76,7 +72,9 @@ router.get('/', asyncHandler(async (req, res) => {
         // If undefined table/column, attempt a simpler fallback before giving up
         const undefinedTable   = err?.code === '42P01' || /relation .* does not exist/i.test(err?.message || '');
         const undefinedColumn  = err?.code === '42703' || /column .* does not exist/i.test(err?.message || '');
-        const joinProblemLikely = undefinedTable || undefinedColumn;
+        const typeMismatch     = err?.code === '42804' || /datatype mismatch|cannot cast|invalid input syntax/i.test(err?.message || '');
+        const badOperator      = err?.code === '42883' || /operator does not exist|function lower\(uuid\)/i.test(err?.message || '');
+        const joinProblemLikely = undefinedTable || undefinedColumn || typeMismatch || badOperator;
 
         if (joinProblemLikely) {
             try {
@@ -129,11 +127,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
      LEFT JOIN users    u ON (
-           pb.created_by IS NOT NULL AND (
-               u.id::text = pb.created_by::text
-            OR LOWER(u.username) = LOWER(pb.created_by)
-            OR LOWER(u.email)    = LOWER(pb.created_by)
-           )
+           pb.created_by IS NOT NULL AND u.id::text = pb.created_by::text
         )
          WHERE pb.id = $1
     `;
