@@ -18,6 +18,7 @@ let funds = [];
 let bankAccounts = [];
 let vendors = [];
 let nachaSettings = [];
+let currentBatchItems = [];
 
 // Utility functions
 // ---------------------------------------------------------------------------
@@ -1570,6 +1571,62 @@ async function deletePaymentBatch(batchId) {
     }
 }
 
+// Helpers for Batch Items modal
+function normalizePaymentType(val) {
+    const s = (val || '').toString().toLowerCase();
+    if (s.includes('autodraft') || s.includes('ach')) return 'autodraft';
+    if (s.includes('eft')) return 'eft';
+    if (s.includes('check')) return 'check';
+    if (s.includes('online')) return 'online';
+    if (s.includes('paypal')) return 'paypal';
+    return s || '';
+}
+
+function renderBatchItemsRows(items) {
+    return items.map(item => {
+        const id        = item.id;
+        const reference = item.reference || item.invoice_number || '—';
+        const vendor    = item.vendor_name || '—';
+        const desc      = item.description || '';
+        const amt       = formatCurrency(parseFloat(item.amount ?? 0));
+        const postDate  = item.post_date ? formatDate(item.post_date) : (item.invoice_date ? formatDate(item.invoice_date) : '');
+        const acctNo    = item.account_number || '—';
+        const bankName  = item.bank_name || '—';
+        const payType   = item.payment_type || '—';
+        const status    = (item.status || '').toString();
+        const badge     = `<span class="badge ${getStatusBadgeClass(status.toLowerCase())} text-capitalize">${status.replace('_',' ')}</span>`;
+        return `
+            <tr>
+                <td><input type="checkbox" class="form-check-input item-select" data-id="${id}"></td>
+                <td>${reference}</td>
+                <td>${vendor}</td>
+                <td>${desc}</td>
+                <td class="text-end">${amt}</td>
+                <td>${postDate}</td>
+                <td>${acctNo}</td>
+                <td>${bankName}</td>
+                <td>${payType}</td>
+                <td>${badge}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function applyBatchItemsFilter() {
+    const tbody = document.getElementById('batchItemsTableBody');
+    if (!tbody) return;
+    const sel = document.getElementById('batchItemsTypeFilter');
+    const val = (sel && sel.value) || '';
+    const filtered = !val
+        ? currentBatchItems
+        : currentBatchItems.filter(it => normalizePaymentType(it.payment_type) === val);
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No items</td></tr>';
+        return;
+    }
+    tbody.innerHTML = renderBatchItemsRows(filtered);
+}
+
 // Open modal listing items for a batch
 async function openBatchItemsModal(batchId, batchNumber) {
     try {
@@ -1587,6 +1644,17 @@ async function openBatchItemsModal(batchId, batchNumber) {
         const res = await fetch(`${API_BASE_URL}/api/payment-batches/${batchId}/items`, { credentials: 'include' });
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const items = await res.json();
+        // Store for filtering and render via filter helper
+        currentBatchItems = Array.isArray(items) ? items : [];
+        if (typeof applyBatchItemsFilter === 'function') {
+            if (!tbody) return;
+            if (!currentBatchItems.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No items</td></tr>';
+                return;
+            }
+            applyBatchItemsFilter();
+            return;
+        }
 
         if (!tbody) return;
         if (!Array.isArray(items) || items.length === 0) {
@@ -1666,6 +1734,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                 console.log(`✅ Refresh button ${id} event listener added`);
             }
         });
+
+        // Batch items modal controls
+        const typeFilter = document.getElementById('batchItemsTypeFilter');
+        if (typeFilter) {
+            typeFilter.addEventListener('change', applyBatchItemsFilter);
+        }
+
+        const paySelectedBtn = document.getElementById('paySelectedItemsBtn');
+        if (paySelectedBtn) {
+            paySelectedBtn.addEventListener('click', () => {
+                const checked = Array.from(document.querySelectorAll('#batchItemsTableBody .item-select:checked'));
+                if (checked.length === 0) {
+                    showToast('Validation', 'Please select at least one item to pay', true);
+                    return;
+                }
+                const ids = checked.map(cb => cb.getAttribute('data-id'));
+                console.log('[Pay Selected Items] IDs:', ids);
+                showToast('Payment', `Preparing to pay ${ids.length} selected item(s)…`);
+                // TODO: Implement backend call to process payments when endpoint is available
+            });
+        }
 
         /* -----------------------------------------------------------
          * Payments CSV Import button (one-click)
