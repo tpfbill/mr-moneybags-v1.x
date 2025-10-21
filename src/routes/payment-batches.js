@@ -24,23 +24,31 @@ router.get('/', asyncHandler(async (req, res) => {
     // Order by known-safe columns only (avoid columns that may not exist)
     const orderBy = ' ORDER BY pb.id DESC';
 
-    // Primary query (includes created_by_name via users join)
+    // Primary query (includes created_by_name via safe LATERAL resolver)
+    // This avoids lower(uuid) errors by casting pb.created_by to text and
+    // falls back to showing pb.created_by text when user record isn't found.
     const primaryQuery = `
         SELECT pb.*,
                e.name AS entity_name,
                f.name AS fund_name,
-               COALESCE(
-                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
-                   u.username,
-                   pb.created_by,
-                   ''
-               ) AS created_by_name
+               COALESCE(cu.created_by_name, pb.created_by::text, '') AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
-     LEFT JOIN users    u ON (
-           pb.created_by IS NOT NULL AND u.id::text = pb.created_by::text
-        )
+     LEFT JOIN LATERAL (
+           SELECT COALESCE(
+                      NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
+                      u.username
+                  ) AS created_by_name
+             FROM users u
+            WHERE pb.created_by IS NOT NULL
+              AND (
+                    u.id::text        = pb.created_by::text
+                 OR LOWER(u.username) = LOWER(pb.created_by::text)
+                 OR LOWER(u.email)    = LOWER(pb.created_by::text)
+              )
+            LIMIT 1
+     ) cu ON TRUE
           ${where}
           ${orderBy}
     `;
@@ -117,18 +125,24 @@ router.get('/:id', asyncHandler(async (req, res) => {
         SELECT pb.*,
                e.name AS entity_name,
                f.name AS fund_name,
-               COALESCE(
-                   NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
-                   u.username,
-                   pb.created_by,
-                   ''
-               ) AS created_by_name
+               COALESCE(cu.created_by_name, pb.created_by::text, '') AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
-     LEFT JOIN users    u ON (
-           pb.created_by IS NOT NULL AND u.id::text = pb.created_by::text
-        )
+     LEFT JOIN LATERAL (
+           SELECT COALESCE(
+                      NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''),
+                      u.username
+                  ) AS created_by_name
+             FROM users u
+            WHERE pb.created_by IS NOT NULL
+              AND (
+                    u.id::text        = pb.created_by::text
+                 OR LOWER(u.username) = LOWER(pb.created_by::text)
+                 OR LOWER(u.email)    = LOWER(pb.created_by::text)
+              )
+            LIMIT 1
+     ) cu ON TRUE
          WHERE pb.id = $1
     `;
     const fallback = `
