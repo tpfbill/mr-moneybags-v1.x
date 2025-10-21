@@ -237,7 +237,8 @@ router.post('/', asyncHandler(async (req, res) => {
 
     const bank_name = bankAccount.rows.length > 0 ? bankAccount.rows[0].bank_name : null;
 
-    const created_by = (req.user && req.user.id) || null;
+    // Be robust: if getCurrentUser didn't attach req.user, fall back to session userId
+    const created_by = (req.user && req.user.id) || (req.session && req.session.userId) || null;
 
     const { rows } = await pool.query(`
         INSERT INTO payment_batches (
