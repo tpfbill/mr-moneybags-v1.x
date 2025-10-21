@@ -262,11 +262,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const expenseAccountId = await lookupAccountId(client, row[mapping.accountNo]);
                     if (!expenseAccountId) throw new Error(`Expense account '${row[mapping.accountNo]}' not found.`);
 
-                    const apAccountId = await lookupFundedApAccountId(client, expenseAccountId);
-                    if (!apAccountId) throw new Error(`Could not find a matching fund-specific AP account for expense account ${row[mapping.accountNo]}.`);
-
-                    const bankGlAccountId = await lookupBankGlAccountId(client, row[mapping.bankAccountName]);
-                    if (!bankGlAccountId) throw new Error(`Could not find a bank account named '${row[mapping.bankAccountName]}'.`);
+                    // JE creation removed; AP and Bank GL lookups no longer required
 
                     const vendorId = await resolveVendorId(client, { zid: row[mapping.vendorZid], name: row[mapping.vendorName] });
                     if (!vendorId) throw new Error(`Vendor not found (zid/name): ${row[mapping.vendorZid] || row[mapping.vendorName]}`);
@@ -275,13 +271,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     if (!expenseAccountRes.rows.length) throw new Error(`Could not find account details for ID ${expenseAccountId}`);
                     const { entity_code: entityCode, fund_number: fundNumber } = expenseAccountRes.rows[0];
 
-                    const entityRes = await client.query('SELECT id FROM entities WHERE code = $1', [entityCode]);
-                    if (!entityRes.rows.length) throw new Error(`Could not find entity with code ${entityCode}`);
-                    const entityId = entityRes.rows[0].id;
-
-                    const fundRes = await client.query('SELECT id FROM funds WHERE fund_number = $1', [fundNumber]);
-                    if (!fundRes.rows.length) throw new Error(`Could not find fund with number ${fundNumber}`);
-                    const fundId = fundRes.rows[0].id;
+                    // Entity/Fund ID lookups only needed for JE; omit for item import
 
                     let jeDate = parseDateMDY(row[mapping.effectiveDate]);
                     if (!jeDate) {
@@ -290,16 +280,10 @@ router.post('/process', asyncHandler(async (req, res) => {
                     }
 
                     const baseReference = row[mapping.reference] || row[mapping.invoiceNumber] || 'Payment Import';
-                    const uniqueReference = `${baseReference}-${i}`; // Ensure uniqueness for idempotency check
 
                     const description = row[mapping.memo] || `${baseReference} - ${row[mapping.invoiceNumber] || 'Payment'}`;
                     
-                    // Idempotency Check
-                    const dupJe = await client.query('SELECT id FROM journal_entries WHERE reference_number = $1 LIMIT 1', [uniqueReference]);
-                    if (dupJe.rows.length) {
-                        job.logs.push({ i: i + 1, level: 'warn', msg: `Duplicate JE skipped (ref: ${uniqueReference})` });
-                        continue;
-                    }
+                    // Idempotency against JEs removed (JEs no longer created here)
 
                     // Parse account number components
                     const { entity_code, gl_code, fund_number } = parseAccountNumber(row[mapping.accountNo]);
@@ -311,7 +295,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                             reference, post_date, payee_zid, invoice_date, invoice_number,
                             account_number, bank_name, payment_type, "1099_amount", payment_id,
                             entity_code, gl_code, fund_number, description
-                         ) VALUES ($1, $2, $3, 'processed', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
+                         ) VALUES ($1, $2, $3, 'Pending', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
                         [
                             batchId, vendorId, amount,
                             row[mapping.reference], jeDate, row[mapping.vendorZid], parseDateMDY(row[mapping.invoiceDate]), row[mapping.invoiceNumber],
@@ -322,39 +306,7 @@ router.post('/process', asyncHandler(async (req, res) => {
                     const paymentItemId = paymentItemRes.rows[0].id;
                     job.createdItems++;
                     
-                    // JE 1: Expense -> AP
-                    const je1Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6, $7) RETURNING id`,
-                        [entityId, jeDate, `Expense: ${description}`, amount, currentUserId, jobId, uniqueReference]
-                    );
-                    const je1Id = je1Res.rows[0].id;
-                    await client.query(
-                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit) VALUES ($1, $2, $3, $4, 0), ($1, $5, $3, 0, $4)`,
-                        [je1Id, expenseAccountId, fundId, Math.abs(amount), apAccountId]
-                    );
-                    job.createdJEs.push(je1Id);
-
-                    // Link the journal entry back to the payment item
-                    await client.query(
-                        `UPDATE payment_items SET journal_entry_id = $1 WHERE id = $2`,
-                        [je1Id, paymentItemId]
-                    );
-
-                    // JE 2: AP -> Bank
-                    const je2Res = await client.query(
-                        `INSERT INTO journal_entries (entity_id, entry_date, description, total_amount, status, created_by, import_id, reference_number)
-                         VALUES ($1, $2, $3, $4, 'Posted', $5, $6, $7) RETURNING id`,
-                        [entityId, jeDate, `Payment: ${description}`, Math.abs(amount), currentUserId, jobId, uniqueReference]
-                    );
-                    const je2Id = je2Res.rows[0].id;
-                    await client.query(
-                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, debit, credit) VALUES ($1, $2, $3, $4, 0), ($1, $5, $3, 0, $4)`,
-                        [je2Id, apAccountId, fundId, Math.abs(amount), bankGlAccountId]
-                    );
-                    job.createdJEs.push(je2Id);
-                    
-                    job.logs.push({ i: i + 1, level: 'success', msg: `Successfully processed payment for ${amount}` });
+                    job.logs.push({ i: i + 1, level: 'success', msg: `Imported payment item for ${amount}` });
 
                     batchTotal += amount;
 
