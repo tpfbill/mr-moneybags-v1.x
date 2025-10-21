@@ -32,7 +32,7 @@ router.get('/', asyncHandler(async (req, res) => {
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
-     LEFT JOIN users    u ON u.id = pb.created_by
+     LEFT JOIN users    u ON u.id::text = pb.created_by::text
           ${where}
           ${orderBy}
     `;
@@ -109,7 +109,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
      LEFT JOIN funds    f ON pb.fund_id = f.id
-     LEFT JOIN users    u ON u.id = pb.created_by
+     LEFT JOIN users    u ON u.id::text = pb.created_by::text
          WHERE pb.id = $1
     `;
     const fallback = `
