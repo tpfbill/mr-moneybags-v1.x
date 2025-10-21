@@ -30,7 +30,7 @@ router.get('/', asyncHandler(async (req, res) => {
     const primaryQuery = `
         SELECT pb.*,
                e.name AS entity_name,
-               f.name AS fund_name,
+               f.fund_name AS fund_name,
                COALESCE(cu.created_by_name, pb.created_by::text, '') AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
@@ -124,7 +124,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const primary = `
         SELECT pb.*,
                e.name AS entity_name,
-               f.name AS fund_name,
+               f.fund_name AS fund_name,
                COALESCE(cu.created_by_name, pb.created_by::text, '') AS created_by_name
           FROM payment_batches pb
      LEFT JOIN entities e ON pb.entity_id = e.id
