@@ -1775,8 +1775,43 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
                 const ids = checked.map(cb => cb.getAttribute('data-id'));
                 console.log('[Pay Selected Items] IDs:', ids);
-                showToast('Payment', `Preparing to pay ${ids.length} selected item(s)…`);
-                // TODO: Implement backend call to process payments when endpoint is available
+                (async () => {
+                    try {
+                        showLoading();
+                        const res = await fetch(`${API_BASE_URL}/api/vendor-payments/pay`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ payment_item_ids: ids })
+                        });
+                        const ct = res.headers.get('content-type') || '';
+                        const data = ct.includes('application/json') ? await res.json() : { error: await res.text() };
+                        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+
+                        const okCount = Array.isArray(data?.results) ? data.results.filter(r => r.ok).length : 0;
+                        const failCount = Array.isArray(data?.results) ? data.results.length - okCount : 0;
+                        showToast('Payment', `Processed: ${okCount} OK, ${failCount} Failed`);
+
+                        // Refresh batches and reopen modal contents to reflect Paid status
+                        await fetchBatches();
+                        // If a modal is open, reload its items
+                        const openModal = document.getElementById('batchItemsModal');
+                        if (openModal && openModal.classList.contains('show')) {
+                            const batchLink = document.querySelector('.link-batch-items');
+                            // Prefer re-fetch by current title if available
+                            if (currentBatch && currentBatch.id) {
+                                await openBatchItemsModal(currentBatch.id, currentBatch.batch_number || '');
+                            } else if (batchLink) {
+                                await openBatchItemsModal(batchLink.dataset.id, batchLink.dataset.batch);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('[Pay Selected Items] Error:', err);
+                        showToast('Error', `Payment failed: ${err.message || err}`, true);
+                    } finally {
+                        hideLoading();
+                    }
+                })();
             });
         }
 
