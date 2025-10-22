@@ -82,28 +82,11 @@ async function findBankAccountByName(db, bankName) {
   return r2.rows[0] || null;
 }
 
-async function findBankAccountForBatch(db, batchId, fallbackName) {
-  if (!batchId && !fallbackName) return null;
-  // 1) Try via payment_batches -> company_nacha_settings.settlement_account_id
-  if (batchId) {
-    try {
-      const r = await db.query(
-        `SELECT ba.*
-           FROM payment_batches pb
-      LEFT JOIN company_nacha_settings cns ON cns.id = pb.nacha_settings_id
-      LEFT JOIN bank_accounts ba ON ba.id = cns.settlement_account_id
-          WHERE pb.id = $1
-          LIMIT 1`,
-        [batchId]
-      );
-      if (r.rows[0]) return r.rows[0];
-    } catch (_) { /* fall through */ }
-  }
-  // 2) Fallback to name lookup across bank_name/account_name
-  if (fallbackName) {
-    return await findBankAccountByName(db, fallbackName);
-  }
-  return null;
+// NOTE: Per user instruction, do NOT use NACHA settings to resolve bank account.
+// Only resolve by matching bank_accounts.account_name (preferred) or bank_name (fallback)
+async function resolveBankAccountByNameOnly(db, name) {
+  if (!name) return null;
+  return await findBankAccountByName(db, name);
 }
 
 async function findEftClearingAccount(db, fundNumber) {
@@ -186,15 +169,13 @@ router.post('/pay', asyncHandler(async (req, res) => {
 
         // Fetch batch bank_name separately (no join in the FOR UPDATE query)
         let batchBankName = null;
-        let batchNachaId = null;
         if (pi.payment_batch_id) {
           try {
             const rbn = await client.query(
-              `SELECT bank_name, nacha_settings_id FROM payment_batches WHERE id = $1 LIMIT 1`,
+              `SELECT bank_name FROM payment_batches WHERE id = $1 LIMIT 1`,
               [pi.payment_batch_id]
             );
             batchBankName = rbn.rows[0]?.bank_name || null;
-            batchNachaId = rbn.rows[0]?.nacha_settings_id || null;
           } catch (_) {
             batchBankName = null;
           }
@@ -230,11 +211,10 @@ router.post('/pay', asyncHandler(async (req, res) => {
         const arAccountId = await findARAccount(client, expenseAccount.entity_code, expenseAccount.fund_number);
         if (!arAccountId) throw new Error('Accounts Receivable account not found for item fund');
 
-        // Bank account via batch.nacha_settings_id → company_nacha_settings.settlement_account_id → bank_accounts
-        // Fallback to matching by bank_name/account_name
-        const bankAcct = await findBankAccountForBatch(client, pi.payment_batch_id, bankName);
+        // Resolve bank account strictly by account_name/bank_name (no NACHA linking)
+        const bankAcct = await resolveBankAccountByNameOnly(client, bankName);
         if (!bankAcct || !bankAcct.cash_account_id) {
-          throw new Error('Bank cash account not found for batch (check settlement account)');
+          throw new Error('Bank cash account not found by account_name/bank_name');
         }
         const bankCash = await getAccountById(client, bankAcct.cash_account_id);
         if (!bankCash) throw new Error('Bank cash GL account not found');
