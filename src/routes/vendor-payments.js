@@ -136,12 +136,9 @@ router.post('/pay', asyncHandler(async (req, res) => {
         await client.query('BEGIN');
 
         // Lock the item
+        // Lock only the payment_items row (avoid locking nullable side of an outer join)
         const { rows: piRows } = await client.query(
-          `SELECT pi.*, pb.bank_name AS batch_bank_name
-             FROM payment_items pi
-        LEFT JOIN payment_batches pb ON pb.id = pi.payment_batch_id
-            WHERE pi.id = $1
-            FOR UPDATE`,
+          `SELECT * FROM payment_items WHERE id = $1 FOR UPDATE`,
           [id]
         );
         if (!piRows.length) {
@@ -149,13 +146,27 @@ router.post('/pay', asyncHandler(async (req, res) => {
         }
         const pi = piRows[0];
 
+        // Fetch batch bank_name separately (no join in the FOR UPDATE query)
+        let batchBankName = null;
+        if (pi.payment_batch_id) {
+          try {
+            const rbn = await client.query(
+              `SELECT bank_name FROM payment_batches WHERE id = $1 LIMIT 1`,
+              [pi.payment_batch_id]
+            );
+            batchBankName = rbn.rows[0]?.bank_name || null;
+          } catch (_) {
+            batchBankName = null;
+          }
+        }
+
         const amount = Math.abs(Number(pi.amount || 0));
         if (!amount) throw new Error('Invalid amount');
         const entryDate = pi.post_date || new Date();
         const reference = pi.reference || pi.invoice_number || String(pi.id);
         const description = pi.description || '';
         const paymentType = (pi.payment_type || '').toString().toUpperCase();
-        const bankName = pi.bank_name || pi.batch_bank_name || null;
+        const bankName = pi.bank_name || batchBankName || null;
 
         // Expense account from payment item.account_number (canonical)
         let expenseAccount = await getAccountByCode(client, pi.account_number);
@@ -253,10 +264,7 @@ router.post('/pay', asyncHandler(async (req, res) => {
         await insertJeLine(client, { journalEntryId: je4Id, accountId: bankCash.id,   fundId: bankFundId,    debit: 0,      credit: amount, description });
 
         // Persist on payment item
-        // Mark Paid and store JE1 on journal_entry_id
-        const setPaidSql = await hasColumn(client, 'payment_items', 'status')
-          ? 'status = \"Paid\"'
-          : null;
+        // Mark processed (schema allows: pending/approved/processed/...) and store JE1 on journal_entry_id
         const updates = [];
         const params = [];
         let idx = 1;
@@ -264,7 +272,7 @@ router.post('/pay', asyncHandler(async (req, res) => {
           updates.push(`journal_entry_id = $${idx++}`); params.push(je1Id);
         }
         if (await hasColumn(client, 'payment_items', 'status')) {
-          updates.push(`status = 'Paid'`);
+          updates.push(`status = 'processed'`);
         }
         if (updates.length) {
           params.push(id);
