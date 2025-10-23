@@ -218,7 +218,14 @@ router.get('/', asyncHandler(async (req, res) => {
     
     // Build ORDER BY clause from sort parameter
     const { sort } = req.query;
-    let orderByClause = 'ORDER BY je.entry_date DESC, je.id DESC'; // Default sort
+    // Default ordering per request: entry_date DESC, reference_number, created_at DESC
+    // Be schema-aware: fall back to reference or id when columns are absent
+    const hasRefNum = await hasColumn(pool, 'journal_entries', 'reference_number');
+    const hasRef = await hasColumn(pool, 'journal_entries', 'reference');
+    const hasCreatedAt = await hasColumn(pool, 'journal_entries', 'created_at');
+    const refExpr = hasRefNum ? 'je.reference_number' : (hasRef ? 'je.reference' : 'je.id');
+    const createdExpr = hasCreatedAt ? 'je.created_at' : 'je.id';
+    let orderByClause = `ORDER BY je.entry_date DESC, ${refExpr}, ${createdExpr} DESC`;
     if (sort) {
         const allowedSortFields = [
             'entry_date',
