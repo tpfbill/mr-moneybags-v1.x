@@ -19,6 +19,8 @@ let bankAccounts = [];
 let vendors = [];
 let nachaSettings = [];
 let currentBatchItems = [];
+// Tracks which batch's items modal is currently showing
+let currentBatchItemsContext = null;
 
 // Utility functions
 // ---------------------------------------------------------------------------
@@ -1654,6 +1656,8 @@ function updateSelectAllState() {
 // Open modal listing items for a batch
 async function openBatchItemsModal(batchId, batchNumber) {
     try {
+        // Remember the batch context so refreshes re-open the same batch
+        currentBatchItemsContext = { id: batchId, batch_number: batchNumber };
         // Set title and show modal immediately with loading row
         const titleEl = document.getElementById('batchItemsTitle');
         if (titleEl) titleEl.textContent = batchNumber ? `#${batchNumber}` : '';
@@ -1799,15 +1803,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         // Refresh batches and reopen modal contents to reflect Paid status
                         await fetchBatches();
-                        // If a modal is open, reload its items
+                        // If the modal is open, reload the SAME batch (do not jump to first)
                         const openModal = document.getElementById('batchItemsModal');
                         if (openModal && openModal.classList.contains('show')) {
-                            const batchLink = document.querySelector('.link-batch-items');
-                            // Prefer re-fetch by current title if available
-                            if (currentBatch && currentBatch.id) {
-                                await openBatchItemsModal(currentBatch.id, currentBatch.batch_number || '');
-                            } else if (batchLink) {
-                                await openBatchItemsModal(batchLink.dataset.id, batchLink.dataset.batch);
+                            const ctx = currentBatchItemsContext;
+                            if (ctx && ctx.id) {
+                                await openBatchItemsModal(ctx.id, ctx.batch_number || '');
                             }
                         }
                     } catch (err) {
