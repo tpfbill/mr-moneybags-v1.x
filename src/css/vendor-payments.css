@@ -134,3 +134,10 @@ th.sticky-col-2, td.sticky-col-2 {
     --bs-modal-width: 1400px;
     max-width: 1400px; /* fallback for environments not using CSS var */
 }
+
+/* Batch Items table: widen Reference column and prevent wrapping */
+#batchItemsTable th:nth-child(2),
+#batchItemsTable td:nth-child(2) {
+    white-space: nowrap;
+    min-width: 280px;
+}
