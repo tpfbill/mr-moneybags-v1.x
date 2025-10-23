@@ -139,5 +139,5 @@ th.sticky-col-2, td.sticky-col-2 {
 #batchItemsTable th:nth-child(2),
 #batchItemsTable td:nth-child(2) {
     white-space: nowrap;
-    min-width: 280px;
+    min-width: 12ch; /* ~12 characters */
 }
