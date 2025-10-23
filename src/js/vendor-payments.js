@@ -19,6 +19,8 @@ let bankAccounts = [];
 let vendors = [];
 let nachaSettings = [];
 let currentBatchItems = [];
+// Tracks which batch's items modal is currently showing
+let currentBatchItemsContext = null;
 
 // Utility functions
 // ---------------------------------------------------------------------------
@@ -161,6 +163,7 @@ function getStatusBadgeClass(status) {
         case 'draft': return 'bg-secondary';
         case 'pending_approval': return 'bg-warning';
         case 'approved': return 'bg-success';
+        case 'paid': return 'bg-success';
         case 'processed': return 'bg-primary';
         case 'transmitted': return 'bg-info';
         case 'confirmed': return 'bg-success';
@@ -1654,6 +1657,8 @@ function updateSelectAllState() {
 // Open modal listing items for a batch
 async function openBatchItemsModal(batchId, batchNumber) {
     try {
+        // Remember the batch context so refreshes re-open the same batch
+        currentBatchItemsContext = { id: batchId, batch_number: batchNumber };
         // Set title and show modal immediately with loading row
         const titleEl = document.getElementById('batchItemsTitle');
         if (titleEl) titleEl.textContent = batchNumber ? `#${batchNumber}` : '';
@@ -1662,7 +1667,12 @@ async function openBatchItemsModal(batchId, batchNumber) {
         if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Loading…</td></tr>';
 
         const modalEl = document.getElementById('batchItemsModal');
-        if (modalEl) new bootstrap.Modal(modalEl).show();
+        if (modalEl) {
+            // Reuse the same Bootstrap Modal instance; avoid re-show while already open
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (!modalInstance) modalInstance = new bootstrap.Modal(modalEl);
+            if (!modalEl.classList.contains('show')) modalInstance.show();
+        }
 
         // Fetch items
         const res = await fetch(`${API_BASE_URL}/api/payment-batches/${batchId}/items`, { credentials: 'include' });
@@ -1775,8 +1785,40 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
                 const ids = checked.map(cb => cb.getAttribute('data-id'));
                 console.log('[Pay Selected Items] IDs:', ids);
-                showToast('Payment', `Preparing to pay ${ids.length} selected item(s)…`);
-                // TODO: Implement backend call to process payments when endpoint is available
+                (async () => {
+                    try {
+                        showLoading();
+                        const res = await fetch(`${API_BASE_URL}/api/vendor-payments/pay`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ payment_item_ids: ids })
+                        });
+                        const ct = res.headers.get('content-type') || '';
+                        const data = ct.includes('application/json') ? await res.json() : { error: await res.text() };
+                        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+
+                        const okCount = Array.isArray(data?.results) ? data.results.filter(r => r.ok).length : 0;
+                        const failCount = Array.isArray(data?.results) ? data.results.length - okCount : 0;
+                        showToast('Payment', `Processed: ${okCount} OK, ${failCount} Failed`);
+
+                        // Refresh batches and reopen modal contents to reflect Paid status
+                        await fetchBatches();
+                        // If the modal is open, reload the SAME batch (do not jump to first)
+                        const openModal = document.getElementById('batchItemsModal');
+                        if (openModal && openModal.classList.contains('show')) {
+                            const ctx = currentBatchItemsContext;
+                            if (ctx && ctx.id) {
+                                await openBatchItemsModal(ctx.id, ctx.batch_number || '');
+                            }
+                        }
+                    } catch (err) {
+                        console.error('[Pay Selected Items] Error:', err);
+                        showToast('Error', `Payment failed: ${err.message || err}`, true);
+                    } finally {
+                        hideLoading();
+                    }
+                })();
             });
         }
 
@@ -1791,6 +1833,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 updateSelectAllState();
             });
         }
+
+        // Global safety: when any modal hides, ensure overlays/backdrops are cleared
+        document.addEventListener('hidden.bs.modal', () => {
+            try { hideLoading(); } catch (_) {}
+            // Remove any lingering backdrops and body modal-open state
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        });
 
         /* -----------------------------------------------------------
          * Payments CSV Import button (one-click)

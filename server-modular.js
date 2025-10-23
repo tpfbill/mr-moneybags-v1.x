@@ -42,6 +42,7 @@ const metricsRoutes        = require('./src/routes/metrics'); // NEW
 const liabilitiesRoutes    = require('./src/routes/liabilities'); // NEW
 const glCodesRoutes        = require('./src/routes/gl-codes'); // NEW
 const paymentsImportRoutes = require('./src/routes/payments-import'); // NEW
+const vendorPaymentsRoutes = require('./src/routes/vendor-payments'); // NEW
 
 // Import inter-entity transfer helper
 const registerInterEntityTransferRoutes = require('./src/js/inter-entity-transfer-api');
@@ -226,6 +227,8 @@ app.use('/api/reports', requireAuth, reportsRoutes);
 app.use('/api/import',  requireAuth, importRoutes);
 // Unified Vendor Payments import (analyze/process/status)
 app.use('/api/vendor-payments/import', requireAuth, paymentsImportRoutes);
+// Pay selected vendor payment items
+app.use('/api/vendor-payments', requireAuth, vendorPaymentsRoutes);
 // (Temporary ping removed)
 
 // Bank reconciliation routes
