@@ -89,10 +89,10 @@ async function resolveBankAccountByNameOnly(db, name) {
   return await findBankAccountByName(db, name);
 }
 
-async function findEftClearingAccount(db, fundNumber) {
+async function findEftClearingAccountByEntity(db, entityCode) {
   const r = await db.query(
-    `SELECT id FROM accounts WHERE gl_code = '1020' AND fund_number = $1 LIMIT 1`,
-    [fundNumber]
+    `SELECT id FROM accounts WHERE gl_code = '1020' AND entity_code = $1 LIMIT 1`,
+    [entityCode]
   );
   return r.rows[0]?.id || null;
 }
@@ -221,12 +221,13 @@ router.post('/pay', asyncHandler(async (req, res) => {
         const bankFundId = await getFundIdByNumber(client, bankCash.fund_number);
         if (!bankFundId) throw new Error('Bank fund not found');
 
-        // Optional EFT clearing account (fund = bank cash fund, gl_code=1020)
+        // Optional EFT clearing account by payment item's entity_code (gl_code = 1020)
         const isEft = paymentType === 'EFT';
         let eftAccountId = null;
         if (isEft) {
-          eftAccountId = await findEftClearingAccount(client, bankCash.fund_number);
-          if (!eftAccountId) throw new Error('EFT clearing (gl_code 1020) account not found for bank fund');
+          const itemEntityCode = pi.entity_code || expenseAccount.entity_code;
+          eftAccountId = await findEftClearingAccountByEntity(client, itemEntityCode);
+          if (!eftAccountId) throw new Error('EFT clearing (gl_code 1020) account not found for item entity');
         }
 
         // JE1: Expense Dr (item fund) / AP Cr (item fund)
