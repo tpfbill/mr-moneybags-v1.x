@@ -1662,7 +1662,12 @@ async function openBatchItemsModal(batchId, batchNumber) {
         if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Loading…</td></tr>';
 
         const modalEl = document.getElementById('batchItemsModal');
-        if (modalEl) new bootstrap.Modal(modalEl).show();
+        if (modalEl) {
+            // Reuse the same Bootstrap Modal instance; avoid re-show while already open
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (!modalInstance) modalInstance = new bootstrap.Modal(modalEl);
+            if (!modalEl.classList.contains('show')) modalInstance.show();
+        }
 
         // Fetch items
         const res = await fetch(`${API_BASE_URL}/api/payment-batches/${batchId}/items`, { credentials: 'include' });
@@ -1826,6 +1831,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 updateSelectAllState();
             });
         }
+
+        // Global safety: when any modal hides, ensure overlays/backdrops are cleared
+        document.addEventListener('hidden.bs.modal', () => {
+            try { hideLoading(); } catch (_) {}
+            // Remove any lingering backdrops and body modal-open state
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        });
 
         /* -----------------------------------------------------------
          * Payments CSV Import button (one-click)
