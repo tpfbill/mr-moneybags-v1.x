@@ -286,7 +286,7 @@ router.post('/pay', asyncHandler(async (req, res) => {
         await insertJeLine(client, { journalEntryId: je4Id, accountId: bankCash.id,   fundId: bankFundId,    debit: 0,      credit: amount, description });
 
         // Persist on payment item
-        // Mark processed (schema allows: pending/approved/processed/...) and store JE1 on journal_entry_id
+        // Mark as Paid and store JE1 on journal_entry_id
         const updates = [];
         const params = [];
         let idx = 1;
@@ -294,7 +294,7 @@ router.post('/pay', asyncHandler(async (req, res) => {
           updates.push(`journal_entry_id = $${idx++}`); params.push(je1Id);
         }
         if (await hasColumn(client, 'payment_items', 'status')) {
-          updates.push(`status = 'processed'`);
+          updates.push(`status = 'Paid'`);
         }
         if (updates.length) {
           params.push(id);

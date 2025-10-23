@@ -163,6 +163,7 @@ function getStatusBadgeClass(status) {
         case 'draft': return 'bg-secondary';
         case 'pending_approval': return 'bg-warning';
         case 'approved': return 'bg-success';
+        case 'paid': return 'bg-success';
         case 'processed': return 'bg-primary';
         case 'transmitted': return 'bg-info';
         case 'confirmed': return 'bg-success';
