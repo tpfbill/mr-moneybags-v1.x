@@ -1200,8 +1200,20 @@ export async function saveJournalEntry(event) {
         }, 4000);
     } catch (_) { /* ignore */ }
     
+    // Helper to release submit guard and restore UI state
+    const releaseSubmitGuard = () => {
+        try { form.dataset.submitting = 'false'; } catch (_) {}
+        try {
+            if (form.__submitGuardTimer) {
+                clearTimeout(form.__submitGuardTimer);
+                form.__submitGuardTimer = null;
+            }
+        } catch (_) {}
+        try { if (saveBtnEl && prevDisabled !== undefined) saveBtnEl.disabled = prevDisabled; } catch (_) {}
+    };
+
     // Validate form
-    if (!validateForm(form)) { form.dataset.submitting = 'false'; return; }
+    if (!validateForm(form)) { releaseSubmitGuard(); return; }
     
     // Ensure totals are up to date before checking balance
     try { updateJournalEntryTotals(); } catch (_) {}
@@ -1296,8 +1308,7 @@ export async function saveJournalEntry(event) {
 
             if (!fundId) {
                 showToast('No matching Fund found for selected account; please verify account setup.', 'error');
-                // Ensure submit-guard is released on validation failure
-                form.dataset.submitting = 'false';
+                releaseSubmitGuard();
                 return;
             }
 
@@ -1313,7 +1324,7 @@ export async function saveJournalEntry(event) {
     // Check if there are line items
     if (lineItems.length === 0) {
         showToast('Journal entry must have at least one line item', 'error');
-        form.dataset.submitting = 'false';
+        releaseSubmitGuard();
         return;
     }
 
@@ -1325,8 +1336,7 @@ export async function saveJournalEntry(event) {
         showToast(`Not balanced by ${formatCurrency(Math.abs(diff))}`, 'error');
         // Temporary diagnostic per request
         alert(`JE not balanced:\nTotal Debits: ${sumD}\nTotal Credits: ${sumC}\nDiff: ${diff}\nLines counted: ${lineItems.length}`);
-        // Release submit-guard when imbalance blocks save
-        form.dataset.submitting = 'false';
+        releaseSubmitGuard();
         return;
     }
     
