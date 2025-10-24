@@ -76,6 +76,22 @@ router.get('/', asyncHandler(async (req, res) => {
 
   // Canonicalized versions for robust, case/format-insensitive matching
   const canon = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  // If entity_id filters are provided, resolve them to entity codes as well
+  if (entityIds.length) {
+    try {
+      const { rows: entRows } = await pool.query(
+        'SELECT code FROM entities WHERE id = ANY($1::uuid[])',
+        [entityIds]
+      );
+      entRows.forEach(r => {
+        const c = (r?.code || '').trim();
+        if (c) entityCodes.push(c);
+      });
+    } catch (_) {
+      // ignore lookup errors; fallback to whatever codes were supplied
+    }
+  }
+
   const entityCodesCanon = entityCodes.map(canon);
 
   // Funds balance expression mirrors src/routes/funds.js, summed for assets
@@ -90,16 +106,29 @@ router.get('/', asyncHandler(async (req, res) => {
   if (hasFundCode)   fundMatchParts.push(`(jel.${jei.fundRef}::text = f.fund_code::text)`);
   const fundMatchClause = fundMatchParts.join(' OR ');
 
+  // Mirror funds.js GL line_type rules when rolling up fund balances for Assets
+  // Use the same Posted filter semantics as funds.js for parity
+  const postFilterAssets = hasStatusCol
+    ? "AND je.status = 'Posted'"
+    : (hasPostedCol ? 'AND je.posted = TRUE' : '');
   let assetsSql = `
     SELECT COALESCE(SUM(${sbExpr} + COALESCE((
-      SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
+      SELECT SUM(
+               CASE 
+                 WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
+                 WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jei.creditCol}::numeric,0) - COALESCE(jel.${jei.debitCol}::numeric,0)
+                 ELSE COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
+               END
+             )
         FROM journal_entry_items jel
         JOIN journal_entries je ON jel.${jei.jeRef} = je.id
+        JOIN accounts a2 ON jel.${jei.accRef} = a2.id
+   LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
        WHERE (${fundMatchClause})
-         AND ${postCond}
+         ${postFilterAssets}
     ), 0::numeric)), 0::numeric) AS assets
-    FROM funds f
-    WHERE 1=1
+      FROM funds f
+     WHERE 1=1
   `;
   const assetsParams = [];
   if (entityCodes.length) {
@@ -162,12 +191,26 @@ router.get('/', asyncHandler(async (req, res) => {
   const gcJJoin = hasGlCodes && hasJeiGlCode ? ' LEFT JOIN gl_codes gcJ ON jel.gl_code = gcJ.code' : '';
 
   // Determine revenue via accounts.classification, gl_codes.classification, or GL prefix 4xxx
+  // Build a safe COALESCE list for classification sources without referencing
+  // gcJ when it is not joined (avoids "missing FROM-clause entry for table gcj")
+  const classSources1 = [
+    'a.classification',
+    hasGlCodes ? 'gcA.classification' : null,
+    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
+    `CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
+           THEN 'revenue' ELSE '' END`
+  ].filter(Boolean).join(', ');
+
+  const classSources2 = [
+    'a.classification',
+    hasGlCodes ? 'gcA.classification' : null,
+    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
+    "''"
+  ].filter(Boolean).join(', ');
+
   const revenueClassPredicate = `(
-    LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,
-      CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
-           THEN 'revenue' ELSE '' END
-    )) LIKE 'revenue%'
-    OR LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,'')) LIKE 'income%'
+    LOWER(COALESCE(${classSources1})) LIKE 'revenue%'
+    OR LOWER(COALESCE(${classSources2})) LIKE 'income%'
   )`;
 
   // Join funds to enable entity scoping even if account join doesn't resolve

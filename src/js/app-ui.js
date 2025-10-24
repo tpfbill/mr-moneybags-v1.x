@@ -160,25 +160,36 @@ export function updateDashboardSummaryCards() {
     // Prefer server-side metrics when available
     const m = appState.dashboardMetrics;
     if (m && typeof m === 'object') {
-        summaryCardsContainer.innerHTML = `
-            <div class="card">
-                <div class="card-title">Total Assets</div>
-                <div class="card-value">${formatCurrency(m.assets || 0)}</div>
-            </div>
-            <div class="card">
-                <div class="card-title">Total Liabilities</div>
-                <div class="card-value">${formatCurrency(m.liabilities || 0)}</div>
-            </div>
-            <div class="card">
-                <div class="card-title">Net Assets</div>
-                <div class="card-value">${formatCurrency(m.net_assets || 0)}</div>
-            </div>
-            <div class="card">
-                <div class="card-title">YTD Revenue</div>
-                <div class="card-value">${formatCurrency(m.revenue_ytd || 0)}</div>
-            </div>
-        `;
-        return;
+        // If API reports zero assets but client-side funds indicate a positive total,
+        // prefer the client-side fallback to avoid misleading zeros due to filtering.
+        const relevantFundsForCheck = Array.isArray(getRelevantFunds()) ? getRelevantFunds() : [];
+        const clientTotalAssets = relevantFundsForCheck.reduce(
+            (sum, fund) => sum + parseFloat(fund.balance ?? fund.starting_balance ?? 0),
+            0
+        );
+        const apiAssets = Number(m.assets || 0);
+        if (apiAssets > 0 || clientTotalAssets <= 0) {
+            summaryCardsContainer.innerHTML = `
+                <div class="card">
+                    <div class="card-title">Total Assets</div>
+                    <div class="card-value">${formatCurrency(apiAssets)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Total Liabilities</div>
+                    <div class="card-value">${formatCurrency(m.liabilities || 0)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Net Assets</div>
+                    <div class="card-value">${formatCurrency(m.net_assets || 0)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">YTD Revenue</div>
+                    <div class="card-value">${formatCurrency(m.revenue_ytd || 0)}</div>
+                </div>
+            `;
+            return;
+        }
+        // else: fall through to client-side computation
     }
 
     // Fallback: compute client-side if server metrics unavailable
