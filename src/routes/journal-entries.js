@@ -137,13 +137,11 @@ async function maybeUpdateAccountBalance(db, accountId, delta) {
         if (!signedDelta || isNaN(signedDelta)) return;
 
         const col = hasBalance ? 'balance' : 'current_balance';
-        await db.query(
-            `UPDATE accounts
-                SET ${col} = COALESCE(${col}, 0) + $1,
-                    updated_at = COALESCE(updated_at, NOW())
-              WHERE id = $2`,
-            [signedDelta, accountId]
-        );
+        const hasUpdatedAt = await hasColumn(db, 'accounts', 'updated_at');
+        const sql = hasUpdatedAt
+          ? `UPDATE accounts SET ${col} = COALESCE(${col}, 0) + $1, updated_at = NOW() WHERE id = $2`
+          : `UPDATE accounts SET ${col} = COALESCE(${col}, 0) + $1 WHERE id = $2`;
+        await db.query(sql, [signedDelta, accountId]);
     } catch (_) { /* ignore */ }
 }
 
@@ -157,13 +155,11 @@ async function maybeUpdateFundBalance(db, fundId, delta, accountId = null) {
         }
         if (!signedDelta || isNaN(signedDelta)) return;
 
-        await db.query(
-            `UPDATE funds
-                SET balance = COALESCE(balance, 0) + $1,
-                    updated_at = COALESCE(updated_at, NOW())
-              WHERE id = $2`,
-            [signedDelta, fundId]
-        );
+        const hasUpdatedAt = await hasColumn(db, 'funds', 'updated_at');
+        const sql = hasUpdatedAt
+          ? `UPDATE funds SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`
+          : `UPDATE funds SET balance = COALESCE(balance, 0) + $1 WHERE id = $2`;
+        await db.query(sql, [signedDelta, fundId]);
     } catch (_) { /* ignore */ }
 }
 
