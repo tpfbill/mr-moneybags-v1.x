@@ -162,12 +162,26 @@ router.get('/', asyncHandler(async (req, res) => {
   const gcJJoin = hasGlCodes && hasJeiGlCode ? ' LEFT JOIN gl_codes gcJ ON jel.gl_code = gcJ.code' : '';
 
   // Determine revenue via accounts.classification, gl_codes.classification, or GL prefix 4xxx
+  // Build a safe COALESCE list for classification sources without referencing
+  // gcJ when it is not joined (avoids "missing FROM-clause entry for table gcj")
+  const classSources1 = [
+    'a.classification',
+    hasGlCodes ? 'gcA.classification' : null,
+    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
+    `CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
+           THEN 'revenue' ELSE '' END`
+  ].filter(Boolean).join(', ');
+
+  const classSources2 = [
+    'a.classification',
+    hasGlCodes ? 'gcA.classification' : null,
+    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
+    "''"
+  ].filter(Boolean).join(', ');
+
   const revenueClassPredicate = `(
-    LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,
-      CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
-           THEN 'revenue' ELSE '' END
-    )) LIKE 'revenue%'
-    OR LOWER(COALESCE(a.classification, gcA.classification, gcJ.classification,'')) LIKE 'income%'
+    LOWER(COALESCE(${classSources1})) LIKE 'revenue%'
+    OR LOWER(COALESCE(${classSources2})) LIKE 'income%'
   )`;
 
   // Join funds to enable entity scoping even if account join doesn't resolve
