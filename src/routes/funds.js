@@ -34,6 +34,7 @@ async function hasColumn(db, table, column) {
 async function getJeiCoreCols(db) {
     const candidates = {
         journal_entry_id: ['journal_entry_id', 'entry_id', 'je_id'],
+        account_id: ['account_id', 'gl_account_id', 'acct_id', 'account'],
         fund_id: ['fund_id', 'fund', 'fundid'],
         debit: ['debit', 'debits', 'dr_amount', 'debit_amount', 'dr'],
         credit: ['credit', 'credits', 'cr_amount', 'credit_amount', 'cr']
@@ -48,6 +49,7 @@ async function getJeiCoreCols(db) {
 
     return {
         jeRef: await pick('journal_entry_id') || 'journal_entry_id',
+        accRef: await pick('account_id') || 'account_id',
         fundRef: await pick('fund_id') || 'fund_id',
         debitCol: await pick('debit') || 'debit',
         creditCol: await pick('credit') || 'credit'
@@ -180,10 +182,20 @@ router.get('/', asyncHandler(async (req, res) => {
     if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
     const fundMatchClause = fundMatchParts.join(' OR ');
 
+    // Apply GL line_type rules per account: Asset/Expense (debit-credit), Liability/Equity/Revenue (credit-debit)
+    // Join accounts and gl_codes to get line_type for each line
     const balExpr = `${sbExpr} + COALESCE((
-        SELECT SUM(COALESCE(jel.${jeiCols.debitCol},0) - COALESCE(jel.${jeiCols.creditCol},0))
+        SELECT SUM(
+                 CASE 
+                   WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
+                   WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jeiCols.creditCol}::numeric,0) - COALESCE(jel.${jeiCols.debitCol}::numeric,0)
+                   ELSE COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
+                 END
+               )
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
+          JOIN accounts a2 ON jel.${jeiCols.accRef} = a2.id
+     LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
          WHERE (${fundMatchClause}) ${postFilter}
     ), 0::numeric)`;
 
@@ -241,9 +253,17 @@ router.get('/:id', asyncHandler(async (req, res) => {
     const fundMatchClause = fundMatchParts.join(' OR ');
 
     const balExpr = `${sbExpr} + COALESCE((
-        SELECT SUM(COALESCE(jel.${jeiCols.debitCol},0) - COALESCE(jel.${jeiCols.creditCol},0))
+        SELECT SUM(
+                 CASE 
+                   WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
+                   WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jeiCols.creditCol}::numeric,0) - COALESCE(jel.${jeiCols.debitCol}::numeric,0)
+                   ELSE COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
+                 END
+               )
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
+          JOIN accounts a2 ON jel.${jeiCols.accRef} = a2.id
+     LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
          WHERE (${fundMatchClause}) ${postFilter}
     ), 0::numeric)`;
 
