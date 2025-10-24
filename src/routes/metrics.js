@@ -107,6 +107,10 @@ router.get('/', asyncHandler(async (req, res) => {
   const fundMatchClause = fundMatchParts.join(' OR ');
 
   // Mirror funds.js GL line_type rules when rolling up fund balances for Assets
+  // Use the same Posted filter semantics as funds.js for parity
+  const postFilterAssets = hasStatusCol
+    ? "AND je.status = 'Posted'"
+    : (hasPostedCol ? 'AND je.posted = TRUE' : '');
   let assetsSql = `
     SELECT COALESCE(SUM(${sbExpr} + COALESCE((
       SELECT SUM(
@@ -121,7 +125,7 @@ router.get('/', asyncHandler(async (req, res) => {
         JOIN accounts a2 ON jel.${jei.accRef} = a2.id
    LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
        WHERE (${fundMatchClause})
-         AND ${postCond}
+         ${postFilterAssets}
     ), 0::numeric)), 0::numeric) AS assets
       FROM funds f
      WHERE 1=1
