@@ -161,13 +161,17 @@ export function getRelevantEntityCodes() {
     const selected = appState.entities.find(e => e.id === appState.selectedEntityId);
     if (!selected) return [];
 
+    // Helper to collect both code and name as match keys (to handle datasets where
+    // funds/accounts use entity_name while entities table stores numeric codes)
+    const collectKeys = (e) => [e.code, e.name].filter(Boolean);
+
     if (!appState.isConsolidatedView || !selected.is_consolidated) {
-        return [selected.code].filter(Boolean);
+        return collectKeys(selected);
     }
 
-    const childCodes = appState.entities
+    const childKeys = appState.entities
         .filter(e => e.parent_entity_id === selected.id)
-        .map(e => e.code)
+        .flatMap(collectKeys)
         .filter(Boolean);
-    return [selected.code, ...childCodes].filter(Boolean);
+    return [...collectKeys(selected), ...childKeys].filter(Boolean);
 }
