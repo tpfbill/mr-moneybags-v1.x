@@ -82,13 +82,89 @@ async function getAccountFundSelectFragments(db) {
     return { accCodeExpr, accDescExpr, fundNameExpr, fundCodeExpr };
 }
 
-// Helpers: safely bump balances only if columns exist
-async function maybeUpdateAccountBalance(db, accountId, delta) {
-    return;
+// Helpers: safely bump balances only if columns exist, applying GL line_type rules
+// Spreadsheet rules (normalized):
+// - Asset, Expense  => Debit increases (+), Credit decreases (-)
+// - Liability, Equity, Revenue => Debit decreases (-), Credit increases (+)
+// Our callers pass delta as: +amount for debit lines, -amount for credit lines.
+// We therefore transform delta by line_type so stored balances reflect the rule above.
+
+async function getLineTypeByAccountId(db, accountId) {
+    try {
+        const { rows } = await db.query(
+            `SELECT COALESCE(gc.line_type, a.classification) AS line_type
+               FROM accounts a
+          LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a.gl_code)
+              WHERE a.id = $1
+              LIMIT 1`,
+            [accountId]
+        );
+        return rows[0]?.line_type || null;
+    } catch (_) {
+        return null;
+    }
 }
 
-async function maybeUpdateFundBalance(db, fundId, delta) {
-    return;
+function normalizeLineType(t) {
+    const s = (t || '').toString().trim().toLowerCase();
+    if (!s) return null;
+    if (s.startsWith('asset')) return 'Asset';
+    if (s.startsWith('liab') || s.includes('credit card')) return 'Liability';
+    if (s.startsWith('equity') || s.includes('net asset')) return 'Equity';
+    if (s.startsWith('rev')) return 'Revenue';
+    if (s.startsWith('exp')) return 'Expense';
+    return null;
+}
+
+function applyLineTypeToDelta(lineType, delta) {
+    const lt = normalizeLineType(lineType);
+    if (!lt) return delta; // fallback: keep incoming semantics
+    // Asset/Expense keep sign (debit +, credit -)
+    if (lt === 'Asset' || lt === 'Expense') return delta;
+    // Liability/Equity/Revenue invert sign
+    return -delta;
+}
+
+async function maybeUpdateAccountBalance(db, accountId, delta) {
+    try {
+        // Determine destination column (schema-aware)
+        const hasBalance = await hasColumn(db, 'accounts', 'balance');
+        const hasCurrent = await hasColumn(db, 'accounts', 'current_balance');
+        if (!hasBalance && !hasCurrent) return; // no-op on this schema
+
+        const lineType = await getLineTypeByAccountId(db, accountId);
+        const signedDelta = applyLineTypeToDelta(lineType, Number(delta || 0));
+        if (!signedDelta || isNaN(signedDelta)) return;
+
+        const col = hasBalance ? 'balance' : 'current_balance';
+        await db.query(
+            `UPDATE accounts
+                SET ${col} = COALESCE(${col}, 0) + $1,
+                    updated_at = COALESCE(updated_at, NOW())
+              WHERE id = $2`,
+            [signedDelta, accountId]
+        );
+    } catch (_) { /* ignore */ }
+}
+
+async function maybeUpdateFundBalance(db, fundId, delta, accountId = null) {
+    try {
+        if (!await hasColumn(db, 'funds', 'balance')) return;
+        let signedDelta = Number(delta || 0);
+        if (accountId) {
+            const lineType = await getLineTypeByAccountId(db, accountId);
+            signedDelta = applyLineTypeToDelta(lineType, signedDelta);
+        }
+        if (!signedDelta || isNaN(signedDelta)) return;
+
+        await db.query(
+            `UPDATE funds
+                SET balance = COALESCE(balance, 0) + $1,
+                    updated_at = COALESCE(updated_at, NOW())
+              WHERE id = $2`,
+            [signedDelta, fundId]
+        );
+    } catch (_) { /* ignore */ }
 }
 
 // Helper to choose best entity display label
@@ -511,11 +587,11 @@ router.post('/', asyncHandler(async (req, res) => {
                 // Update balances (schema-aware)
                 if (line.debit && line.debit > 0) {
                     await maybeUpdateAccountBalance(client, line.account_id, line.debit);
-                    await maybeUpdateFundBalance(client, line.fund_id, line.debit);
+                    await maybeUpdateFundBalance(client, line.fund_id, line.debit, line.account_id);
                 }
                 if (line.credit && line.credit > 0) {
                     await maybeUpdateAccountBalance(client, line.account_id, -line.credit);
-                    await maybeUpdateFundBalance(client, line.fund_id, -line.credit);
+                    await maybeUpdateFundBalance(client, line.fund_id, -line.credit, line.account_id);
                 }
             }
         }
@@ -708,11 +784,11 @@ router.delete('/:id/items', asyncHandler(async (req, res) => {
         for (const line of existing) {
             if (line.debit && line.debit > 0) {
                 await maybeUpdateAccountBalance(client, line.account_id, -line.debit);
-                await maybeUpdateFundBalance(client, line.fund_id, -line.debit);
+                await maybeUpdateFundBalance(client, line.fund_id, -line.debit, line.account_id);
             }
             if (line.credit && line.credit > 0) {
                 await maybeUpdateAccountBalance(client, line.account_id, line.credit);
-                await maybeUpdateFundBalance(client, line.fund_id, line.credit);
+                await maybeUpdateFundBalance(client, line.fund_id, line.credit, line.account_id);
             }
         }
 
@@ -802,11 +878,11 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
 
             if (line.debit && line.debit > 0) {
                 await maybeUpdateAccountBalance(client, line.account_id, line.debit);
-                await maybeUpdateFundBalance(client, line.fund_id, line.debit);
+                await maybeUpdateFundBalance(client, line.fund_id, line.debit, line.account_id);
             }
             if (line.credit && line.credit > 0) {
                 await maybeUpdateAccountBalance(client, line.account_id, -line.credit);
-                await maybeUpdateFundBalance(client, line.fund_id, -line.credit);
+                await maybeUpdateFundBalance(client, line.fund_id, -line.credit, line.account_id);
             }
         }
 
