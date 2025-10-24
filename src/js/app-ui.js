@@ -253,11 +253,10 @@ export function updateDashboardFundBalances() {
     // Get relevant funds based on selected entity and consolidated view
     const relevantFunds = Array.isArray(getRelevantFunds()) ? [...getRelevantFunds()] : [];
     
-    // Sort funds by balance (descending) with fallback to starting_balance
-    relevantFunds.sort(
-        (a, b) =>
-            parseFloat(b.balance ?? b.starting_balance ?? 0) -
-            parseFloat(a.balance ?? a.starting_balance ?? 0)
+    // Sort funds by fund_number (natural order, handles numeric strings)
+    relevantFunds.sort((a, b) =>
+        String(a.fund_number ?? '')
+            .localeCompare(String(b.fund_number ?? ''), undefined, { numeric: true, sensitivity: 'base' })
     );
     
     // Calculate total for percentage (balance fallback)
@@ -273,7 +272,7 @@ export function updateDashboardFundBalances() {
     if (relevantFunds.length === 0) {
         fundBalancesTbody.innerHTML = `
             <tr>
-                <td colspan="4" class="text-center">No funds found for the selected entity</td>
+                <td colspan="5" class="text-center">No funds found for the selected entity</td>
             </tr>
         `;
         return;
@@ -291,6 +290,7 @@ export function updateDashboardFundBalances() {
         
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td>${fund.fund_number || '—'}</td>
             <td>${fund.fund_name || fund.name || '—'}${
                 appState.isConsolidatedView ? ` (${fallbackEntityName})` : ''
             }</td>
