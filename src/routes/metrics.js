@@ -76,6 +76,22 @@ router.get('/', asyncHandler(async (req, res) => {
 
   // Canonicalized versions for robust, case/format-insensitive matching
   const canon = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  // If entity_id filters are provided, resolve them to entity codes as well
+  if (entityIds.length) {
+    try {
+      const { rows: entRows } = await pool.query(
+        'SELECT code FROM entities WHERE id = ANY($1::uuid[])',
+        [entityIds]
+      );
+      entRows.forEach(r => {
+        const c = (r?.code || '').trim();
+        if (c) entityCodes.push(c);
+      });
+    } catch (_) {
+      // ignore lookup errors; fallback to whatever codes were supplied
+    }
+  }
+
   const entityCodesCanon = entityCodes.map(canon);
 
   // Funds balance expression mirrors src/routes/funds.js, summed for assets
@@ -90,16 +106,25 @@ router.get('/', asyncHandler(async (req, res) => {
   if (hasFundCode)   fundMatchParts.push(`(jel.${jei.fundRef}::text = f.fund_code::text)`);
   const fundMatchClause = fundMatchParts.join(' OR ');
 
+  // Mirror funds.js GL line_type rules when rolling up fund balances for Assets
   let assetsSql = `
     SELECT COALESCE(SUM(${sbExpr} + COALESCE((
-      SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
+      SELECT SUM(
+               CASE 
+                 WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
+                 WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jei.creditCol}::numeric,0) - COALESCE(jel.${jei.debitCol}::numeric,0)
+                 ELSE COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
+               END
+             )
         FROM journal_entry_items jel
         JOIN journal_entries je ON jel.${jei.jeRef} = je.id
+        JOIN accounts a2 ON jel.${jei.accRef} = a2.id
+   LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
        WHERE (${fundMatchClause})
          AND ${postCond}
     ), 0::numeric)), 0::numeric) AS assets
-    FROM funds f
-    WHERE 1=1
+      FROM funds f
+     WHERE 1=1
   `;
   const assetsParams = [];
   if (entityCodes.length) {
