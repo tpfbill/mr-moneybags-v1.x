@@ -475,10 +475,12 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                            WHERE lower(entity_code)=lower($1) AND lower(gl_code)=lower($2) AND fund_number=$3`;
                 p.push(entityCode, glCode, fundNumber);
                 if (preferRestriction) {
-                    sql += ' ORDER BY (lower(restriction)=lower($4)) DESC, updated_at DESC NULLS LAST';
+                    // Order by exact restriction match first, then by id as a stable fallback
+                    sql += ' ORDER BY (lower(restriction)=lower($4)) DESC, id DESC';
                     p.push(preferRestriction);
                 } else {
-                    sql += ' ORDER BY updated_at DESC NULLS LAST';
+                    // Stable fallback ordering without relying on non-existent columns
+                    sql += ' ORDER BY id DESC';
                 }
                 const r = await client.query(sql, p);
                 return r.rows[0]?.id || null;
@@ -490,10 +492,11 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                            WHERE lower(entity_code)=lower($1) AND fund_number=$2`;
                 p.push(entityCode, fundNumber);
                 if (preferRestriction) {
-                    sql += ' ORDER BY (lower(restriction)=lower($3)) DESC, last_used DESC NULLS LAST';
+                    // Prefer exact restriction match, then fallback to id order
+                    sql += ' ORDER BY (lower(restriction)=lower($3)) DESC, id DESC';
                     p.push(preferRestriction);
                 } else {
-                    sql += ' ORDER BY last_used DESC NULLS LAST';
+                    sql += ' ORDER BY id DESC';
                 }
                 const r = await client.query(sql, p);
                 return r.rows[0]?.id || null;
