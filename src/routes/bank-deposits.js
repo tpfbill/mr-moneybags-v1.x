@@ -461,78 +461,162 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                 log.push({ line: it.line, status: 'OK', message: `Added item $${disp}` });
             }
 
-            // Determine JE owning entity from first digit of Account No
-            let jeEntityId = entity_id; // fallback to bank account's entity
-            if (entityDigitFreq.size > 0) {
-                const sorted = [...entityDigitFreq.entries()].sort((a, b) => b[1] - a[1]);
-                const topDigit = sorted[0][0];
-                const entRes = await client.query(
-                    'SELECT id FROM entities WHERE code = $1 LIMIT 1',
-                    [topDigit]
-                );
-                if (entRes.rows[0]?.id) jeEntityId = entRes.rows[0].id;
+            // -----------------------------------------------------------------
+            // New posting logic: create three JEs per reference (JE1, JE2, JE3)
+            // All JEs are owned by the BANK's entity (per user instruction)
+            // Restrictions do not need to match for 1008/1099/bank-side lines
+            // -----------------------------------------------------------------
+
+            // Helpers to find account/fund by components
+            async function findAccountByGLAndFund(entityCode, glCode, fundNumber, preferRestriction) {
+                // Try to get exact match on restriction first when provided
+                const p = [];
+                let sql = `SELECT id, restriction FROM accounts 
+                           WHERE lower(entity_code)=lower($1) AND lower(gl_code)=lower($2) AND fund_number=$3`;
+                p.push(entityCode, glCode, fundNumber);
+                if (preferRestriction) {
+                    sql += ' ORDER BY (lower(restriction)=lower($4)) DESC, updated_at DESC NULLS LAST';
+                    p.push(preferRestriction);
+                } else {
+                    sql += ' ORDER BY updated_at DESC NULLS LAST';
+                }
+                const r = await client.query(sql, p);
+                return r.rows[0]?.id || null;
             }
 
-            // Create Journal Entry (Posted, Auto)
-            const jeDesc = `Auto deposit ${ref} for bank account ${bankName}`;
-            const totalRounded = round2(validItems.reduce((s, v) => s + v.amt, 0));
-            const jeRes = await client.query(
+            async function findFundId(entityCode, fundNumber, preferRestriction) {
+                const p = [];
+                let sql = `SELECT id, restriction FROM funds 
+                           WHERE lower(entity_code)=lower($1) AND fund_number=$2`;
+                p.push(entityCode, fundNumber);
+                if (preferRestriction) {
+                    sql += ' ORDER BY (lower(restriction)=lower($3)) DESC, last_used DESC NULLS LAST';
+                    p.push(preferRestriction);
+                } else {
+                    sql += ' ORDER BY last_used DESC NULLS LAST';
+                }
+                const r = await client.query(sql, p);
+                return r.rows[0]?.id || null;
+            }
+
+            // Resolve bank cash account's entity_code and fund_number
+            const bankCashAcc = await client.query(
+                'SELECT id, entity_code, fund_number FROM accounts WHERE id = $1',
+                [cash_account_id]
+            );
+            const bank_entity_code = bankCashAcc.rows[0]?.entity_code;
+            const bank_fund_number = bankCashAcc.rows[0]?.fund_number;
+            if (!bank_entity_code || !bank_fund_number) {
+                throw new Error('Bank cash account missing entity_code or fund_number');
+            }
+            const bank_fund_id = await findFundId(bank_entity_code, bank_fund_number, null);
+            if (!bank_fund_id) {
+                throw new Error('Bank fund not found for cash account');
+            }
+
+            const totalAll = round2(validItems.reduce((s, v) => s + v.amt, 0));
+
+            // JE1: Debit 1099 per item; Credit the item account per item
+            const je1 = await client.query(
                 `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, entry_type, status, total_amount, created_by, entry_mode)
-                 VALUES ($1,$2,$3,$4,'Revenue','Posted',$5,$6,'Auto') RETURNING id`,
-                [
-                    jeEntityId,
-                    ymd,
-                    ref,
-                    jeDesc,
-                    totalRounded,
-                    req.user?.id
-                ]
+                 VALUES ($1,$2,$3,$4,'Deposit','Posted',$5,$6,'Auto') RETURNING id`,
+                [entity_id, ymd, `${ref}-JE1`, `Deposit JE1 ${ref} – Undeposited Funds and item credits`, totalAll, req.user?.id]
             );
-            const journal_entry_id = jeRes.rows[0].id;
-
-            // Cash side per fund (rounded to cents) with sign handling; skip zero
-            for (const [fund_id, amt] of fundTotals.entries()) {
-                const n = round2(amt);
-                if (n > 0) {
-                    await client.query(
-                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
-                         VALUES ($1,$2,$3,$4,$5,0)`,
-                        [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash`, n]
-                    );
-                } else if (n < 0) {
-                    await client.query(
-                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
-                         VALUES ($1,$2,$3,$4,0,$5)`,
-                        [journal_entry_id, cash_account_id, fund_id, `Deposit ${ref} cash reversal`, Math.abs(n)]
-                    );
-                }
-                // if n == 0, skip
-            }
-
-            // Revenue side per item (rounded to cents) with reversals; skip zero
+            const je1Id = je1.rows[0].id;
             for (const it of validItems) {
+                const undepId = await findAccountByGLAndFund(it.account_entity_code, '1099', it.fund_number, it.restriction || null);
+                if (!undepId) {
+                    throw new Error(`Undeposited Funds (1099) account not found for ${it.account_entity_code}-${it.fund_number}`);
+                }
                 const a = round2(it.amt);
-                if (a > 0) {
-                    await client.query(
-                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
-                         VALUES ($1,$2,$3,$4,0,$5)`,
-                        [journal_entry_id, it.account_id, it.fund_id, it.desc || `Deposit ${ref}`, a]
-                    );
-                } else if (a < 0) {
+                if (a !== 0) {
+                    // Debit 1099
                     await client.query(
                         `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
                          VALUES ($1,$2,$3,$4,$5,0)`,
-                        [journal_entry_id, it.account_id, it.fund_id, (it.desc ? `${it.desc} reversal` : `Deposit ${ref} reversal`), Math.abs(a)]
+                        [je1Id, undepId, it.fund_id, it.desc || `Deposit ${ref} – to Undeposited Funds`, Math.abs(a)]
+                    );
+                    // Credit original item account
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,0,$5)`,
+                        [je1Id, it.account_id, it.fund_id, it.desc || `Deposit ${ref} – item credit`, Math.abs(a)]
                     );
                 }
-                // if a == 0, skip
             }
 
-            // Link deposit items to the JE
-            await client.query(
-                `UPDATE bank_deposit_items SET journal_entry_id = $1 WHERE deposit_id = $2`,
-                [journal_entry_id, deposit_id]
+            // JE2: Cross-fund transfers via 1008 when item fund != bank fund
+            const crossItems = validItems.filter(it => String(it.fund_number) !== String(bank_fund_number));
+            if (crossItems.length > 0) {
+                const crossTotal = round2(crossItems.reduce((s, v) => s + v.amt, 0));
+                const je2 = await client.query(
+                    `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, entry_type, status, total_amount, created_by, entry_mode)
+                     VALUES ($1,$2,$3,$4,'Deposit','Posted',$5,$6,'Auto') RETURNING id`,
+                    [entity_id, ymd, `${ref}-JE2`, `Deposit JE2 ${ref} – Cross-fund 1008 balancing`, crossTotal, req.user?.id]
+                );
+                const je2Id = je2.rows[0].id;
+                // Debits per item fund
+                for (const it of crossItems) {
+                    const acc1008 = await findAccountByGLAndFund(it.account_entity_code, '1008', it.fund_number, it.restriction || null);
+                    if (!acc1008) {
+                        throw new Error(`Account 1008 not found for ${it.account_entity_code}-${it.fund_number}`);
+                    }
+                    const a = round2(it.amt);
+                    if (a !== 0) {
+                        await client.query(
+                            `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                             VALUES ($1,$2,$3,$4,$5,0)`,
+                            [je2Id, acc1008, it.fund_id, `Cross-fund ${ref} – 1008 debit`, Math.abs(a)]
+                        );
+                    }
+                }
+                // Credit bank 1008 with sum of debits
+                const bank1008 = await findAccountByGLAndFund(bank_entity_code, '1008', bank_fund_number, null);
+                if (!bank1008) {
+                    throw new Error(`Bank 1008 not found for ${bank_entity_code}-${bank_fund_number}`);
+                }
+                if (Math.abs(crossTotal) > 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,0,$5)`,
+                        [je2Id, bank1008, bank_fund_id, `Cross-fund ${ref} – 1008 credit total`, Math.abs(crossTotal)]
+                    );
+                }
+            }
+
+            // JE3: Debit bank cash for total; Credit 1099 per item
+            const je3 = await client.query(
+                `INSERT INTO journal_entries (entity_id, entry_date, reference_number, description, entry_type, status, total_amount, created_by, entry_mode)
+                 VALUES ($1,$2,$3,$4,'Deposit','Posted',$5,$6,'Auto') RETURNING id`,
+                [entity_id, ymd, `${ref}-JE3`, `Deposit JE3 ${ref} – Move from Undeposited Funds to bank`, totalAll, req.user?.id]
             );
+            const je3Id = je3.rows[0].id;
+            // Debit bank cash for the total
+            if (Math.abs(totalAll) > 0) {
+                await client.query(
+                    `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                     VALUES ($1,$2,$3,$4,$5,0)`,
+                    [je3Id, cash_account_id, bank_fund_id, `Deposit ${ref} – bank cash`, Math.abs(totalAll)]
+                );
+            }
+            // Credit 1099 per item
+            for (const it of validItems) {
+                const undepId = await findAccountByGLAndFund(it.account_entity_code, '1099', it.fund_number, it.restriction || null);
+                if (!undepId) {
+                    throw new Error(`Undeposited Funds (1099) account not found for ${it.account_entity_code}-${it.fund_number}`);
+                }
+                const a = round2(it.amt);
+                if (a !== 0) {
+                    await client.query(
+                        `INSERT INTO journal_entry_items (journal_entry_id, account_id, fund_id, description, debit, credit)
+                         VALUES ($1,$2,$3,$4,0,$5)`,
+                        [je3Id, undepId, it.fund_id, `Deposit ${ref} – from Undeposited Funds`, Math.abs(a)]
+                    );
+                }
+            }
+
+            // Link deposit items to JE3 (the bank deposit JE)
+            await client.query(`UPDATE bank_deposit_items SET journal_entry_id = $1 WHERE deposit_id = $2`, [je3Id, deposit_id]);
         }
 
         await client.query('COMMIT');
