@@ -427,7 +427,15 @@ router.post('/batched/import', upload.single('file'), asyncHandler(async (req, r
                     continue;
                 }
 
-                validItems.push({ ...it, account_id, fund_id, account_entity_code: entity_code });
+                // Carry forward fund_number and restriction for downstream 1099/1008 lookups
+                validItems.push({ 
+                    ...it, 
+                    account_id, 
+                    fund_id, 
+                    account_entity_code: entity_code,
+                    fund_number,
+                    restriction
+                });
                 fundTotals.set(fund_id, (fundTotals.get(fund_id) || 0) + it.amt);
                 // Tally entity digit (from Account No) by absolute amount to choose JE owning entity
                 const digit = it.entityDigit || ((entity_code || '').toString().replace(/[^0-9]/g, '').charAt(0) || null);
