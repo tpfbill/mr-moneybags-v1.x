@@ -234,8 +234,9 @@ router.get('/', asyncHandler(async (req, res) => {
     const jelEntityFromAcctCode = hasJeiAccountCode
       ? "regexp_replace(lower(jel.account_code), '[^a-z0-9]', '', 'g')"
       : "NULL";
-    // Prefer textual identifiers: accounts.entity_code or funds.entity_name
-    const entityScopeExpr = `regexp_replace(lower(COALESCE(a.entity_code, f.entity_name, f.entity_code)), '[^a-z0-9]', '', 'g')`;
+    // Prefer funds' entity identifiers first for consolidated scoping,
+    // then fall back to accounts.entity_code
+    const entityScopeExpr = `regexp_replace(lower(COALESCE(f.entity_code, f.entity_name, a.entity_code)), '[^a-z0-9]', '', 'g')`;
     revenueSql += ` AND COALESCE(${entityScopeExpr}, ${jelEntityFromAcctCode}) = ANY($${revenueParams.length + 1})`;
     revenueParams.push(entityCodesCanon);
   }
