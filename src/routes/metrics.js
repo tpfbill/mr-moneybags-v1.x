@@ -194,18 +194,18 @@ router.get('/', asyncHandler(async (req, res) => {
   // Build a safe COALESCE list for classification sources without referencing
   // gcJ when it is not joined (avoids "missing FROM-clause entry for table gcj")
   const classSources1 = [
-    'a.classification',
-    hasGlCodes ? 'gcA.classification' : null,
-    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
+    "NULLIF(a.classification,'')",
+    hasGlCodes ? 'gcA.line_type' : null,
+    hasGlCodes && hasJeiGlCode ? 'gcJ.line_type' : null,
     `CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
-           THEN 'revenue' ELSE '' END`
+           THEN 'revenue' ELSE NULL END`
   ].filter(Boolean).join(', ');
 
   const classSources2 = [
-    'a.classification',
-    hasGlCodes ? 'gcA.classification' : null,
-    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
-    "''"
+    "NULLIF(a.classification,'')",
+    hasGlCodes ? 'gcA.line_type' : null,
+    hasGlCodes && hasJeiGlCode ? 'gcJ.line_type' : null,
+    'NULL'
   ].filter(Boolean).join(', ');
 
   const revenueClassPredicate = `(
