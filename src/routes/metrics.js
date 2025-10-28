@@ -190,28 +190,13 @@ router.get('/', asyncHandler(async (req, res) => {
   const gcAJoin = hasGlCodes ? ' LEFT JOIN gl_codes gcA ON a.gl_code = gcA.code' : '';
   const gcJJoin = hasGlCodes && hasJeiGlCode ? ' LEFT JOIN gl_codes gcJ ON jel.gl_code = gcJ.code' : '';
 
-  // Determine revenue via accounts.classification, gl_codes.classification, or GL prefix 4xxx
-  // Build a safe COALESCE list for classification sources without referencing
-  // gcJ when it is not joined (avoids "missing FROM-clause entry for table gcj")
-  const classSources1 = [
-    'a.classification',
-    hasGlCodes ? 'gcA.classification' : null,
-    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
-    `CASE WHEN COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'
-           THEN 'revenue' ELSE '' END`
-  ].filter(Boolean).join(', ');
-
-  const classSources2 = [
-    'a.classification',
-    hasGlCodes ? 'gcA.classification' : null,
-    hasGlCodes && hasJeiGlCode ? 'gcJ.classification' : null,
-    "''"
-  ].filter(Boolean).join(', ');
-
-  const revenueClassPredicate = `(
-    LOWER(COALESCE(${classSources1})) LIKE 'revenue%'
-    OR LOWER(COALESCE(${classSources2})) LIKE 'income%'
-  )`;
+  // Determine revenue primarily via gl_codes.line_type = 'Revenue',
+  // with a fallback: GL code prefix 4xxx counts as revenue.
+  const revenueParts = [];
+  if (hasGlCodes) revenueParts.push("LOWER(gcA.line_type) = 'revenue'");
+  if (hasGlCodes && hasJeiGlCode) revenueParts.push("LOWER(gcJ.line_type) = 'revenue'");
+  revenueParts.push(`COALESCE(a.gl_code, ${hasJeiGlCode ? 'jel.gl_code' : "NULL::text"}) LIKE '4%'`);
+  const revenueClassPredicate = `(${revenueParts.join(' OR ')})`;
 
   // Join funds to enable entity scoping even if account join doesn't resolve
   const revenueFundsJoin = ` LEFT JOIN funds f ON (${fundMatchClause})`;
@@ -234,8 +219,9 @@ router.get('/', asyncHandler(async (req, res) => {
     const jelEntityFromAcctCode = hasJeiAccountCode
       ? "regexp_replace(lower(jel.account_code), '[^a-z0-9]', '', 'g')"
       : "NULL";
-    // Prefer textual identifiers: accounts.entity_code or funds.entity_name
-    const entityScopeExpr = `regexp_replace(lower(COALESCE(a.entity_code, f.entity_name, f.entity_code)), '[^a-z0-9]', '', 'g')`;
+    // Prefer funds' entity identifiers first for consolidated scoping,
+    // then fall back to accounts.entity_code
+    const entityScopeExpr = `regexp_replace(lower(COALESCE(f.entity_code, f.entity_name, a.entity_code)), '[^a-z0-9]', '', 'g')`;
     revenueSql += ` AND COALESCE(${entityScopeExpr}, ${jelEntityFromAcctCode}) = ANY($${revenueParams.length + 1})`;
     revenueParams.push(entityCodesCanon);
   }
