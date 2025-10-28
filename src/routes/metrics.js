@@ -217,7 +217,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const revenueFundsJoin = ` LEFT JOIN funds f ON (${fundMatchClause})`;
 
   let revenueSql = `
-    SELECT COALESCE(SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)), 0::numeric) AS revenue_ytd
+    SELECT COALESCE(SUM(COALESCE(jel.${jei.creditCol}::numeric,0) - COALESCE(jel.${jei.debitCol}::numeric,0)), 0::numeric) AS revenue_ytd
       FROM journal_entry_items jel
       JOIN journal_entries je ON jel.${jei.jeRef} = je.id
       LEFT JOIN accounts a ON (${accMatchClause})
