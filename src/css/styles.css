@@ -732,6 +732,14 @@ textarea.form-input:focus {
     max-width: 260px;
 }
 
+/* Allow Description column to wrap within its fixed width */
+.wide-table th:nth-child(2),
+.wide-table td:nth-child(2) {
+    white-space: normal;          /* enable wrapping */
+    overflow-wrap: anywhere;      /* break long words/strings */
+    word-break: break-word;       /* legacy support */
+}
+
 /* Ensure sticky header cells of first two columns appear above table body */
 .wide-table thead th:nth-child(1),
 .wide-table thead th:nth-child(2) {
