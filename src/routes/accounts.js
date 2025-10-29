@@ -154,9 +154,8 @@ router.get('/', asyncHandler(async (req, res) => {
     postedFilter = `(je.posted = TRUE)`;
   }
 
-  // Compute balance using GL line_type rules from gl_codes:
-  // Asset/Expense: debit - credit; Liability/Equity/Revenue: credit - debit
-  // Fallback to debit - credit when line_type missing
+  // Compute balance uniformly for all line types:
+  // DEBITs ADD, CREDITs SUBTRACT
   let query = `
     SELECT 
       a.id,
@@ -175,16 +174,11 @@ router.get('/', asyncHandler(async (req, res) => {
       COALESCE(a.beginning_balance, 0) + COALESCE(
         (
           SELECT SUM(
-            CASE 
-              WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
-              WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jei.creditCol}::numeric,0) - COALESCE(jel.${jei.debitCol}::numeric,0)
-              ELSE COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
-            END
+            COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
           )
           FROM journal_entry_items jel
           JOIN journal_entries je ON ${jeRefCols && jeRefCols.length ? '(' + jeRefCols.map(c => `jel.${c} = je.id`).join(' OR ') + ')' : `jel.${jei.jeRef} = je.id`}
           JOIN accounts a2 ON jel.${(accRefCols[0] || jei.accRef)}::text = a2.id::text
-          LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
           WHERE a2.id = a.id
             AND ${postedFilter}
         ), 0
