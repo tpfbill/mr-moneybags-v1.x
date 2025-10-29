@@ -182,20 +182,15 @@ router.get('/', asyncHandler(async (req, res) => {
     if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
     const fundMatchClause = fundMatchParts.join(' OR ');
 
-    // Apply GL line_type rules per account: Asset/Expense (debit-credit), Liability/Equity/Revenue (credit-debit)
-    // Join accounts and gl_codes to get line_type for each line
+    // Compute balance uniformly for all line types:
+    // DEBITs ADD, CREDITs SUBTRACT
     const balExpr = `${sbExpr} + COALESCE((
         SELECT SUM(
-                 CASE 
-                   WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
-                   WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jeiCols.creditCol}::numeric,0) - COALESCE(jel.${jeiCols.debitCol}::numeric,0)
-                   ELSE COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
-                 END
+                 COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
                )
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
           JOIN accounts a2 ON jel.${jeiCols.accRef} = a2.id
-     LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
          WHERE (${fundMatchClause}) ${postFilter}
     ), 0::numeric)`;
 
@@ -254,16 +249,11 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
     const balExpr = `${sbExpr} + COALESCE((
         SELECT SUM(
-                 CASE 
-                   WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
-                   WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jeiCols.creditCol}::numeric,0) - COALESCE(jel.${jeiCols.debitCol}::numeric,0)
-                   ELSE COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
-                 END
+                 COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
                )
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
           JOIN accounts a2 ON jel.${jeiCols.accRef} = a2.id
-     LEFT JOIN gl_codes gc ON LOWER(gc.code) = LOWER(a2.gl_code)
          WHERE (${fundMatchClause}) ${postFilter}
     ), 0::numeric)`;
 
