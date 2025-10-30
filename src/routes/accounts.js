@@ -5,6 +5,7 @@ const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
+const rules = require('../rules/engine');
 
 // Multer – in-memory storage for CSV uploads
 const upload = multer({ storage: multer.memoryStorage() });
@@ -154,8 +155,11 @@ router.get('/', asyncHandler(async (req, res) => {
     postedFilter = `(je.posted = TRUE)`;
   }
 
-  // Compute balance uniformly for all line types:
-  // DEBITs ADD, CREDITs SUBTRACT
+  // Compute balance via central rules engine (uniform debit-credit delta)
+  const deltaExpr = await rules.sql.delta(
+    `COALESCE(jel.${jei.debitCol}::numeric,0)`,
+    `COALESCE(jel.${jei.creditCol}::numeric,0)`
+  );
   let query = `
     SELECT 
       a.id,
@@ -171,18 +175,16 @@ router.get('/', asyncHandler(async (req, res) => {
       a.beginning_balance,
       a.beginning_balance_date,
       a.last_used,
-      COALESCE(a.beginning_balance, 0) + COALESCE(
-        (
+      COALESCE(a.beginning_balance, 0) + COALESCE((
           SELECT SUM(
-            COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
+            ${deltaExpr}
           )
-          FROM journal_entry_items jel
-          JOIN journal_entries je ON ${jeRefCols && jeRefCols.length ? '(' + jeRefCols.map(c => `jel.${c} = je.id`).join(' OR ') + ')' : `jel.${jei.jeRef} = je.id`}
-          JOIN accounts a2 ON jel.${(accRefCols[0] || jei.accRef)}::text = a2.id::text
-          WHERE a2.id = a.id
-            AND ${postedFilter}
-        ), 0
-      ) AS current_balance
+            FROM journal_entry_items jel
+            JOIN journal_entries je ON ${jeRefCols && jeRefCols.length ? '(' + jeRefCols.map(c => `jel.${c} = je.id`).join(' OR ') + ')' : `jel.${jei.jeRef} = je.id`}
+            JOIN accounts a2 ON jel.${(accRefCols[0] || jei.accRef)}::text = a2.id::text
+           WHERE a2.id = a.id
+             AND ${postedFilter}
+      ), 0) AS current_balance
     FROM accounts a 
     WHERE 1=1
   `;

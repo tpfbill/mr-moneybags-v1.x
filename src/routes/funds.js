@@ -5,6 +5,7 @@ const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
+const rules = require('../rules/engine');
 
 // ---------------------------------------------------------------------------
 // Multer – in-memory storage for CSV uploads
@@ -182,12 +183,13 @@ router.get('/', asyncHandler(async (req, res) => {
     if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
     const fundMatchClause = fundMatchParts.join(' OR ');
 
-    // Compute balance uniformly for all line types:
-    // DEBITs ADD, CREDITs SUBTRACT
+    // Compute balance via central rules engine (uniform delta)
+    const deltaExpr = await rules.sql.delta(
+      `COALESCE(jel.${jeiCols.debitCol}::numeric,0)`,
+      `COALESCE(jel.${jeiCols.creditCol}::numeric,0)`
+    );
     const balExpr = `${sbExpr} + COALESCE((
-        SELECT SUM(
-                 COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
-               )
+        SELECT SUM( ${deltaExpr} )
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
           JOIN accounts a2 ON jel.${jeiCols.accRef} = a2.id
@@ -247,10 +249,12 @@ router.get('/:id', asyncHandler(async (req, res) => {
     if (hasFundCode) fundMatchParts.push(`(jel.${jeiCols.fundRef}::text = f.fund_code::text)`);
     const fundMatchClause = fundMatchParts.join(' OR ');
 
+    const deltaExpr2 = await rules.sql.delta(
+      `COALESCE(jel.${jeiCols.debitCol}::numeric,0)`,
+      `COALESCE(jel.${jeiCols.creditCol}::numeric,0)`
+    );
     const balExpr = `${sbExpr} + COALESCE((
-        SELECT SUM(
-                 COALESCE(jel.${jeiCols.debitCol}::numeric,0) - COALESCE(jel.${jeiCols.creditCol}::numeric,0)
-               )
+        SELECT SUM( ${deltaExpr2} )
           FROM journal_entry_items jel
           JOIN journal_entries je ON jel.${jeiCols.jeRef} = je.id
           JOIN accounts a2 ON jel.${jeiCols.accRef} = a2.id
