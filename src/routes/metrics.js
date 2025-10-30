@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
+const rules = require('../rules/engine');
 
 // Helpers
 async function hasColumn(db, tableName, colName) {
@@ -106,19 +107,19 @@ router.get('/', asyncHandler(async (req, res) => {
   if (hasFundCode)   fundMatchParts.push(`(jel.${jei.fundRef}::text = f.fund_code::text)`);
   const fundMatchClause = fundMatchParts.join(' OR ');
 
-  // Mirror funds.js GL line_type rules when rolling up fund balances for Assets
-  // Use the same Posted filter semantics as funds.js for parity
+  // Use central delta rules (uniform debit-credit) when rolling up Assets
+  // and the same Posted filter semantics as funds.js for parity
   const postFilterAssets = hasStatusCol
     ? "AND je.status = 'Posted'"
     : (hasPostedCol ? 'AND je.posted = TRUE' : '');
+  const deltaAssets = await rules.sql.delta(
+    `COALESCE(jel.${jei.debitCol}::numeric,0)`,
+    `COALESCE(jel.${jei.creditCol}::numeric,0)`
+  );
   let assetsSql = `
     SELECT COALESCE(SUM(${sbExpr} + COALESCE((
       SELECT SUM(
-               CASE 
-                 WHEN LOWER(gc.line_type) IN ('asset','expense') THEN COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
-                 WHEN LOWER(gc.line_type) IN ('liability','equity','revenue','credit card','creditcard') THEN COALESCE(jel.${jei.creditCol}::numeric,0) - COALESCE(jel.${jei.debitCol}::numeric,0)
-                 ELSE COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0)
-               END
+               ${deltaAssets}
              )
         FROM journal_entry_items jel
         JOIN journal_entries je ON jel.${jei.jeRef} = je.id
@@ -139,12 +140,16 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   // Liabilities: sum magnitudes of negative current_balance across liability accounts
+  const deltaLiab = await rules.sql.delta(
+    `COALESCE(jel.${jei.debitCol}::numeric,0)`,
+    `COALESCE(jel.${jei.creditCol}::numeric,0)`
+  );
   let liabilitiesSql = `
     WITH acc AS (
       SELECT 
         a.id,
         COALESCE(a.beginning_balance, 0)::numeric + COALESCE((
-          SELECT SUM(COALESCE(jel.${jei.debitCol}::numeric,0) - COALESCE(jel.${jei.creditCol}::numeric,0))
+          SELECT SUM(${deltaLiab})
             FROM journal_entry_items jel
             JOIN journal_entries je ON jel.${jei.jeRef} = je.id
            WHERE jel.account_id::text = a.id::text
@@ -201,6 +206,14 @@ router.get('/', asyncHandler(async (req, res) => {
   // Join funds to enable entity scoping even if account join doesn't resolve
   const revenueFundsJoin = ` LEFT JOIN funds f ON (${fundMatchClause})`;
 
+  // Central revenue predicate via rules engine
+  const revenuePredicate = await rules.sql.revenuePredicate({
+    glCodeA: 'a.gl_code',
+    glCodeJ: hasJeiGlCode ? 'jel.gl_code' : "NULL::text",
+    gcLineTypeA: hasGlCodes ? 'gcA.line_type' : "''",
+    gcLineTypeJ: hasGlCodes && hasJeiGlCode ? 'gcJ.line_type' : "''"
+  });
+
   let revenueSql = `
     SELECT COALESCE(SUM(COALESCE(jel.${jei.creditCol}::numeric,0) - COALESCE(jel.${jei.debitCol}::numeric,0)), 0::numeric) AS revenue_ytd
       FROM journal_entry_items jel
@@ -211,7 +224,7 @@ router.get('/', asyncHandler(async (req, res) => {
       ${revenueFundsJoin}
      WHERE je.entry_date BETWEEN $1 AND $2
        AND ${postCond}
-       AND ${revenueClassPredicate}
+       AND ${revenuePredicate}
   `;
   const revenueParams = [yStart, yEnd];
   if (entityCodes.length) {
