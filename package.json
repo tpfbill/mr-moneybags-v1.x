@@ -13,7 +13,8 @@
     "db:recreate": "bash scripts/db-recreate.sh",
     "db:verify": "node database/db-verify-data.js",
     "db:backfill:deposit-je-entity": "node scripts/backfill-deposit-je-entity.js",
-    "bootstrap:mac": "bash scripts/mac-bootstrap.sh"
+    "bootstrap:mac": "bash scripts/mac-bootstrap.sh",
+    "verify:rules": "node scripts/verify-rules.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
