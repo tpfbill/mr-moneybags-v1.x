@@ -39,23 +39,24 @@ async function getAccountById(db, id) {
 }
 
 async function findAPAccount(db, entityCode, fundNumber) {
+  // REQUIRE AP account with specific GL code 2010 in the item's fund and entity
   const r = await db.query(
     `SELECT id FROM accounts 
-     WHERE classification = 'Accounts Payable' 
-       AND entity_code = $1 AND fund_number = $2
-     LIMIT 1`,
+       WHERE gl_code = '2010'
+         AND entity_code = $1 AND fund_number = $2
+       LIMIT 1`,
     [entityCode, fundNumber]
   );
   return r.rows[0]?.id || null;
 }
 
 async function findARAccount(db, entityCode, fundNumber) {
-  // Prefer gl_code 1008 when present
+  // REQUIRE AR account with specific GL code 1008 in the item's fund and entity
   const r = await db.query(
     `SELECT id FROM accounts 
-       WHERE classification = 'Accounts Receivable' 
+       WHERE classification = 'Accounts Receivable'
+         AND gl_code = '1008'
          AND entity_code = $1 AND fund_number = $2
-       ORDER BY (gl_code = '1008') DESC
        LIMIT 1`,
     [entityCode, fundNumber]
   );
@@ -243,18 +244,26 @@ router.post('/pay', asyncHandler(async (req, res) => {
         await insertJeLine(client, { journalEntryId: je1Id, accountId: expenseAccount.id, fundId: expenseFundId, debit: amount, credit: 0, description });
         await insertJeLine(client, { journalEntryId: je1Id, accountId: apAccountId,      fundId: expenseFundId, debit: 0,      credit: amount, description });
 
-        // JE2: Bank Cash Dr (bank fund) / AR Cr (item fund)
-        const je2Id = await insertJournalEntry(client, {
-          entityId,
-          entryDate,
-          reference,
-          description,
-          totalAmount: amount,
-          paymentItemId: id,
-          createdBy: (req.user && req.user.id) || null
-        });
-        await insertJeLine(client, { journalEntryId: je2Id, accountId: bankCash.id,  fundId: bankFundId,   debit: amount, credit: 0,      description });
-        await insertJeLine(client, { journalEntryId: je2Id, accountId: arAccountId,  fundId: expenseFundId, debit: 0,      credit: amount, description });
+        // JE2: Interfund reclass using AR(1008) accounts only when funds differ
+        // DR AR(1008) in bank fund; CR AR(1008) in expense fund
+        let je2Id = null;
+        if (String(expenseAccount.fund_number) !== String(bankCash.fund_number)) {
+          // Find AR(1008) in the bank cash fund as well
+          const arBankFundAccountId = await findARAccount(client, expenseAccount.entity_code, bankCash.fund_number);
+          if (!arBankFundAccountId) throw new Error('Accounts Receivable (1008) account not found for bank fund');
+
+          je2Id = await insertJournalEntry(client, {
+            entityId,
+            entryDate,
+            reference,
+            description,
+            totalAmount: amount,
+            paymentItemId: id,
+            createdBy: (req.user && req.user.id) || null
+          });
+          await insertJeLine(client, { journalEntryId: je2Id, accountId: arBankFundAccountId, fundId: bankFundId,    debit: amount, credit: 0,      description });
+          await insertJeLine(client, { journalEntryId: je2Id, accountId: arAccountId,        fundId: expenseFundId, debit: 0,      credit: amount, description });
+        }
 
         // JE3: EFT only — Debit and Credit same EFT clearing (bank fund)
         let je3Id = null;
