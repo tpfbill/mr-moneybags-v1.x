@@ -39,10 +39,10 @@ async function getAccountById(db, id) {
 }
 
 async function findAPAccount(db, entityCode, fundNumber) {
-  // REQUIRE AP account with specific GL code 2020 in the item's fund and entity
+  // REQUIRE AP account with specific GL code 2010 in the item's fund and entity
   const r = await db.query(
     `SELECT id FROM accounts 
-       WHERE gl_code = '2020'
+       WHERE gl_code = '2010'
          AND entity_code = $1 AND fund_number = $2
        LIMIT 1`,
     [entityCode, fundNumber]
