@@ -248,9 +248,12 @@ router.post('/pay', asyncHandler(async (req, res) => {
         // DR AR(1008) in bank fund; CR AR(1008) in expense fund
         let je2Id = null;
         if (String(expenseAccount.fund_number) !== String(bankCash.fund_number)) {
-          // Find AR(1008) in the bank cash fund as well
-          const arBankFundAccountId = await findARAccount(client, expenseAccount.entity_code, bankCash.fund_number);
-          if (!arBankFundAccountId) throw new Error('Accounts Receivable (1008) account not found for bank fund');
+          // Find AR(1008) in the bank cash fund – try expense entity first, then fall back to bank entity
+          let arBankFundAccountId = await findARAccount(client, expenseAccount.entity_code, bankCash.fund_number);
+          if (!arBankFundAccountId) {
+            arBankFundAccountId = await findARAccount(client, bankCash.entity_code, bankCash.fund_number);
+          }
+          if (!arBankFundAccountId) throw new Error('Accounts Receivable (1008) account not found for bank fund (tried expense entity, then bank entity)');
 
           je2Id = await insertJournalEntry(client, {
             entityId,
