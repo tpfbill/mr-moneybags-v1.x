@@ -576,7 +576,7 @@ textarea.form-input:focus {
     display: grid;
     grid-template-columns: 7fr 2fr 2fr 1fr; /* Account | Debit | Credit | Remove */
     column-gap: 12px;
-    align-items: center;
+    align-items: start; /* top-align so Debit/Credit align with account inputs */
 }
 
 #journal-entry-modal .journal-entry-line-item .form-control,
@@ -745,3 +745,17 @@ textarea.form-input:focus {
 .wide-table thead th:nth-child(2) {
     z-index: 4;
 }
+
+/* --------------------------------------------------------------
+   Journal Entry – account code inline inputs
+   -------------------------------------------------------------- */
+.account-code-inputs {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+.account-code-inputs .acct-entity { width: 2.2em; text-align: center; }
+.account-code-inputs .acct-gl      { width: 3.8em; text-align: center; }
+.account-code-inputs .acct-fund    { width: 3.2em; text-align: center; }
+.account-code-inputs .acct-restriction { width: 3em; text-align: center; }
+.account-desc { margin-top: 4px; min-height: 1em; }

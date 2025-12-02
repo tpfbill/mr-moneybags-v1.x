@@ -1030,22 +1030,21 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     lineItem.className = 'journal-entry-line-item';
     lineItem.dataset.index = lineItemIndex;
     
-    // Populate accounts dropdown
-    let accountsOptions = '<option value="">Select Account</option>';
-    appState.accounts.forEach(account => {
-        const labelCode = account.account_code || account.code || `${account.entity_code || ''}-${account.gl_code || ''}-${account.fund_number || ''}`;
-        const labelDesc = account.description || account.account_name || account.name || '';
-        const label = labelDesc ? `${labelCode} - ${labelDesc}` : labelCode;
-        accountsOptions += `<option value="${account.id}">${label}</option>`;
-    });
-    
-    // Build row: Account | Debit | Credit | Remove (single line)
+    // Helper: canonicalise codes similar to backend (strip non-alphanumerics, lowercase)
+    const canon = (s) => (s == null ? '' : String(s)).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // Build row: Account code (4 inputs inline + description) | Debit | Credit | Remove
     lineItem.innerHTML = `
         <div class="form-row">
             <div class="form-group col-md-7">
-                <select class="form-control account-select" name="line-item-account-${lineItemIndex}" ${readOnly ? 'disabled' : ''}>
-                    ${accountsOptions}
-                </select>
+                <div class="account-code-inputs">
+                    <input type="text" class="form-control acct-entity" maxlength="1" placeholder="Entity" ${readOnly ? 'disabled' : ''} inputmode="numeric" pattern="[0-9]*">
+                    <input type="text" class="form-control acct-gl" maxlength="4" placeholder="GL" ${readOnly ? 'disabled' : ''} inputmode="numeric" pattern="[0-9]*">
+                    <input type="text" class="form-control acct-fund" maxlength="3" placeholder="Fund" ${readOnly ? 'disabled' : ''} inputmode="numeric" pattern="[0-9]*">
+                    <input type="text" class="form-control acct-restriction" maxlength="2" placeholder="Restriction" ${readOnly ? 'disabled' : ''} inputmode="numeric" pattern="[0-9]*">
+                    <input type="hidden" class="account-id" value="">
+                </div>
+                <div class="account-desc text-muted small"></div>
             </div>
             <div class="form-group col-md-2">
                 <input type="number" class="form-control debit-input" name="line-item-debit-${lineItemIndex}" placeholder="Debit" step="0.01" min="0" ${readOnly ? 'disabled' : ''}>
@@ -1063,13 +1062,30 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
     
     // Set values if editing
     if (item.id) {
-        const accountSelect = lineItem.querySelector('.account-select');
         const debitInput = lineItem.querySelector('.debit-input');
         const creditInput = lineItem.querySelector('.credit-input');
-        
-        accountSelect.value = item.account_id || '';
+        const acctIdInput = lineItem.querySelector('.account-id');
+        const eInput = lineItem.querySelector('.acct-entity');
+        const gInput = lineItem.querySelector('.acct-gl');
+        const fInput = lineItem.querySelector('.acct-fund');
+        const rInput = lineItem.querySelector('.acct-restriction');
+        const descEl = lineItem.querySelector('.account-desc');
+
+        acctIdInput.value = item.account_id || '';
         debitInput.value = item.debit || '';
         creditInput.value = item.credit || '';
+
+        try {
+            const acc = (appState.accounts || []).find(a => String(a.id) === String(item.account_id));
+            if (acc) {
+                const parts = (acc.account_code || '').toString().replace(/[^A-Za-z0-9]+/g, ' ').trim().split(/\s+/);
+                eInput.value = parts[0] || '';
+                gInput.value = parts[1] || '';
+                fInput.value = parts[2] || '';
+                rInput.value = parts[3] || '';
+                descEl.textContent = acc.description || '';
+            }
+        } catch (_) { /* ignore */ }
     }
     
     // Add event listeners
@@ -1104,6 +1120,61 @@ function addJournalEntryLineItem(item = {}, readOnly = false) {
         // Add a new line item if this is the last one and has values
         debitInput.addEventListener('change', checkAddNewLineItem);
         creditInput.addEventListener('change', checkAddNewLineItem);
+
+        // Account code segmented inputs logic
+        const eInput = lineItem.querySelector('.acct-entity');
+        const gInput = lineItem.querySelector('.acct-gl');
+        const fInput = lineItem.querySelector('.acct-fund');
+        const rInput = lineItem.querySelector('.acct-restriction');
+        const acctIdInput = lineItem.querySelector('.account-id');
+        const descEl = lineItem.querySelector('.account-desc');
+
+        const inputs = [eInput, gInput, fInput, rInput];
+        const maxLens = [1, 4, 3, 2];
+
+        // digits-only and auto-advance/retreat
+        inputs.forEach((inp, idx) => {
+            inp.addEventListener('input', (ev) => {
+                const prev = inp.value;
+                inp.value = (prev || '').replace(/\D+/g, '').slice(0, maxLens[idx]);
+                // Auto-advance when filled
+                if (inp.value.length === maxLens[idx] && idx < inputs.length - 1) {
+                    inputs[idx + 1].focus();
+                }
+            });
+            inp.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Backspace' && inp.selectionStart === 0 && inp.selectionEnd === 0 && idx > 0 && !inp.value) {
+                    inputs[idx - 1].focus();
+                }
+            });
+        });
+
+        // Concatenate and lookup when restriction field completes or blurs
+        const doLookup = () => {
+            const e = (eInput.value || '').trim();
+            const g = (gInput.value || '').trim();
+            const f = (fInput.value || '').trim();
+            const r = (rInput.value || '').trim();
+            const raw = [e, g, f, r].filter(v => v !== '').join(' ');
+            // Clear previous match
+            acctIdInput.value = '';
+            descEl.textContent = '';
+            if (!e || !g || !f || !r) { return; }
+
+            const targetCanon = canon(raw);
+            const match = (appState.accounts || []).find(a => canon(a.account_code || '') === targetCanon);
+            if (match) {
+                acctIdInput.value = match.id;
+                descEl.textContent = match.description || '';
+            } else {
+                descEl.textContent = 'Not found';
+            }
+            checkAddNewLineItem();
+        };
+        rInput.addEventListener('blur', doLookup);
+        rInput.addEventListener('input', () => {
+            if (rInput.value.length === 2) doLookup();
+        });
     }
 }
 
@@ -1116,7 +1187,7 @@ function checkAddNewLineItem() {
     
     if (!lastLineItem) return;
     
-    const accountSelect = lastLineItem.querySelector('.account-select');
+    const accountSelect = lastLineItem.querySelector('.account-id');
     const debitInput = lastLineItem.querySelector('.debit-input');
     const creditInput = lastLineItem.querySelector('.credit-input');
     
@@ -1239,11 +1310,11 @@ export async function saveJournalEntry(event) {
     
     lineItemElements.forEach(lineItem => {
         const index = lineItem.dataset.index;
-        const accountSelect = lineItem.querySelector('.account-select');
+        const accountIdInput = lineItem.querySelector('.account-id');
         const debitInput = lineItem.querySelector('.debit-input');
         const creditInput = lineItem.querySelector('.credit-input');
         
-        if (accountSelect.value && (debitInput.value || creditInput.value)) {
+        if (accountIdInput.value && (debitInput.value || creditInput.value)) {
             // Normalise amounts
             let d = r2(debitInput.value);
             let c = r2(creditInput.value);
@@ -1271,7 +1342,7 @@ export async function saveJournalEntry(event) {
                     }
                 };
 
-                const acc = (appState.accounts || []).find(a => String(a.id) === String(accountSelect.value));
+                const acc = (appState.accounts || []).find(a => String(a.id) === String(accountIdInput.value));
                 if (acc) {
                     const fnum = acc.fund_number;
                     const eCanon = canon(acc.entity_code);
@@ -1313,7 +1384,7 @@ export async function saveJournalEntry(event) {
             }
 
             lineItems.push({
-                account_id: accountSelect.value,
+                account_id: accountIdInput.value,
                 fund_id: fundId,
                 debit: d || 0,
                 credit: c || 0
