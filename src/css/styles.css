@@ -576,7 +576,7 @@ textarea.form-input:focus {
     display: grid;
     grid-template-columns: 7fr 2fr 2fr 1fr; /* Account | Debit | Credit | Remove */
     column-gap: 12px;
-    align-items: center;
+    align-items: start; /* top-align so Debit/Credit align with account inputs */
 }
 
 #journal-entry-modal .journal-entry-line-item .form-control,
