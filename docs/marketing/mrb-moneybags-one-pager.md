@@ -5,6 +5,15 @@ description: Audit‑ready fund accounting with real‑time visibility into rest
 
 # Mr. MoneyBags
 
+<div style="display:flex; align-items:center; gap:16px; padding:16px; border-radius:12px; background:linear-gradient(120deg,#0A5EAA,#09427A);">
+  <img src="assets/logo.svg" alt="Mr. MoneyBags" style="height:56px;">
+  <div>
+    <div style="font-size:28px; font-weight:800; line-height:1; color:#fff;">Mr. MoneyBags</div>
+    <div style="color:#F5B400; font-weight:600;">Audit‑ready fund accounting for foundations and mega churches</div>
+  </div>
+  <div style="margin-left:auto; color:#dbe7ff;">yourdomain.example • sales@yourdomain.example</div>
+</div>
+
 Steward every dollar. Prove every outcome.
 
 Mr. MoneyBags is a modern, audit‑ready fund accounting platform that gives boards, executives, and finance teams real‑time insight and stewardship over restricted and designated funds. Designed for multimillion‑dollar philanthropic foundations and large churches, it delivers GAAP/FASB 958 alignment, airtight donor restriction tracking, and board‑ready reporting—without the bloat or consulting overhead.
@@ -54,4 +63,4 @@ Book a 45‑minute demo to receive a tailored migration plan and TCO analysis.
 
 Contact: sales@yourdomain.example
 
-Branding note: Replace this line with your logo and brand colors when exporting to PDF.
+Branding note: This file contains a temporary logo and brand colors (blue + gold). Replace with your own before final export.

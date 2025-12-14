@@ -8,27 +8,34 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/black.css" id="theme" />
     <style>
       :root {
-        --brand: #0b6efd; /* Accent */
-        --brand-dark: #094ea8;
+        --brand: #0A5EAA; /* Primary Blue */
+        --brand-dark: #09427A; /* Deep Blue */
+        --brand-accent: #F5B400; /* Gold */
       }
       .reveal h1, .reveal h2, .reveal h3 { color: var(--brand); }
       .reveal a { color: var(--brand); }
       .reveal .slides { text-align: left; }
       .reveal section { font-size: 30px; }
-      .brand-banner { font-size: 44px; font-weight: 800; color: white; background: linear-gradient(120deg, var(--brand), var(--brand-dark)); padding: 24px; border-radius: 12px; }
+      .brand-banner { font-size: 44px; font-weight: 800; color: white; background: linear-gradient(120deg, var(--brand), var(--brand-dark)); padding: 24px; border-radius: 12px; display:flex; align-items:center; gap:20px; }
       .muted { color: #9aa3af; font-size: 24px; }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-      .pill { display: inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(11,110,253,.12); color: #dbe7ff; font-size: 18px; }
+      .pill { display: inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(10,94,170,.12); color: #dbe7ff; font-size: 18px; }
       .footer { position: absolute; bottom: 16px; right: 24px; font-size: 18px; color: #aab; }
+      .tagline { color: var(--brand-accent); font-weight: 600; }
     </style>
   </head>
   <body>
     <div class="reveal">
       <div class="slides">
         <section>
-          <div class="brand-banner">Mr. MoneyBags</div>
-          <h3>Audit‑ready fund accounting for foundations and mega churches</h3>
-          <p class="muted">Steward every dollar. Prove every outcome.</p>
+          <div class="brand-banner">
+            <img src="./assets/logo.svg" alt="Mr. MoneyBags" style="height:72px;">
+            <div>
+              <div style="font-size:44px; font-weight:800; line-height:1">Mr. MoneyBags</div>
+              <div class="tagline">Audit‑ready fund accounting for foundations and mega churches</div>
+            </div>
+          </div>
+          <p class="muted" style="margin-top: 12px;">Steward every dollar. Prove every outcome.</p>
           <div class="footer">yourdomain.example • sales@yourdomain.example</div>
         </section>
 
