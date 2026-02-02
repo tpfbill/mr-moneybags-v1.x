@@ -1,13 +1,20 @@
 // src/routes/accounts.js
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
+const XLSX = require('xlsx');
 
-// Multer – in-memory storage for CSV uploads
+// Multer – in-memory storage for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Logs directory for import logs
+const LOGS_DIR = path.join(__dirname, '../../logs');
+const BEGINNING_BALANCE_DATE = '2024-12-01';
 
 /* ---------------------------------------------------------------------------
  * Helpers
@@ -311,331 +318,229 @@ router.put('/:id', asyncHandler(async (req, res) => {
 }));
 
 /* ---------------------------------------------------------------------------
- * POST /api/accounts/import  – CSV upload (collect ALL errors)
+ * POST /api/accounts/import  – Excel/CSV upload
+ * Supports both .xlsx and .csv files
  * -------------------------------------------------------------------------*/
 router.post(
   '/import',
   upload.single('file'),
   asyncHandler(async (req, res) => {
-    /* ---------------------------------------------------------------
-     * Helpers for every outcome (success or any error)
-     * ------------------------------------------------------------- */
-    const nowStr = new Date().toISOString().replace(/[:T]/g, '').split('.')[0];
-    const logLines = [];
-    function sendCsv(statusCode) {
-      const csv =
-        'status,action,row_number,account_code,message\r\n' +
-        logLines.join('\r\n');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="accounts_import_${nowStr}.csv"`
-      );
-      res.setHeader('Content-Type', 'text/csv');
-      return res.status(statusCode).send(csv);
+    // Create logs directory if needed
+    if (!fs.existsSync(LOGS_DIR)) {
+      fs.mkdirSync(LOGS_DIR, { recursive: true });
+    }
+
+    // Generate log filename with date
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+    const logFile = path.join(LOGS_DIR, `accounts-import-${dateStr}_${timeStr}.log`);
+    const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+
+    function log(message) {
+      const timestamp = new Date().toISOString();
+      const line = `[${timestamp}] ${message}`;
+      console.log(message);
+      logStream.write(line + '\n');
+    }
+
+    function logError(message) {
+      const timestamp = new Date().toISOString();
+      const line = `[${timestamp}] ERROR: ${message}`;
+      console.error(message);
+      logStream.write(line + '\n');
+    }
+
+    /**
+     * Parse accounting format number (handles parentheses for negatives, commas, dashes)
+     */
+    function parseAccountingNumber(value) {
+      if (value === null || value === undefined || value === '') return 0;
+      let str = String(value).trim();
+      if (str === '-' || str === '- ' || str === ' - ' || str === ' -   ') return 0;
+      const isNegative = str.startsWith('(') && str.endsWith(')');
+      if (isNegative) str = str.slice(1, -1);
+      str = str.replace(/[$,\s]/g, '');
+      const num = parseFloat(str);
+      if (isNaN(num)) return 0;
+      return isNegative ? -num : num;
+    }
+
+    /**
+     * Parse date from Excel format (M/D/YY or similar)
+     */
+    function parseExcelDate(value) {
+      if (!value) return BEGINNING_BALANCE_DATE;
+      const str = String(value).trim();
+      const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (match) {
+        let [, month, day, year] = match;
+        if (year.length === 2) {
+          year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+        }
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      return BEGINNING_BALANCE_DATE;
     }
 
     /* ---------------------------------------------------------------
      * Pre-flight checks
      * ------------------------------------------------------------- */
     if (!req.file) {
-      logLines.push('Failed,-,1,,"No file uploaded"');
-      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
-      return sendCsv(400);
+      return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    let records;
+    log(`Log file: ${logFile}`);
+    log(`Processing file: ${req.file.originalname}`);
+    log(`Beginning balance date: ${BEGINNING_BALANCE_DATE}`);
+    log('---');
+
+    let data;
+    const filename = req.file.originalname.toLowerCase();
+
     try {
-      records = parse(req.file.buffer.toString('utf8'), {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-      });
+      if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+        // Parse Excel file
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        data = XLSX.utils.sheet_to_json(sheet, { raw: false });
+        log(`Found ${data.length} rows in Excel sheet "${sheetName}"`);
+      } else if (filename.endsWith('.csv')) {
+        // Parse CSV file
+        data = parse(req.file.buffer.toString('utf8'), {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true
+        });
+        log(`Found ${data.length} rows in CSV`);
+      } else {
+        logStream.end();
+        return res.status(400).json({ error: 'Unsupported file format. Please upload .xlsx, .xls, or .csv' });
+      }
     } catch (err) {
-      logLines.push(`Failed,-,1,,"Invalid CSV (${err.message})"`);
-      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
-      return sendCsv(400);
+      logError(`Failed to parse file: ${err.message}`);
+      logStream.end();
+      return res.status(400).json({ error: `Failed to parse file: ${err.message}` });
     }
 
-    if (!records.length) {
-      logLines.push('Failed,-,1,,"CSV has no data rows"');
-      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
-      return sendCsv(400);
+    if (!data || !data.length) {
+      logError('File has no data rows');
+      logStream.end();
+      return res.status(400).json({ error: 'File has no data rows' });
     }
 
-    /* ---------------------------------
-     * Header validation
-     * --------------------------------*/
-    const hdrSet = new Set(
-      Object.keys(records[0]).map(h => normalizeHeaderKey(h))
-    );
-    const missing = REQUIRED_HEADERS.filter(h => !hdrSet.has(h));
-    if (missing.length) {
-      logLines.push(
-        `Failed,-,1,,"Missing required headers: ${missing.join(', ')}"`
-      );
-      console.warn('[Accounts CSV Import] First failure:', logLines[0]);
-      return sendCsv(400);
-    }
-
-    /* ---------------------------------
-     * Build caches for validation
-     * --------------------------------*/
-    const entitiesCache = new Set(
-      (await pool.query('SELECT code FROM entities')).rows.map(r =>
-        canonCode(r.code)
-      )
-    );
-    
-    const glCache = new Set(
-      (await pool.query('SELECT code FROM gl_codes')).rows.map(r =>
-        canonCode(r.code)
-      )
-    );
-    
-    // Build funds map keyed by canonical entity_code|fund_number -> Set(restrictions)
-    const fundsResult = await pool.query(
-      'SELECT entity_code, fund_number, restriction FROM funds'
-    );
-    const fundsMap = new Map(); // key => Set of canonical restrictions
-    fundsResult.rows.forEach(r => {
-      const key = `${canonCode(r.entity_code)}|${canonCode(r.fund_number)}`;
-      const set = fundsMap.get(key) || new Set();
-      set.add(canonCode(r.restriction));
-      fundsMap.set(key, set);
-    });
-
-    /* ---------------------------------
-     * First pass: Validate all rows independently
-     * --------------------------------*/
-    const plannedRows = [];
-    
-    for (let idx = 0; idx < records.length; idx++) {
-      const raw = mapCsvRecordStrict(records[idx]);
-      const rowNum = idx + 2; // +2 to account for header + 1-based
-      const {
-        account_code,
-        entity_code,
-        gl_code,
-        fund_number,
-        description,
-        status,
-        balance_sheet,
-        beginning_balance,
-        beginning_balance_date,
-        last_used,
-        restriction,
-        classification
-      } = raw;
-
-      // ------------------------------------------------------------------
-      // Canonicalisation & raw trims
-      // ------------------------------------------------------------------
-      const eRaw = (entity_code || '').toString().trim();
-      const gRaw = (gl_code || '').toString().trim();
-      const fRaw = (fund_number || '').toString().trim();
-      const acRaw = (account_code || '').toString().trim();
-
-      const eCanon = canonCode(eRaw);
-      const gCanon = canonCode(gRaw);
-      const fCanon = canonCode(fRaw);
-      const acCanon = canonCode(acRaw);
-
-      // Validate entity_code exists
-      if (!entitiesCache.has(eCanon)) {
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"entity_code not found"`
-        );
-        continue; // Skip to next row
-      }
-      
-      // Validate gl_code exists
-      if (!glCache.has(gCanon)) {
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"gl_code not found"`
-        );
-        continue; // Skip to next row
-      }
-      
-      // Determine restriction canon for this row
-      let rCanonCsv = canonCode(restriction || '');
-      if (!rCanonCsv) {
-        // try to extract 4th token from account_code
-        const acParts = acRaw
-          .replace(/[^A-Za-z0-9]+/g, ' ')
-          .trim()
-          .split(/\s+/)
-          .map(canonCode);
-        rCanonCsv = acParts[3] || '';
-      }
-      if (!rCanonCsv) {
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"restriction missing (CSV and account_code)"`
-        );
-        continue;
-      }
-
-      // Validate fund exists and has this restriction
-      const fundKey = `${eCanon}|${fCanon}`;
-      const restrSet = fundsMap.get(fundKey);
-      if (!restrSet) {
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"fund_number not found for entity_code"`
-        );
-        continue;
-      }
-      if (!restrSet.has(rCanonCsv)) {
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"fund restriction not found for entity_code+fund_number (have: ${[
-            ...restrSet
-          ].join('/')}; got: ${rCanonCsv})"`
-        );
-        continue;
-      }
-
-      // Build expected canonical with the derived restriction
-      const expectedCanon = eCanon + gCanon + fCanon + rCanonCsv;
-
-      if (acCanon !== expectedCanon) {
-        // analyse parts to give detailed mismatch
-        const parts = acRaw
-          .replace(/[^A-Za-z0-9]+/g, ' ')
-          .trim()
-          .split(/\s+/)
-          .map(canonCode);
-        const mism = [];
-        if ((parts[0] || '') !== eCanon) mism.push(`entity ${parts[0] || ''}`);
-        if ((parts[1] || '') !== gCanon) mism.push(`gl ${parts[1] || ''}`);
-        if ((parts[2] || '') !== fCanon) mism.push(`fund ${parts[2] || ''}`);
-        if ((parts[3] || '') !== rCanonCsv)
-          mism.push(`restriction ${parts[3] || ''}`);
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"account_code mismatch – ${mism.join(
-            '; '
-          )}; expected ${expectedCanon}"`
-        );
-        continue;
-      }
-      
-      // Validate dates
-      if (!isValidDateYYYYMMDD(beginning_balance_date) || !isValidDateYYYYMMDD(last_used)) {
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"Invalid date format"`
-        );
-        continue; // Skip to next row
-      }
-      
-      // Validate beginning_balance is numeric
-      if (isNaN(Number(beginning_balance))) {
-        logLines.push(
-          `Failed,-,${rowNum},${acRaw},"beginning_balance not numeric"`
-        );
-        continue; // Skip to next row
-      }
-
-      // If we got here, validation passed - add to planned rows
-      plannedRows.push({
-        rowNum,
-        acRaw,
-        acCanon,
-        eCanon,
-        gCanon,
-        fCanon,
-        description,
-        status,
-        balance_sheet: normalizeYN(balance_sheet),
-        beginning_balance,
-        beginning_balance_date,
-        last_used,
-        restriction: rCanonCsv, // use validated restriction
-        classification
-      });
-    }
-
-    /* ---------------------------------
-     * If any errors, return 400 with all error lines
-     * --------------------------------*/
-    if (logLines.length > 0) {
-      console.warn(`[Accounts CSV Import] Validation errors: ${logLines.length}. First: ${logLines[0]}`);
-      return sendCsv(400);
-    }
-
-    /* ---------------------------------
-     * No errors - process all planned rows in a transaction
-     * --------------------------------*/
     const client = await pool.connect();
+
     try {
       await client.query('BEGIN');
 
-      for (const planned of plannedRows) {
-        // Check if account exists by canonical code
-        const ex = await client.query(
-          "SELECT id FROM accounts WHERE regexp_replace(lower(account_code), '[^a-z0-9]', '', 'g') = $1 LIMIT 1",
-          [planned.acCanon]
+      let updated = 0;
+      let inserted = 0;
+      let errors = 0;
+
+      for (const row of data) {
+        // Handle both Excel column names (with spaces) and normalized names
+        const accountCode = (row['Account'] || row['account_code'] || '').trim();
+
+        if (!accountCode) continue;
+
+        // Parse all fields - support both Excel format and CSV format column names
+        const entityCode = (row['Entity'] || row['entity_code'] || '').trim();
+        const glCode = (row['GL Code'] || row['gl_code'] || '').trim();
+        const fundNumber = (row['Fund'] || row['fund_number'] || '').trim();
+        const restriction = (row['Restriction'] || row['restriction'] || '').trim();
+        const description = (row['Description'] || row['description'] || '').trim();
+        const classification = (row['Classification'] || row['classification'] || '').trim() || null;
+        const status = (row['Status'] || row['status'] || 'Active').trim();
+        
+        // Balance Sheet: handle both "1"/"0" and "Yes"/"No"
+        const balanceSheetRaw = (row['Balance Sheet'] || row['balance_sheet'] || '').toString().trim();
+        const balanceSheet = balanceSheetRaw === '1' || balanceSheetRaw.toLowerCase() === 'yes' ? 'Yes' : 'No';
+        
+        // Parse beginning balance (handle accounting format)
+        const beginningBalance = parseAccountingNumber(
+          row[' Beginning Balance '] || row['Beginning Balance'] || row['beginning_balance'] || 0
         );
         
-        if (ex.rows.length) {
-          // UPDATE existing account
-          await client.query(
-            `UPDATE accounts
-               SET entity_code=$2, gl_code=$3, fund_number=$4, description=$5,
-                   status=$6, balance_sheet=$7,
-                   beginning_balance=$8::numeric,
-                   beginning_balance_date=$9::date,
-                   last_used=$10::date,
-                   restriction=$11,
-                   classification=$12
-             WHERE id=$1`,
-            [
-              ex.rows[0].id,
-              planned.eCanon,
-              planned.gCanon,
-              planned.fCanon,
-              planned.description,
-              planned.status,
-              planned.balance_sheet,
-              planned.beginning_balance,
-              planned.beginning_balance_date,
-              planned.last_used,
-              planned.restriction,
-              planned.classification
-            ]
+        // Parse last_used date
+        const lastUsed = parseExcelDate(row['last used'] || row['last_used']);
+
+        try {
+          // Check if account exists
+          const checkResult = await client.query(
+            'SELECT id FROM accounts WHERE account_code = $1',
+            [accountCode]
           );
-          logLines.push(`OK,Updated,${planned.rowNum},${planned.acRaw},`);
-        } else {
-          // INSERT new account
-          await client.query(
-            `INSERT INTO accounts
-              (account_code,entity_code,gl_code,fund_number,description,
-               status,balance_sheet,beginning_balance,beginning_balance_date,
-               last_used,restriction,classification)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$9::date,$10::date,$11,$12)`,
-            [
-              planned.acRaw,
-              planned.eCanon,
-              planned.gCanon,
-              planned.fCanon,
-              planned.description,
-              planned.status,
-              planned.balance_sheet,
-              planned.beginning_balance,
-              planned.beginning_balance_date,
-              planned.last_used,
-              planned.restriction,
-              planned.classification
-            ]
-          );
-          logLines.push(`OK,Inserted,${planned.rowNum},${planned.acRaw},`);
+
+          if (checkResult.rows.length > 0) {
+            // Update existing account
+            await client.query(
+              `UPDATE accounts 
+               SET entity_code = $1,
+                   gl_code = $2,
+                   fund_number = $3,
+                   restriction = $4,
+                   description = $5,
+                   classification = $6,
+                   status = $7,
+                   balance_sheet = $8,
+                   beginning_balance = $9,
+                   beginning_balance_date = $10,
+                   last_used = $11
+               WHERE account_code = $12`,
+              [entityCode, glCode, fundNumber, restriction, description,
+               classification, status, balanceSheet, beginningBalance,
+               BEGINNING_BALANCE_DATE, lastUsed, accountCode]
+            );
+            log(`  Updated: ${accountCode}`);
+            updated++;
+          } else {
+            // Insert new account
+            await client.query(
+              `INSERT INTO accounts 
+               (account_code, entity_code, gl_code, fund_number, restriction,
+                description, classification, status, balance_sheet,
+                beginning_balance, beginning_balance_date, last_used)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [accountCode, entityCode, glCode, fundNumber, restriction,
+               description, classification, status, balanceSheet,
+               beginningBalance, BEGINNING_BALANCE_DATE, lastUsed]
+            );
+            log(`  Inserted: ${accountCode}`);
+            inserted++;
+          }
+        } catch (err) {
+          logError(`  Error processing ${accountCode}: ${err.message}`);
+          errors++;
         }
       }
 
       await client.query('COMMIT');
-      return sendCsv(200);
+
+      log('---');
+      log('Summary:');
+      log(`  Accounts updated: ${updated}`);
+      log(`  Accounts inserted: ${inserted}`);
+      log(`  Errors: ${errors}`);
+      log('\nImport completed successfully.');
+
+      logStream.end();
+
+      res.json({
+        success: true,
+        message: 'Import completed',
+        updated,
+        inserted,
+        errors,
+        logFile: path.basename(logFile)
+      });
+
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error('[Accounts CSV Import] Fatal:', err);
-      res
-        .status(500)
-        .json({ error: 'Import failed', details: err.message || '' });
+      logError('Import failed: ' + err.message);
+      logStream.end();
+      res.status(500).json({ error: 'Import failed', details: err.message });
     } finally {
       client.release();
     }
