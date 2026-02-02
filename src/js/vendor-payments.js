@@ -567,8 +567,14 @@ function renderBatchesTable(batches) {
         const createdBy  = batch.created_by_name || '';
 
         /* actions buttons */
+        const logBtn = batch.log_file 
+            ? `<button class="btn btn-outline-info btn-view-log" data-id="${batch.id}" title="View Import Log">
+                    <i class="fas fa-file-alt"></i>
+                </button>`
+            : '';
         const actions = `
             <div class="btn-group btn-group-sm">
+                ${logBtn}
                 <button class="btn btn-outline-primary btn-edit-batch" data-id="${batch.id}" title="Edit Batch">
                     <i class="fas fa-edit"></i>
                 </button>
@@ -593,6 +599,10 @@ function renderBatchesTable(batches) {
     });
 
     // Add event listeners to action buttons
+    document.querySelectorAll('.btn-view-log').forEach(btn => {
+        btn.addEventListener('click', () => viewBatchImportLog(btn.dataset.id));
+    });
+
     document.querySelectorAll('.btn-edit-batch').forEach(btn => {
         btn.addEventListener('click', () => openEditBatch(btn.dataset.id));
     });
@@ -1433,6 +1443,108 @@ async function createPaymentBatch(batchData) {
     } finally {
         hideLoading();
     }
+}
+
+// View import log for a batch
+async function viewBatchImportLog(batchId) {
+    try {
+        showLoading();
+        const res = await fetch(`${API_BASE_URL}/api/vendor-payments/import/log/${batchId}`, {
+            credentials: 'include'
+        });
+        
+        if (!res.ok) {
+            if (res.status === 404) {
+                showToast('Info', 'No import log found for this batch', false);
+                return;
+            }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const logData = await res.json();
+        
+        // Build log display content
+        let logHtml = `
+            <div class="mb-3">
+                <strong>File:</strong> ${logData.filename || 'N/A'}<br>
+                <strong>Import Date:</strong> ${logData.startTime ? new Date(logData.startTime).toLocaleString() : 'N/A'}<br>
+                <strong>Total Records:</strong> ${logData.totalRecords || 0}<br>
+                <strong>Items Created:</strong> ${logData.createdItems || 0}<br>
+                <strong>Errors:</strong> ${logData.errors?.length || 0}
+            </div>
+        `;
+        
+        if (logData.errors && logData.errors.length > 0) {
+            logHtml += `<div class="alert alert-danger"><strong>Errors:</strong><ul class="mb-0">`;
+            logData.errors.forEach(err => {
+                logHtml += `<li>${escapeHtml(err)}</li>`;
+            });
+            logHtml += `</ul></div>`;
+        }
+        
+        if (logData.logs && logData.logs.length > 0) {
+            logHtml += `<div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>Row</th><th>Status</th><th>Message</th></tr></thead>
+                    <tbody>`;
+            logData.logs.forEach(entry => {
+                const badgeClass = entry.level === 'error' ? 'bg-danger' : 
+                                   entry.level === 'warn' ? 'bg-warning' : 'bg-success';
+                logHtml += `<tr>
+                    <td>${entry.i || ''}</td>
+                    <td><span class="badge ${badgeClass}">${entry.level || ''}</span></td>
+                    <td>${escapeHtml(entry.msg || '')}</td>
+                </tr>`;
+            });
+            logHtml += `</tbody></table></div>`;
+        }
+        
+        // Show in a modal (reuse existing modal structure or create simple alert)
+        const modalEl = document.getElementById('importLogModal');
+        if (modalEl) {
+            document.getElementById('importLogContent').innerHTML = logHtml;
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        } else {
+            // Fallback: create a simple modal dynamically
+            const existingModal = document.getElementById('dynamicLogModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalDiv = document.createElement('div');
+            modalDiv.id = 'dynamicLogModal';
+            modalDiv.className = 'modal fade';
+            modalDiv.innerHTML = `
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Import Log</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">${logHtml}</div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modalDiv);
+            const modal = new bootstrap.Modal(modalDiv);
+            modal.show();
+        }
+    } catch (error) {
+        console.error('Error fetching import log:', error);
+        showToast('Error', 'Failed to load import log: ' + error.message, true);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Helper to escape HTML for safe display
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Open edit batch modal

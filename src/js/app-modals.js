@@ -941,11 +941,10 @@ export async function openJournalEntryModal(id, readOnly = false) {
     // Set modal title
     title.textContent = id ? (readOnly ? 'View Journal Entry' : 'Edit Journal Entry') : 'Create Journal Entry';
     
-    // Set button visibility (Post button removed in UI; force-hide if present)
+    // Set button visibility
     saveButton.style.display = readOnly ? 'none' : 'inline-block';
     if (postButton) {
-        // Remove legacy Post button to avoid confusion
-        postButton.remove();
+        postButton.style.display = readOnly ? 'none' : 'inline-block';
     }
     
     // Populate entity dropdown
@@ -1223,14 +1222,14 @@ export async function saveJournalEntry(event) {
 
     // Do not rely on UI class; compute using rounded totals below
     
-    // Get form data
+    // Get form data - Save as Pending (no balance check required)
     const journalEntryData = {
         entry_date: form.elements['journal-entry-date'].value,
         reference_number: form.elements['journal-entry-reference'].value,
         description: form.elements['journal-entry-description'].value,
         entity_id: form.elements['journal-entry-entity-id'].value,
         type: form.elements['journal-entry-type'].value,
-        status: 'Posted'
+        status: 'Pending'
     };
     
     // Get line items
@@ -1328,17 +1327,8 @@ export async function saveJournalEntry(event) {
         return;
     }
 
-    // Final balance check from prepared items (tolerate ±$0.01 rounding)
-    const sumD = r2(lineItems.reduce((s, li) => s + r2(li.debit), 0));
-    const sumC = r2(lineItems.reduce((s, li) => s + r2(li.credit), 0));
-    const diff = r2(sumD - sumC);
-    if (Math.abs(diff) > 0.009) {
-        showToast(`Not balanced by ${formatCurrency(Math.abs(diff))}`, 'error');
-        // Temporary diagnostic per request
-        alert(`JE not balanced:\nTotal Debits: ${sumD}\nTotal Credits: ${sumC}\nDiff: ${diff}\nLines counted: ${lineItems.length}`);
-        releaseSubmitGuard();
-        return;
-    }
+    // Balance check removed - entries saved as Pending can be unbalanced
+    // Balance will be enforced when posting the entry
     
     try {
         let journalEntryId;
@@ -1425,7 +1415,164 @@ export async function postJournalEntry(id) {
         hideModal('journal-entry-modal');
     } catch (error) {
         console.error('Error posting journal entry:', error);
-        showToast('Error posting journal entry', 'error');
+        showToast('Error posting journal entry: ' + (error.message || error), 'error');
+    }
+}
+
+/**
+ * Save and Post journal entry from modal
+ * For new entries: saves with Posted status
+ * For existing entries: saves changes then posts
+ */
+export async function saveAndPostJournalEntry() {
+    const form = document.getElementById('journal-entry-modal-form');
+    if (!form) return;
+    
+    const id = form.dataset.id;
+    const readOnly = form.dataset.readOnly === 'true';
+    
+    if (readOnly) {
+        hideModal('journal-entry-modal');
+        return;
+    }
+    
+    // Confirm posting
+    if (!confirm('Are you sure you want to post this journal entry? This action cannot be undone.')) {
+        return;
+    }
+    
+    // Validate form
+    if (!validateForm(form)) return;
+    
+    // Ensure totals are up to date
+    try { updateJournalEntryTotals(); } catch (_) {}
+    
+    const r2 = (n) => Math.round((parseFloat(n || 0) || 0) * 100) / 100;
+    
+    // Get form data - set status to Posted
+    const journalEntryData = {
+        entry_date: form.elements['journal-entry-date'].value,
+        reference_number: form.elements['journal-entry-reference'].value,
+        description: form.elements['journal-entry-description'].value,
+        entity_id: form.elements['journal-entry-entity-id'].value,
+        type: form.elements['journal-entry-type'].value,
+        status: 'Posted'
+    };
+    
+    // Get line items (same logic as saveJournalEntry)
+    const lineItems = [];
+    const lineItemElements = document.querySelectorAll('.journal-entry-line-item');
+    
+    for (const lineItem of lineItemElements) {
+        const accountIdInput = lineItem.querySelector('.account-id');
+        const debitInput = lineItem.querySelector('.debit-input');
+        const creditInput = lineItem.querySelector('.credit-input');
+        
+        if (accountIdInput.value && (debitInput.value || creditInput.value)) {
+            let d = r2(debitInput.value);
+            let c = r2(creditInput.value);
+            if (d > 0 && c > 0) {
+                if (d >= c) c = 0; else d = 0;
+            }
+            if (d <= 0 && c <= 0) continue;
+            
+            // Auto-derive fund_id from selected account
+            let fundId = null;
+            try {
+                const canon = (s) => (s == null ? '' : String(s)).toLowerCase().replace(/[^a-z0-9]/g, '');
+                const mapEntityCanon = (eCanon) => {
+                    switch (eCanon) {
+                        case 'tpf':   return { code: '1', names: ['tpf'] };
+                        case 'tpfes': return { code: '2', names: ['tpfes','tpfes'] };
+                        case 'ifcsn':
+                        case 'nfcsn': return { code: '3', names: ['ifcsn','nfcsn'] };
+                        default:      return { code: eCanon, names: [eCanon] };
+                    }
+                };
+                const acc = (appState.accounts || []).find(a => String(a.id) === String(accountIdInput.value));
+                if (acc) {
+                    const fnum = acc.fund_number;
+                    const eCanon = canon(acc.entity_code);
+                    const map = mapEntityCanon(eCanon);
+                    const candidates = (appState.funds || []).filter(f => String(f.fund_number) === String(fnum));
+                    let fund = candidates.find(f => String(f.entity_code) === String(map.code));
+                    if (!fund) fund = candidates.find(f => map.names.includes(canon(f.entity_name)));
+                    if (!fund) fund = candidates.find(f => canon(f.entity_code) === eCanon);
+                    fundId = fund ? fund.id : null;
+                }
+            } catch (_) {}
+            
+            if (!fundId) {
+                try {
+                    const acc = (appState.accounts || []).find(a => String(a.id) === String(accountIdInput.value));
+                    const fund = acc ? (appState.funds || []).find(f => String(f.fund_number) === String(acc.fund_number)) : null;
+                    fundId = fund ? fund.id : null;
+                } catch (_) {}
+            }
+            
+            if (!fundId) {
+                showToast('No matching Fund found for selected account; please verify account setup.', 'error');
+                return;
+            }
+            
+            lineItems.push({
+                account_id: accountIdInput.value,
+                fund_id: fundId,
+                debit: d || 0,
+                credit: c || 0
+            });
+        }
+    }
+    
+    if (lineItems.length === 0) {
+        showToast('Journal entry must have at least one line item', 'error');
+        return;
+    }
+    
+    // Balance check required for posting
+    const sumD = r2(lineItems.reduce((s, li) => s + r2(li.debit), 0));
+    const sumC = r2(lineItems.reduce((s, li) => s + r2(li.credit), 0));
+    const diff = r2(sumD - sumC);
+    if (Math.abs(diff) > 0.009) {
+        showToast(`Cannot post: Entry not balanced by ${formatCurrency(Math.abs(diff))}`, 'error');
+        return;
+    }
+    
+    try {
+        let journalEntryId;
+        
+        if (id) {
+            // Update existing entry
+            await saveData(`journal-entries/${id}`, journalEntryData, 'PUT');
+            journalEntryId = id;
+            
+            // Replace existing items
+            await fetch(`${API_BASE}/api/journal-entries/${id}/items`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            await saveData(`journal-entries/${journalEntryId}/items`, { items: lineItems });
+            
+            // Post the entry
+            await saveData(`journal-entries/${journalEntryId}/post`, {}, 'POST');
+        } else {
+            // Create new entry with Posted status
+            const payload = { ...journalEntryData, lines: lineItems };
+            const newEntry = await saveData('journal-entries', payload);
+            journalEntryId = newEntry.id;
+        }
+        
+        // Reload data
+        if (typeof loadJournalEntryData === 'function') await loadJournalEntryData();
+        if (typeof loadAccountData === 'function') await loadAccountData();
+        if (typeof loadFundData === 'function') await loadFundData();
+        if (typeof loadDashboardData === 'function') await loadDashboardData();
+        
+        showToast('Journal entry posted successfully', 'success');
+        hideModal('journal-entry-modal');
+    } catch (error) {
+        console.error('Error posting journal entry:', error);
+        showToast('Error posting journal entry: ' + (error.message || error), 'error');
     }
 }
 
@@ -1847,9 +1994,7 @@ export function initializeModalEventListeners() {
     document.getElementById('journal-entry-modal-close')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('journal-entry-modal-cancel')?.addEventListener('click', () => hideModal('journal-entry-modal'));
     document.getElementById('post-journal-entry-btn')?.addEventListener('click', () => {
-        const form = document.getElementById('journal-entry-modal-form');
-        const id = form.dataset.id;
-        if (id) postJournalEntry(id);
+        saveAndPostJournalEntry();
     });
     document.getElementById('add-line-item-btn')?.addEventListener('click', () => addJournalEntryLineItem());
     
@@ -1890,6 +2035,9 @@ export function initializeModalEventListeners() {
 
     document.addEventListener('openGLCodeModal', (e) => openGLCodeModal(e.detail?.id));
     document.addEventListener('deleteGLCode',    (e) => deleteGLCode(e.detail?.id, e.detail?.rowEl));
+
+    // Journal Entry Import modal
+    initJEImportModalListeners();
 }
 
 /* --------------------------------------------------------------
@@ -1976,4 +2124,173 @@ export async function deleteGLCode(id, rowEl) {
         console.error('Delete GL Code error:', err);
         showToast('Error deleting GL Code', 'error');
     }
+}
+
+// ============================================================================
+// Journal Entry Import Modal Functions
+// ============================================================================
+
+let jeImportAnalysisData = null;
+
+export function openJEImportModal() {
+    const modal = document.getElementById('je-import-modal');
+    if (!modal) return;
+    
+    // Reset state
+    jeImportAnalysisData = null;
+    document.getElementById('je-import-file').value = '';
+    document.getElementById('je-import-status').value = 'Pending';
+    document.getElementById('je-import-preview').style.display = 'none';
+    document.getElementById('je-import-preview-content').innerHTML = '';
+    document.getElementById('je-import-log').style.display = 'none';
+    document.getElementById('je-import-log-content').innerHTML = '';
+    document.getElementById('je-import-run-btn').style.display = 'none';
+    document.getElementById('je-import-analyze-btn').style.display = 'inline-block';
+    
+    modal.style.display = 'flex';
+}
+
+export async function analyzeJEImportFile() {
+    const fileInput = document.getElementById('je-import-file');
+    if (!fileInput.files || !fileInput.files[0]) {
+        showToast('Please select a file first', 'error');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const previewDiv = document.getElementById('je-import-preview');
+    const previewContent = document.getElementById('je-import-preview-content');
+    const runBtn = document.getElementById('je-import-run-btn');
+    
+    try {
+        previewContent.innerHTML = '<p>Analyzing file...</p>';
+        previewDiv.style.display = 'block';
+        
+        const res = await fetch(`${API_BASE}/api/journal-entries-import/analyze`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        
+        const data = await res.json();
+        jeImportAnalysisData = data;
+        
+        // Build preview HTML
+        let html = `<p><strong>Summary:</strong> ${data.summary.total} entries found</p>`;
+        html += `<ul>
+            <li style="color: green;">${data.summary.ready} ready to import</li>
+            <li style="color: gray;">${data.summary.exists} already exist (will skip)</li>
+            <li style="color: red;">${data.summary.errors} have errors</li>
+        </ul>`;
+        
+        if (data.entries.length > 0) {
+            html += '<table style="width:100%; font-size: 12px; border-collapse: collapse;">';
+            html += '<tr style="background:#eee;"><th>JE#</th><th>Reference</th><th>Date</th><th>Lines</th><th>Debits</th><th>Credits</th><th>Status</th></tr>';
+            for (const e of data.entries.slice(0, 20)) {
+                const statusColor = e.status === 'ready' ? 'green' : (e.status === 'exists' ? 'gray' : 'red');
+                html += `<tr style="border-bottom: 1px solid #ddd;">
+                    <td>${e.jeNum}</td>
+                    <td>${e.reference}</td>
+                    <td>${e.date || ''}</td>
+                    <td>${e.lineCount}</td>
+                    <td style="text-align:right;">$${e.totalDebits.toFixed(2)}</td>
+                    <td style="text-align:right;">$${e.totalCredits.toFixed(2)}</td>
+                    <td style="color:${statusColor};">${e.status}${e.issues.length ? ': ' + e.issues[0] : ''}</td>
+                </tr>`;
+            }
+            if (data.entries.length > 20) {
+                html += `<tr><td colspan="7" style="text-align:center;">... and ${data.entries.length - 20} more</td></tr>`;
+            }
+            html += '</table>';
+        }
+        
+        previewContent.innerHTML = html;
+        
+        if (data.summary.ready > 0) {
+            runBtn.style.display = 'inline-block';
+        } else {
+            runBtn.style.display = 'none';
+        }
+        
+    } catch (err) {
+        previewContent.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+        runBtn.style.display = 'none';
+    }
+}
+
+export async function runJEImport() {
+    const fileInput = document.getElementById('je-import-file');
+    if (!fileInput.files || !fileInput.files[0]) {
+        showToast('Please select a file first', 'error');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const status = document.getElementById('je-import-status').value;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('status', status);
+    
+    const logDiv = document.getElementById('je-import-log');
+    const logContent = document.getElementById('je-import-log-content');
+    const runBtn = document.getElementById('je-import-run-btn');
+    const analyzeBtn = document.getElementById('je-import-analyze-btn');
+    
+    try {
+        runBtn.disabled = true;
+        analyzeBtn.disabled = true;
+        logContent.innerHTML = '<p>Importing...</p>';
+        logDiv.style.display = 'block';
+        
+        const res = await fetch(`${API_BASE}/api/journal-entries-import/run`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        
+        const data = await res.json();
+        
+        let html = `<p><strong>Import Complete!</strong></p>`;
+        html += `<p>Imported: ${data.summary.imported} | Skipped: ${data.summary.skipped} | Errors: ${data.summary.errors}</p>`;
+        html += '<hr>';
+        html += data.log.map(l => `<div>${l}</div>`).join('');
+        
+        logContent.innerHTML = html;
+        
+        showToast(`Imported ${data.summary.imported} journal entries`, 'success');
+        
+        // Refresh journal entries list
+        if (typeof loadJournalEntryData === 'function') {
+            await loadJournalEntryData();
+        }
+        
+    } catch (err) {
+        logContent.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+        showToast('Import failed: ' + err.message, 'error');
+    } finally {
+        runBtn.disabled = false;
+        analyzeBtn.disabled = false;
+    }
+}
+
+export function initJEImportModalListeners() {
+    document.getElementById('btnImportJournalEntries')?.addEventListener('click', openJEImportModal);
+    document.getElementById('je-import-modal-close')?.addEventListener('click', () => hideModal('je-import-modal'));
+    document.getElementById('je-import-modal-cancel')?.addEventListener('click', () => hideModal('je-import-modal'));
+    document.getElementById('je-import-analyze-btn')?.addEventListener('click', analyzeJEImportFile);
+    document.getElementById('je-import-run-btn')?.addEventListener('click', runJEImport);
 }

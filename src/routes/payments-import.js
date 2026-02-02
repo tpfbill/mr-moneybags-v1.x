@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const fs = require('fs');
+const path = require('path');
 const { parse } = require('csv-parse/sync');
 const crypto = require('crypto');
 const { pool } = require('../database/connection');
@@ -10,6 +11,12 @@ const { asyncHandler } = require('../utils/helpers');
 
 // Upload destination (ephemeral)
 const upload = multer({ dest: 'uploads/' });
+
+// Payment logs folder
+const LOGS_DIR = path.join(__dirname, '../../..', 'uploads/payment-logs');
+if (!fs.existsSync(LOGS_DIR)) {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+}
 
 // In-memory job tracker
 const importJobs = {};
@@ -331,10 +338,60 @@ router.post('/process', asyncHandler(async (req, res) => {
 
             await client.query('COMMIT');
             job.status = 'completed';
+
+            // Save log file for this batch
+            const logFilename = `import-${batchId}.json`;
+            const logPath = path.join(LOGS_DIR, logFilename);
+            const logData = {
+                jobId: job.id,
+                batchId,
+                filename: job.filename,
+                startTime: job.startTime,
+                endTime: new Date(),
+                totalRecords: job.totalRecords,
+                createdItems: job.createdItems,
+                errors: job.errors,
+                logs: job.logs
+            };
+            fs.writeFileSync(logPath, JSON.stringify(logData, null, 2));
+            job.logFile = logFilename;
+
+            // Update batch with log file reference
+            await pool.query(
+                `UPDATE payment_batches SET log_file = $1 WHERE id = $2`,
+                [logFilename, batchId]
+            );
         } catch (e) {
             await client.query('ROLLBACK');
             job.status = 'failed';
             job.errors.push(e.message || String(e));
+
+            // Save error log even on failure
+            if (job.createdBatches.length > 0) {
+                const failedBatchId = job.createdBatches[0];
+                const logFilename = `import-${failedBatchId}.json`;
+                const logPath = path.join(LOGS_DIR, logFilename);
+                const logData = {
+                    jobId: job.id,
+                    batchId: failedBatchId,
+                    filename: job.filename,
+                    startTime: job.startTime,
+                    endTime: new Date(),
+                    totalRecords: job.totalRecords,
+                    createdItems: job.createdItems,
+                    errors: job.errors,
+                    logs: job.logs,
+                    status: 'failed'
+                };
+                try {
+                    fs.writeFileSync(logPath, JSON.stringify(logData, null, 2));
+                    job.logFile = logFilename;
+                    await pool.query(
+                        `UPDATE payment_batches SET log_file = $1 WHERE id = $2`,
+                        [logFilename, failedBatchId]
+                    );
+                } catch (_) { /* ignore log write errors */ }
+            }
         } finally {
             job.progress = 100;
             job.endTime = new Date();
@@ -347,6 +404,38 @@ router.get('/status/:id', asyncHandler(async (req, res) => {
     const job = importJobs[req.params.id];
     if (!job) return res.status(404).json({ error: 'Job not found' });
     res.json(job);
+}));
+
+// GET /api/vendor-payments/import/log/:batchId - Retrieve log file for a batch
+router.get('/log/:batchId', asyncHandler(async (req, res) => {
+    const { batchId } = req.params;
+    
+    // First try to get log_file from database
+    const { rows } = await pool.query(
+        'SELECT log_file FROM payment_batches WHERE id = $1',
+        [batchId]
+    );
+    
+    let logFilename = rows[0]?.log_file;
+    
+    // Fallback: try default naming convention
+    if (!logFilename) {
+        logFilename = `import-${batchId}.json`;
+    }
+    
+    const logPath = path.join(LOGS_DIR, logFilename);
+    
+    if (!fs.existsSync(logPath)) {
+        return res.status(404).json({ error: 'Log file not found for this batch' });
+    }
+    
+    try {
+        const logContent = fs.readFileSync(logPath, 'utf8');
+        const logData = JSON.parse(logContent);
+        res.json(logData);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to read log file: ' + e.message });
+    }
 }));
 
 router.get('/last', asyncHandler(async (req, res) => {

@@ -838,7 +838,9 @@ export function updateJournalEntriesTable() {
             <td><span class="status status-${entry.status.toLowerCase()}">${entry.status}</span></td>
             <td>${createdByDisplay}</td>
             <td>
-                <button class="action-button btn-view-entry" data-id="${entry.id}">View</button>
+                ${entry.status === 'Pending' 
+                    ? `<button class="action-button btn-edit-entry" data-id="${entry.id}">Edit</button>`
+                    : `<button class="action-button btn-view-entry" data-id="${entry.id}">View</button>`}
                 ${entry.status === 'Draft' ? `<button class="action-button btn-edit-entry" data-id="${entry.id}">Edit</button>` : ''}
                 <button class="action-button btn-delete-entry" data-id="${entry.id}">Delete</button>
             </td>

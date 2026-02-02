@@ -31,6 +31,7 @@ const nachaSettingsRoutes = require('./src/routes/nacha-settings');
 const nachaFilesRoutes   = require('./src/routes/nacha-files');
 const paymentBatchesRoutes = require('./src/routes/payment-batches');
 const journalEntriesRoutes = require('./src/routes/journal-entries');
+const journalEntriesImportRoutes = require('./src/routes/journal-entries-import');
 const bankAccountsRoutes   = require('./src/routes/bank-accounts');
 const bankDepositsRoutes   = require('./src/routes/bank-deposits'); // NEW
 const checkPrintingRoutes  = require('./src/routes/check-printing'); // NEW
@@ -212,6 +213,7 @@ app.use('/api/vendors', requireAuth, vendorsRoutes);
 
 // Financial transactions & balances
 app.use('/api/journal-entries', requireAuth, journalEntriesRoutes);
+app.use('/api/journal-entries-import', requireAuth, journalEntriesImportRoutes);
 app.use('/api/payment-batches', requireAuth, paymentBatchesRoutes);
 app.use('/api/bank-accounts',   requireAuth, bankAccountsRoutes);
 app.use('/api/bank-deposits',   requireAuth, bankDepositsRoutes); // NEW

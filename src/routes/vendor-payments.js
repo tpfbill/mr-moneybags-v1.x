@@ -186,9 +186,18 @@ router.post('/pay', asyncHandler(async (req, res) => {
         if (!amount) throw new Error('Invalid amount');
         const entryDate = pi.post_date || new Date();
         const reference = pi.reference || pi.invoice_number || String(pi.id);
-        const description = pi.description || '';
         const paymentType = (pi.payment_type || '').toString().toUpperCase();
         const bankName = pi.bank_name || batchBankName || null;
+
+        // Fetch vendor name for journal entry description
+        let vendorName = '';
+        if (pi.vendor_id) {
+          const vr = await client.query('SELECT name FROM vendors WHERE id = $1 LIMIT 1', [pi.vendor_id]);
+          vendorName = vr.rows[0]?.name || '';
+        }
+        // Concatenate vendor name + description for journal entries
+        const itemDesc = pi.description || '';
+        const description = [vendorName, itemDesc].filter(Boolean).join(' - ');
 
         // Expense account from payment item.account_number (canonical)
         let expenseAccount = await getAccountByCode(client, pi.account_number);

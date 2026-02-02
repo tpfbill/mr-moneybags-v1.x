@@ -463,7 +463,7 @@ router.post('/', asyncHandler(async (req, res) => {
 
     const hasLines = Array.isArray(lines) && lines.length > 0;
 
-    // When lines are provided, validate debits == credits
+    // When lines are provided, validate debits == credits (only for Posted entries)
     let totalDebits = 0;
     let totalCredits = 0;
     if (hasLines) {
@@ -475,7 +475,9 @@ router.post('/', asyncHandler(async (req, res) => {
         totalDebits = Math.round(totalDebits * 100) / 100;
         totalCredits = Math.round(totalCredits * 100) / 100;
 
-        if (totalDebits !== totalCredits) {
+        // Skip balance check for Pending entries - allow unbalanced saves
+        const entryStatus = (status || '').toString().toLowerCase();
+        if (entryStatus !== 'pending' && totalDebits !== totalCredits) {
             return res.status(400).json({
                 error: 'Invalid journal entry: Debits must equal credits',
                 details: `Total debits (${totalDebits}) do not equal total credits (${totalCredits})`
@@ -819,7 +821,14 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Items array is required' });
     }
 
-    // Validate balanced
+    // Check entry status - skip balance validation for Pending entries
+    const entryResult = await pool.query('SELECT status FROM journal_entries WHERE id = $1', [id]);
+    if (entryResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+    }
+    const entryStatus = (entryResult.rows[0].status || '').toString().toLowerCase();
+
+    // Validate balanced (only for non-Pending entries)
     let totalDebits = 0;
     let totalCredits = 0;
     for (const line of items) {
@@ -828,7 +837,7 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
     }
     totalDebits = Math.round(totalDebits * 100) / 100;
     totalCredits = Math.round(totalCredits * 100) / 100;
-    if (totalDebits !== totalCredits) {
+    if (entryStatus !== 'pending' && totalDebits !== totalCredits) {
         return res.status(400).json({
             error: 'Invalid journal entry: Debits must equal credits',
             details: `Total debits (${totalDebits}) do not equal total credits (${totalCredits})`
@@ -923,6 +932,7 @@ router.post('/:id/items', asyncHandler(async (req, res) => {
 /**
  * POST /api/journal-entries/:id/post
  * Marks a journal entry as Posted (schema-aware: uses status or posted boolean)
+ * Validates that debits equal credits before posting
  */
 router.post('/:id/post', asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -931,6 +941,30 @@ router.post('/:id/post', asyncHandler(async (req, res) => {
     const exists = await pool.query('SELECT id FROM journal_entries WHERE id = $1', [id]);
     if (exists.rows.length === 0) {
         return res.status(404).json({ error: 'Journal entry not found' });
+    }
+
+    // Validate balance before posting - debits must equal credits
+    const jeiCols = await getJeiCoreCols(pool);
+    const linesResult = await pool.query(
+        `SELECT ${jeiCols.debitCol} as debit, ${jeiCols.creditCol} as credit 
+         FROM journal_entry_items WHERE ${jeiCols.jeRef} = $1`,
+        [id]
+    );
+    
+    let totalDebits = 0;
+    let totalCredits = 0;
+    linesResult.rows.forEach(line => {
+        totalDebits += parseFloat(line.debit || 0);
+        totalCredits += parseFloat(line.credit || 0);
+    });
+    totalDebits = Math.round(totalDebits * 100) / 100;
+    totalCredits = Math.round(totalCredits * 100) / 100;
+    
+    if (totalDebits !== totalCredits) {
+        return res.status(400).json({
+            error: 'Cannot post: Journal entry is not balanced',
+            details: `Total debits (${totalDebits}) do not equal total credits (${totalCredits})`
+        });
     }
 
     // Introspect columns
