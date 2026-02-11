@@ -449,6 +449,7 @@ router.post('/', asyncHandler(async (req, res) => {
         description,
         status,
         is_inter_entity,
+        matching_transaction_id,
         lines
     } = req.body;
 
@@ -501,6 +502,7 @@ router.post('/', asyncHandler(async (req, res) => {
             status: await hasColumn(client, 'journal_entries', 'status'),
             posted: await hasColumn(client, 'journal_entries', 'posted'),
             is_inter_entity: await hasColumn(client, 'journal_entries', 'is_inter_entity'),
+            matching_transaction_id: await hasColumn(client, 'journal_entries', 'matching_transaction_id'),
             total_amount: await hasColumn(client, 'journal_entries', 'total_amount'),
             entry_mode: await hasColumn(client, 'journal_entries', 'entry_mode'),
             type: await hasColumn(client, 'journal_entries', 'type'),
@@ -521,6 +523,7 @@ router.post('/', asyncHandler(async (req, res) => {
         if (jeHas.status) add('status', status || 'Posted');
         if (jeHas.posted) add('posted', true);
         if (jeHas.is_inter_entity && typeof is_inter_entity !== 'undefined') add('is_inter_entity', !!is_inter_entity);
+        if (jeHas.matching_transaction_id && typeof matching_transaction_id !== 'undefined') add('matching_transaction_id', matching_transaction_id);
         if (jeHas.total_amount) add('total_amount', hasLines ? totalDebits : 0);
         if (jeHas.entry_mode) add('entry_mode', 'Manual');
         // Persist type if provided in request

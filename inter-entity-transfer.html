@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inter-Entity Transfer Wizard | Non-Profit Fund Accounting</title>
+    <link rel="stylesheet" href="src/css/styles.css?v=20251029a">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -42,46 +43,63 @@
             border-left: 4px solid #0d6efd;
             padding: 15px;
         }
-        /* -----------------------------------------------------------
-         * Navigation button (match Custom Reports page style)
-         * --------------------------------------------------------- */
-        .navigation {
-            margin-top: 15px;
-            text-align: center;
+        /* Override Bootstrap container to work with app header/nav */
+        .page-content {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
-        .button {
-            background-color: #607D8B;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.95em;
-            transition: background-color 0.3s;
-            margin-right: 10px;
-        }
-        .button:hover { background-color: #455A64; }
-        .button.secondary { background-color: #607D8B; }
-        .button.secondary:hover { background-color: #455A64; }
     </style>
 </head>
 <body>
-    <div class="container mt-4 mb-5">
-        <!-- Page Heading & Centered Back Button -->
+    <!-- Header matching main app -->
+    <div class="header">
+        <div class="header-container">
+            <h1>Mr. MoneyBags v1.x</h1>
+            <div class="header-right-controls">
+                <div class="db-status-container">
+                    <span id="db-status-indicator" class="offline">DB Offline</span>
+                </div>
+                <div class="entity-selector-container">
+                    <label for="entity-selector" style="font-weight: 500; color: white;">Entity:</label>
+                    <select id="entity-selector">
+                        <option value="">Loading Entities...</option>
+                    </select>
+                </div>
+                <div class="user-info"><span id="user-display">User</span><button class="logout-button" id="btnLogout">Logout</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation matching main app -->
+    <div class="main-nav" id="mainNavContainer"> 
+        <div class="nav-container">
+            <div class="nav-item" onclick="window.location.href='index.html'">Dashboard</div>
+            <div class="nav-item" onclick="window.location.href='index.html#chart-of-accounts'">Chart of Accounts</div>
+            <div class="nav-item" onclick="window.location.href='index.html#gl-codes'">GL Codes</div>
+            <div class="nav-item" onclick="window.location.href='index.html#funds'">Funds</div>
+            <div class="nav-item" onclick="window.location.href='index.html#journal-entries'">Journal Entries</div>
+            <div class="nav-item" onclick="window.location.href='vendor-payments.html'">Vendor Payments</div>
+            <div class="nav-item" onclick="window.location.href='bank-deposits.html'">Bank Deposits</div>
+            <div class="nav-item" onclick="window.location.href='check-printing.html'">Check Printing</div>
+            <div class="nav-item" onclick="window.location.href='bank-reconciliation.html'">Bank Reconcilia&shy;tion</div>
+            <div class="nav-item active" onclick="window.location.href='inter-entity-transfer.html'">Inter-Entity Transfer</div>
+            <div class="nav-item" onclick="window.location.href='index.html#fund-reports'">Fund Reports</div>
+            <div class="nav-item" onclick="window.location.href='custom-reports.html'">Custom Reports</div>
+            <div class="nav-item" onclick="window.location.href='ask-questions.html'">Ask Questions</div>
+            <div class="nav-item" onclick="window.location.href='index.html#documentation'">Guides</div>
+            <div class="nav-item" onclick="window.location.href='default-reports.html'">Default Reports</div>
+            <div class="nav-item" onclick="window.location.href='index.html#settings'">Settings</div>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <!-- Page Heading -->
         <div class="row">
             <div class="col">
                 <h2 class="mb-4">
                     <i class="fas fa-exchange-alt me-2"></i> Inter-Entity Transfer Wizard
                 </h2>
-
-                <!-- Navigation back to main dashboard -->
-                <div class="navigation text-center mb-4">
-                    <button id="btn-back-to-main"
-                            class="button secondary"
-                            onclick="window.location.href='/index.html?v=' + Date.now()">
-                        &larr; Back to Main Dashboard
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -413,7 +431,7 @@
                             <button type="button" class="btn btn-primary me-2" id="newTransferBtn">
                                 <i class="fas fa-plus me-2"></i> Create Another Transfer
                             </button>
-                            <a href="/index.html?v=20250722" class="btn btn-secondary">
+                            <a href="/index.html" class="btn btn-secondary">
                                 <i class="fas fa-home me-2"></i> Return to Dashboard
                             </a>
                         </div>
@@ -484,6 +502,7 @@
                 
                 entities = await response.json();
                 populateEntityDropdowns();
+                populateHeaderEntitySelector();
                 hideInfo();
             } catch (error) {
                 showError("Error loading entities: " + error.message);
@@ -566,7 +585,11 @@
         async function fetchFundsForEntity(entityId, targetElement) {
             showInfo("Loading funds...");
             try {
-                const response = await fetch(`${API_BASE}/api/funds?entityId=${entityId}`, { credentials: 'include' });
+                // Get entity code from selected entity
+                const entity = entities.find(e => e.id === entityId);
+                const entityCode = entity?.code || '';
+                
+                const response = await fetch(`${API_BASE}/api/funds?entity_code=${encodeURIComponent(entityCode)}`, { credentials: 'include' });
                 if (!response.ok) throw new Error('Failed to fetch funds');
                 
                 const entityFunds = await response.json();
@@ -578,14 +601,17 @@
         }
 
         // Populate fund dropdown
-        function populateFundDropdown(funds, targetElement) {
+        function populateFundDropdown(fundsData, targetElement) {
             const fundSelect = document.getElementById(targetElement);
             fundSelect.innerHTML = '<option value="">Select fund</option>';
             
-            funds.forEach(fund => {
+            fundsData.forEach(fund => {
                 const option = document.createElement('option');
                 option.value = fund.id;
-                option.textContent = `${fund.code} - ${fund.name}`;
+                // Support both old (code/name) and new (fund_code/fund_name) field names
+                const code = fund.fund_code || fund.code || '';
+                const name = fund.fund_name || fund.name || '';
+                option.textContent = `${code} - ${name}`;
                 fundSelect.appendChild(option);
             });
         }
@@ -594,7 +620,11 @@
         async function fetchAccountsForEntity(entityId, prefix) {
             showInfo("Loading accounts...");
             try {
-                const response = await fetch(`${API_BASE}/api/accounts?entityId=${entityId}`, { credentials: 'include' });
+                // Get entity code from selected entity
+                const entity = entities.find(e => e.id === entityId);
+                const entityCode = entity?.code || '';
+                
+                const response = await fetch(`${API_BASE}/api/accounts?entity_code=${encodeURIComponent(entityCode)}`, { credentials: 'include' });
                 if (!response.ok) throw new Error('Failed to fetch accounts');
                 
                 const entityAccounts = await response.json();
@@ -616,23 +646,32 @@
         }
 
         // Populate Due From accounts dropdown
-        function populateDueFromAccounts(accounts, targetElement) {
+        function populateDueFromAccounts(accountsData, targetElement) {
             const accountSelect = document.getElementById(targetElement);
             accountSelect.innerHTML = '<option value="">Select Due From account</option>';
             
-            // Filter for Asset accounts that look like "Due From"
-            const dueFromAccounts = accounts.filter(account => 
-                account.type === 'Asset' && 
-                (account.name.toLowerCase().includes('due from') || account.code.startsWith('19'))
-            );
+            // Support both old and new field names
+            const getCode = (a) => a.account_code || a.code || '';
+            const getName = (a) => a.description || a.name || '';
+            const getClass = (a) => (a.classification || a.type || '').toLowerCase();
+            
+            // Filter for Asset accounts that look like "Due From" (GL code 1008 is typically due from/to)
+            const dueFromAccounts = accountsData.filter(account => {
+                const code = getCode(account);
+                const name = getName(account).toLowerCase();
+                const cls = getClass(account);
+                return (cls.includes('asset') || code.startsWith('1')) && 
+                       (name.includes('due from') || name.includes('due to') || code.includes('1008'));
+            });
+            
             // Debugging: inspect available and filtered accounts
-            console.log('All accounts:', accounts);
+            console.log('All accounts:', accountsData);
             console.log('Filtered Due From accounts:', dueFromAccounts);
             
             dueFromAccounts.forEach(account => {
                 const option = document.createElement('option');
                 option.value = account.id;
-                option.textContent = `${account.code} - ${account.name}`;
+                option.textContent = `${getCode(account)} - ${getName(account)}`;
                 accountSelect.appendChild(option);
             });
             
@@ -647,23 +686,32 @@
         }
 
         // Populate Due To accounts dropdown
-        function populateDueToAccounts(accounts, targetElement) {
+        function populateDueToAccounts(accountsData, targetElement) {
             const accountSelect = document.getElementById(targetElement);
             accountSelect.innerHTML = '<option value="">Select Due To account</option>';
             
-            // Filter for Liability accounts that look like "Due To"
-            const dueToAccounts = accounts.filter(account => 
-                account.type === 'Liability' && 
-                (account.name.toLowerCase().includes('due to') || account.code.startsWith('29'))
-            );
+            // Support both old and new field names
+            const getCode = (a) => a.account_code || a.code || '';
+            const getName = (a) => a.description || a.name || '';
+            const getClass = (a) => (a.classification || a.type || '').toLowerCase();
+            
+            // Filter for Liability accounts that look like "Due To" (GL code 1008 is typically due from/to)
+            const dueToAccounts = accountsData.filter(account => {
+                const code = getCode(account);
+                const name = getName(account).toLowerCase();
+                const cls = getClass(account);
+                return (cls.includes('liabilit') || code.startsWith('2')) && 
+                       (name.includes('due to') || name.includes('due from') || code.includes('1008'));
+            });
+            
             // Debugging: inspect available and filtered accounts
-            console.log('All accounts:', accounts);
+            console.log('All accounts:', accountsData);
             console.log('Filtered Due To accounts:', dueToAccounts);
             
             dueToAccounts.forEach(account => {
                 const option = document.createElement('option');
                 option.value = account.id;
-                option.textContent = `${account.code} - ${account.name}`;
+                option.textContent = `${getCode(account)} - ${getName(account)}`;
                 accountSelect.appendChild(option);
             });
             
@@ -718,10 +766,22 @@
             // Find entity, fund and account objects
             const fromEntity = entities.find(e => e.id === fromEntityId);
             const toEntity = entities.find(e => e.id === toEntityId);
-            const fromFund = funds.find(f => f.id === fromFundId) || { code: '', name: '' };
-            const toFund = funds.find(f => f.id === toFundId) || { code: '', name: '' };
-            const fromDueFromAccount = accounts[fromEntityId]?.find(a => a.id === fromDueFromAccountId) || { code: '', name: '' };
-            const toDueToAccount = accounts[toEntityId]?.find(a => a.id === toDueToAccountId) || { code: '', name: '' };
+            // Get fund display text from the select options since we don't store funds globally
+            const fromFundSelect = document.getElementById('fromFund');
+            const toFundSelect = document.getElementById('toFund');
+            const fromFundText = fromFundSelect.options[fromFundSelect.selectedIndex]?.text || '';
+            const toFundText = toFundSelect.options[toFundSelect.selectedIndex]?.text || '';
+            const fromDueFromAccountObj = accounts[fromEntityId]?.find(a => a.id === fromDueFromAccountId);
+            const toDueToAccountObj = accounts[toEntityId]?.find(a => a.id === toDueToAccountId);
+            // Support both old and new field names
+            const fromDueFromAccount = {
+                code: fromDueFromAccountObj?.account_code || fromDueFromAccountObj?.code || '',
+                name: fromDueFromAccountObj?.description || fromDueFromAccountObj?.name || ''
+            };
+            const toDueToAccount = {
+                code: toDueToAccountObj?.account_code || toDueToAccountObj?.code || '',
+                name: toDueToAccountObj?.description || toDueToAccountObj?.name || ''
+            };
             
             // Format amount
             const formattedAmount = new Intl.NumberFormat('en-US', {
@@ -746,13 +806,13 @@
             
             // Update journal entry previews
             document.getElementById('previewSourceEntity').textContent = `${fromEntity.code} - ${fromEntity.name}`;
-            document.getElementById('previewSourceFund').textContent = `${fromFund.code} - ${fromFund.name}`;
+            document.getElementById('previewSourceFund').textContent = fromFundText;
             document.getElementById('previewSourceDueFrom').textContent = `${fromDueFromAccount.code} - ${fromDueFromAccount.name}`;
             document.getElementById('previewSourceDebit').textContent = formattedAmount;
             document.getElementById('previewSourceCredit').textContent = formattedAmount;
             
             document.getElementById('previewTargetEntity').textContent = `${toEntity.code} - ${toEntity.name}`;
-            document.getElementById('previewTargetFund').textContent = `${toFund.code} - ${toFund.name}`;
+            document.getElementById('previewTargetFund').textContent = toFundText;
             document.getElementById('previewTargetDueTo').textContent = `${toDueToAccount.code} - ${toDueToAccount.name}`;
             document.getElementById('previewTargetDebit').textContent = formattedAmount;
             document.getElementById('previewTargetCredit').textContent = formattedAmount;
@@ -799,71 +859,67 @@
                 // Generate a UUID for matching_transaction_id
                 const matchingTransactionId = generateUUID();
                 
-                // Create source journal entry
+                // Get cash account IDs first
+                const fromCashAccountId = await getCashAccountId(fromEntityId);
+                const toCashAccountId = await getCashAccountId(toEntityId);
+                
+                // Create source journal entry with lines included
                 document.getElementById('loadingDetails').textContent = 'Creating source journal entry';
                 const sourceJournalEntry = await createJournalEntry({
                     entity_id: fromEntityId,
                     entry_date: date,
                     reference_number: `${reference}-SRC`,
                     description: description,
-                    total_amount: amount,
                     status: 'Posted',
-                    created_by: 'System',
                     is_inter_entity: true,
                     target_entity_id: toEntityId,
-                    matching_transaction_id: matchingTransactionId
+                    matching_transaction_id: matchingTransactionId,
+                    lines: [
+                        {
+                            account_id: fromDueFromAccountId,
+                            fund_id: fromFundId,
+                            debit: amount,
+                            credit: 0,
+                            description: `Due from ${getEntityCode(toEntityId)}`
+                        },
+                        {
+                            account_id: fromCashAccountId,
+                            fund_id: fromFundId,
+                            debit: 0,
+                            credit: amount,
+                            description: `Transfer to ${getEntityCode(toEntityId)}`
+                        }
+                    ]
                 });
                 
-                // Create source journal entry lines
-                await createJournalEntryLines(sourceJournalEntry.id, [
-                    {
-                        account_id: fromDueFromAccountId,
-                        fund_id: fromFundId,
-                        debit: amount,
-                        credit: 0,
-                        description: `Due from ${getEntityCode(toEntityId)}`
-                    },
-                    {
-                        account_id: await getCashAccountId(fromEntityId),
-                        fund_id: fromFundId,
-                        debit: 0,
-                        credit: amount,
-                        description: `Transfer to ${getEntityCode(toEntityId)}`
-                    }
-                ]);
-                
-                // Create target journal entry
+                // Create target journal entry with lines included
                 document.getElementById('loadingDetails').textContent = 'Creating target journal entry';
                 const targetJournalEntry = await createJournalEntry({
                     entity_id: toEntityId,
                     entry_date: date,
                     reference_number: `${reference}-TGT`,
                     description: description,
-                    total_amount: amount,
                     status: 'Posted',
-                    created_by: 'System',
                     is_inter_entity: true,
                     target_entity_id: fromEntityId,
-                    matching_transaction_id: matchingTransactionId
+                    matching_transaction_id: matchingTransactionId,
+                    lines: [
+                        {
+                            account_id: toCashAccountId,
+                            fund_id: toFundId,
+                            debit: amount,
+                            credit: 0,
+                            description: `Transfer from ${getEntityCode(fromEntityId)}`
+                        },
+                        {
+                            account_id: toDueToAccountId,
+                            fund_id: toFundId,
+                            debit: 0,
+                            credit: amount,
+                            description: `Due to ${getEntityCode(fromEntityId)}`
+                        }
+                    ]
                 });
-                
-                // Create target journal entry lines
-                await createJournalEntryLines(targetJournalEntry.id, [
-                    {
-                        account_id: await getCashAccountId(toEntityId),
-                        fund_id: toFundId,
-                        debit: amount,
-                        credit: 0,
-                        description: `Transfer from ${getEntityCode(fromEntityId)}`
-                    },
-                    {
-                        account_id: toDueToAccountId,
-                        fund_id: toFundId,
-                        debit: 0,
-                        credit: amount,
-                        description: `Due to ${getEntityCode(fromEntityId)}`
-                    }
-                ]);
                 
                 // Update confirmation screen
                 document.getElementById('confirmFromEntity').textContent = getEntityName(fromEntityId);
@@ -892,13 +948,15 @@
                 document.getElementById('wizard-progress').setAttribute('aria-valuenow', '100');
                 
             } catch (error) {
-                loadingModal.hide();
+                console.error('Transfer error:', error);
+                try { loadingModal.hide(); } catch(e) {}
                 showError("Error creating transfer: " + error.message);
             }
         }
 
         // Create a journal entry
         async function createJournalEntry(journalEntryData) {
+            console.log('Creating journal entry:', journalEntryData);
             const response = await fetch(`${API_BASE}/api/journal-entries`, {
                 method: 'POST',
                 headers: {
@@ -909,33 +967,16 @@
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to create journal entry');
+                let errorMsg = 'Failed to create journal entry';
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorData.message || errorMsg;
+                    if (errorData.details) errorMsg += ': ' + errorData.details;
+                } catch(e) {}
+                throw new Error(errorMsg);
             }
             
             return await response.json();
-        }
-
-        // Create journal entry lines
-        async function createJournalEntryLines(journalEntryId, lines) {
-            for (const line of lines) {
-                const response = await fetch(`${API_BASE}/api/journal-entries/${journalEntryId}/lines`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        journal_entry_id: journalEntryId,
-                        ...line
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Failed to create journal entry line');
-                }
-            }
         }
 
         // Get entity code by ID
@@ -954,16 +995,31 @@
         async function getCashAccountId(entityId) {
             // Check if we already have accounts for this entity
             if (!accounts[entityId]) {
-                const response = await fetch(`${API_BASE}/api/accounts?entityId=${entityId}`, { credentials: 'include' });
+                // Get entity code from selected entity
+                const entity = entities.find(e => e.id === entityId);
+                const entityCode = entity?.code || '';
+                
+                const response = await fetch(`${API_BASE}/api/accounts?entity_code=${encodeURIComponent(entityCode)}`, { credentials: 'include' });
                 if (!response.ok) throw new Error('Failed to fetch accounts');
                 accounts[entityId] = await response.json();
             }
             
-            // Find a cash account
-            const cashAccount = accounts[entityId].find(account => 
-                account.type === 'Asset' && 
-                (account.name.toLowerCase().includes('cash') || account.code.startsWith('10'))
-            );
+            // Support both old and new field names
+            const getCode = (a) => a.account_code || a.code || '';
+            const getName = (a) => a.description || a.name || '';
+            const getClass = (a) => (a.classification || a.type || '').toLowerCase();
+            
+            // Find a cash/bank account (GL codes 1010 are typically bank/cash accounts)
+            const cashAccount = accounts[entityId].find(account => {
+                const code = getCode(account);
+                const name = getName(account).toLowerCase();
+                const cls = getClass(account);
+                // Match by classification (bank accounts, cash, asset) or by GL code pattern (1010)
+                const isBank = cls.includes('bank') || cls.includes('cash') || cls.includes('asset');
+                const isCashCode = code.includes(' 1010 ') || code.includes('1010');
+                const isCashName = name.includes('cash') || name.includes('bank account');
+                return (isBank || isCashCode) && (isCashCode || isCashName);
+            });
             
             if (!cashAccount) {
                 throw new Error(`No cash account found for entity ${getEntityName(entityId)}`);
@@ -1038,6 +1094,54 @@
         function hideInfo() {
             document.getElementById('infoAlert').classList.add('d-none');
         }
+
+        // ============================================================
+        // Header functionality (DB status, entity selector, logout)
+        // ============================================================
+        
+        // Check database connection status
+        async function checkDbStatus() {
+            const indicator = document.getElementById('db-status-indicator');
+            try {
+                const response = await fetch(`${API_BASE}/api/health`, { credentials: 'include' });
+                if (response.ok) {
+                    indicator.textContent = 'DB Online';
+                    indicator.classList.remove('offline');
+                    indicator.classList.add('online');
+                } else {
+                    throw new Error('DB offline');
+                }
+            } catch (e) {
+                indicator.textContent = 'DB Offline';
+                indicator.classList.remove('online');
+                indicator.classList.add('offline');
+            }
+        }
+
+        // Populate header entity selector
+        function populateHeaderEntitySelector() {
+            const selector = document.getElementById('entity-selector');
+            if (!selector) return;
+            selector.innerHTML = '<option value="">All Entities</option>';
+            entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = `${entity.code} - ${entity.name}`;
+                selector.appendChild(option);
+            });
+        }
+
+        // Logout handler
+        document.getElementById('btnLogout')?.addEventListener('click', async function() {
+            try {
+                await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+            } catch (e) {}
+            window.location.href = '/login.html';
+        });
+
+        // Check DB status on load and periodically
+        checkDbStatus();
+        setInterval(checkDbStatus, 30000);
     </script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 // src/routes/reports.js
 const express = require('express');
 const router = express.Router();
+const XLSX = require('xlsx');
 const { pool } = require('../database/connection');
 const { asyncHandler } = require('../utils/helpers');
 
@@ -489,6 +490,217 @@ ORDER BY i.account_code;
         summary: summaryResult.rows,
         detail: detailResult.rows
     });
+}));
+
+/**
+ * GET /api/reports/gl-export
+ * Generates and returns an Excel GL report for a specific month/year
+ * Query params:
+ *   month (1-12) - required
+ *   year (YYYY)  - required
+ */
+router.get('/gl-export', asyncHandler(async (req, res) => {
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+
+    if (monthNum < 1 || monthNum > 12) {
+        return res.status(400).json({ error: 'month must be between 1 and 12' });
+    }
+
+    // Calculate date range
+    const startDate = `${yearNum}-${String(monthNum).padStart(2, '0')}-01`;
+    const lastDay = new Date(yearNum, monthNum, 0).getDate();
+    const endDate = `${yearNum}-${String(monthNum).padStart(2, '0')}-${lastDay}`;
+
+    console.log(`[GL Export] Generating report for ${month}/${year} (${startDate} to ${endDate})`);
+
+    // Get all accounts with their beginning balances
+    const accountsResult = await pool.query(`
+        SELECT 
+            a.id,
+            a.account_code,
+            a.description,
+            a.beginning_balance,
+            a.beginning_balance_date
+        FROM accounts a
+        ORDER BY a.account_code
+    `);
+
+    const accounts = accountsResult.rows;
+
+    // Get all posted journal entry items for the period
+    const itemsResult = await pool.query(`
+        SELECT 
+            jei.account_id,
+            je.entry_date,
+            je.reference_number,
+            je.description as je_description,
+            jei.description as line_description,
+            jei.debit,
+            jei.credit,
+            a.account_code,
+            a.description as account_description
+        FROM journal_entry_items jei
+        JOIN journal_entries je ON je.id = jei.journal_entry_id
+        JOIN accounts a ON a.id = jei.account_id
+        WHERE je.status = 'Posted'
+          AND je.entry_date >= $1
+          AND je.entry_date <= $2
+        ORDER BY a.account_code, je.entry_date, je.id
+    `, [startDate, endDate]);
+
+    // Group items by account
+    const itemsByAccount = new Map();
+    for (const item of itemsResult.rows) {
+        const key = item.account_id;
+        if (!itemsByAccount.has(key)) {
+            itemsByAccount.set(key, []);
+        }
+        itemsByAccount.get(key).push(item);
+    }
+
+    // Calculate prior period activity for beginning balances
+    const priorBalancesResult = await pool.query(`
+        SELECT 
+            jei.account_id,
+            SUM(COALESCE(jei.debit, 0) - COALESCE(jei.credit, 0)) as prior_activity
+        FROM journal_entry_items jei
+        JOIN journal_entries je ON je.id = jei.journal_entry_id
+        WHERE je.status = 'Posted'
+          AND je.entry_date < $1
+        GROUP BY jei.account_id
+    `, [startDate]);
+
+    const priorBalances = new Map();
+    for (const row of priorBalancesResult.rows) {
+        priorBalances.set(row.account_id, parseFloat(row.prior_activity) || 0);
+    }
+
+    // Helper functions
+    function formatCurrency(num) {
+        if (num === null || num === undefined) return '';
+        const n = parseFloat(num) || 0;
+        const abs = Math.abs(n);
+        const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return n < 0 ? `(${formatted})` : formatted;
+    }
+
+    function formatDate(date) {
+        if (!date) return '';
+        const d = new Date(date);
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const y = d.getFullYear();
+        return `${m}/${day}/${y}`;
+    }
+
+    // Build spreadsheet data
+    const rows = [];
+
+    // Title row
+    rows.push([`Period To Date Actual + Allocation Ledger for Period Ending ${monthNum}/${lastDay}/${yearNum}`]);
+    rows.push([]); // Empty row
+
+    // Header row
+    rows.push(['Account', 'Description', 'Demo Desc', 'Date', 'Source', 'JE', 'Reference', 'Description', 'Debit', 'Credit', 'Balance']);
+
+    // Process each account
+    for (const account of accounts) {
+        const accountItems = itemsByAccount.get(account.id) || [];
+        const baseBalance = parseFloat(account.beginning_balance) || 0;
+        const priorActivity = priorBalances.get(account.id) || 0;
+        const beginningBalance = baseBalance + priorActivity;
+
+        // Skip accounts with no beginning balance and no activity
+        if (beginningBalance === 0 && accountItems.length === 0) {
+            continue;
+        }
+
+        const fullAccountCode = account.account_code + ' 000';
+
+        // Beginning Balance row
+        rows.push([
+            `Beginning Balance ${fullAccountCode}`,
+            null, null, null, null, null, null, null, null, null,
+            formatCurrency(beginningBalance)
+        ]);
+
+        // Transaction rows
+        let runningBalance = beginningBalance;
+        let totalDebits = 0;
+        let totalCredits = 0;
+
+        for (const item of accountItems) {
+            const debit = parseFloat(item.debit) || 0;
+            const credit = parseFloat(item.credit) || 0;
+            runningBalance = runningBalance + debit - credit;
+            totalDebits += debit;
+            totalCredits += credit;
+
+            const description = item.line_description || item.je_description || '';
+
+            rows.push([
+                fullAccountCode,
+                account.description,
+                '',
+                formatDate(item.entry_date),
+                'JE',
+                '',
+                item.reference_number || '',
+                description,
+                debit > 0 ? formatCurrency(debit) : null,
+                credit > 0 ? formatCurrency(credit) : null,
+                formatCurrency(runningBalance)
+            ]);
+        }
+
+        // Ending Balance row
+        rows.push([
+            `Ending Balance ${fullAccountCode}`,
+            null, null, null, null, null, null, null,
+            formatCurrency(totalDebits),
+            formatCurrency(totalCredits),
+            formatCurrency(runningBalance)
+        ]);
+    }
+
+    console.log(`[GL Export] Generated ${rows.length} rows`);
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 35 },  // Account
+        { wch: 30 },  // Description
+        { wch: 10 },  // Demo Desc
+        { wch: 12 },  // Date
+        { wch: 8 },   // Source
+        { wch: 8 },   // JE
+        { wch: 15 },  // Reference
+        { wch: 50 },  // Description
+        { wch: 15 },  // Debit
+        { wch: 15 },  // Credit
+        { wch: 15 },  // Balance
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'SHEET1');
+
+    // Generate buffer
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Send response
+    const filename = `${String(monthNum).padStart(2, '0')}${yearNum}GL.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
 }));
 
 module.exports = router;

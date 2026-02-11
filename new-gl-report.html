@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New GL Report - Nonprofit Fund Accounting</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .loading-overlay.active {
+            display: flex;
+        }
+        .download-section {
+            display: none;
+            margin-top: 20px;
+        }
+        .download-section.active {
+            display: block;
+        }
+        .status-message {
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="text-center text-white">
+            <div class="spinner-border text-light mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div id="loadingText">Generating report...</div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <!-- Back buttons -->
+        <div class="text-center mb-4">
+            <button class="btn btn-outline-secondary me-2" onclick="window.location.href='default-reports.html'">
+                <i class="fas fa-arrow-left me-1"></i> Back to Reports
+            </button>
+            <button class="btn btn-outline-secondary" onclick="window.location.href='index.html'">
+                <i class="fas fa-home me-1"></i> Back to Dashboard
+            </button>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="fas fa-file-excel me-2"></i>New GL Report</h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Generate a General Ledger report in Excel format. The report includes all posted journal entries for the selected month with beginning balances, transaction details, and ending balances for each account.</p>
+                        
+                        <form id="glReportForm">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="reportMonth" class="form-label">Month *</label>
+                                    <select class="form-select" id="reportMonth" required>
+                                        <option value="">Select Month</option>
+                                        <option value="1">January</option>
+                                        <option value="2">February</option>
+                                        <option value="3">March</option>
+                                        <option value="4">April</option>
+                                        <option value="5">May</option>
+                                        <option value="6">June</option>
+                                        <option value="7">July</option>
+                                        <option value="8">August</option>
+                                        <option value="9">September</option>
+                                        <option value="10">October</option>
+                                        <option value="11">November</option>
+                                        <option value="12">December</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="reportYear" class="form-label">Year *</label>
+                                    <select class="form-select" id="reportYear" required>
+                                        <option value="">Select Year</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-cog me-2"></i>Generate Report
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Status Messages -->
+                        <div id="statusMessage" class="status-message"></div>
+
+                        <!-- Download Section -->
+                        <div id="downloadSection" class="download-section">
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Report generated successfully!</strong>
+                            </div>
+                            <div class="d-grid">
+                                <a id="downloadLink" href="#" class="btn btn-success btn-lg" download>
+                                    <i class="fas fa-download me-2"></i>Download <span id="downloadFilename"></span>
+                                </a>
+                            </div>
+                            <div class="text-center mt-3">
+                                <button class="btn btn-outline-primary" onclick="resetForm()">
+                                    <i class="fas fa-redo me-2"></i>Generate Another Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report Info -->
+                <div class="card mt-4">
+                    <div class="card-body text-muted small">
+                        <h6><i class="fas fa-info-circle me-2"></i>Report Details</h6>
+                        <ul class="mb-0">
+                            <li>Includes all <strong>Posted</strong> journal entries for the selected month</li>
+                            <li>Shows beginning balance, all transactions, and ending balance per account</li>
+                            <li>Running balance calculated for each transaction</li>
+                            <li>Format matches legacy GL export for compatibility</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API base URL
+        const API_BASE = window.location.port === '8080' 
+            ? `${window.location.protocol}//${window.location.hostname}:3000`
+            : '';
+
+        // Populate year dropdown (current year and 5 years back)
+        function populateYears() {
+            const yearSelect = document.getElementById('reportYear');
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear; y >= currentYear - 5; y--) {
+                const option = document.createElement('option');
+                option.value = y;
+                option.textContent = y;
+                yearSelect.appendChild(option);
+            }
+            // Default to current year
+            yearSelect.value = currentYear;
+        }
+
+        // Set default month to previous month
+        function setDefaultMonth() {
+            const monthSelect = document.getElementById('reportMonth');
+            const currentMonth = new Date().getMonth(); // 0-indexed
+            // Default to previous month (or December if January)
+            const defaultMonth = currentMonth === 0 ? 12 : currentMonth;
+            monthSelect.value = defaultMonth;
+            
+            // If previous month is December, also set year to previous year
+            if (currentMonth === 0) {
+                const yearSelect = document.getElementById('reportYear');
+                yearSelect.value = new Date().getFullYear() - 1;
+            }
+        }
+
+        // Show loading overlay
+        function showLoading(text = 'Generating report...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+
+        // Hide loading overlay
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        // Clear status message
+        function clearStatus() {
+            document.getElementById('statusMessage').innerHTML = '';
+        }
+
+        // Reset form for another report
+        function resetForm() {
+            document.getElementById('downloadSection').classList.remove('active');
+            document.getElementById('glReportForm').style.display = 'block';
+            clearStatus();
+        }
+
+        // Handle form submission
+        document.getElementById('glReportForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const month = document.getElementById('reportMonth').value;
+            const year = document.getElementById('reportYear').value;
+            
+            if (!month || !year) {
+                showStatus('Please select both month and year.', 'warning');
+                return;
+            }
+            
+            clearStatus();
+            showLoading('Generating GL report...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/reports/gl-export?month=${month}&year=${year}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to generate report');
+                }
+                
+                // Get the blob and create download link
+                const blob = await response.blob();
+                const filename = `${String(month).padStart(2, '0')}${year}GL.xlsx`;
+                const url = window.URL.createObjectURL(blob);
+                
+                // Set up download link
+                const downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = url;
+                downloadLink.download = filename;
+                document.getElementById('downloadFilename').textContent = filename;
+                
+                // Show download section, hide form
+                document.getElementById('glReportForm').style.display = 'none';
+                document.getElementById('downloadSection').classList.add('active');
+                
+            } catch (error) {
+                console.error('Error generating report:', error);
+                showStatus(`<i class="fas fa-exclamation-triangle me-2"></i>Error: ${error.message}`, 'danger');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            populateYears();
+            setDefaultMonth();
+        });
+    </script>
+</body>
+</html>
